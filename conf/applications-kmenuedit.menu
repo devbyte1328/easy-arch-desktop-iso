@@ -1,0 +1,62 @@
+<!DOCTYPE Menu PUBLIC '-//freedesktop//DTD Menu 1.0//EN' 'http://www.freedesktop.org/standards/menu-spec/menu-1.0.dtd'>
+<Menu>
+ <Name>Applications</Name>
+ <!-- No merging of defaults -->
+ <Include>
+  <All/>
+ </Include>
+ <!-- Explicitly flatten everything -->
+ <Exclude>
+  <Filename>bssh.desktop</Filename>
+  <Filename>nm-connection-editor.desktop</Filename>
+  <Filename>bvnc.desktop</Filename>
+  <Filename>avahi-discover.desktop</Filename>
+  <Filename>org.kde.drkonqi.coredump.gui.desktop</Filename>
+  <Filename>lstopo.desktop</Filename>
+  <Filename>org.kde.plasmaengineexplorer.desktop</Filename>
+  <Filename>org.kde.plasma.themeexplorer.desktop</Filename>
+  <Filename>assistant.desktop</Filename>
+  <Filename>qdbusviewer.desktop</Filename>
+  <Filename>linguist.desktop</Filename>
+  <Filename>qv4l2.desktop</Filename>
+  <Filename>qvidcap.desktop</Filename>
+  <Filename>designer.desktop</Filename>
+  <Filename>org.kde.kuserfeedback-console.desktop</Filename>
+ </Exclude>
+ <Menu>
+  <Name>.hidden</Name>
+  <Include>
+   <Filename>bssh.desktop</Filename>
+   <Filename>nm-connection-editor.desktop</Filename>
+   <Filename>bvnc.desktop</Filename>
+   <Filename>avahi-discover.desktop</Filename>
+   <Filename>org.kde.drkonqi.coredump.gui.desktop</Filename>
+   <Filename>lstopo.desktop</Filename>
+   <Filename>org.kde.plasmaengineexplorer.desktop</Filename>
+   <Filename>org.kde.plasma.themeexplorer.desktop</Filename>
+   <Filename>assistant.desktop</Filename>
+   <Filename>qdbusviewer.desktop</Filename>
+   <Filename>linguist.desktop</Filename>
+   <Filename>qv4l2.desktop</Filename>
+   <Filename>qvidcap.desktop</Filename>
+   <Filename>designer.desktop</Filename>
+   <Filename>org.kde.kuserfeedback-console.desktop</Filename>
+  </Include>
+ </Menu>
+ <Layout>
+  <Merge type="files"/>
+  <Filename>org.kde.dolphin.desktop</Filename>
+  <Filename>org.kde.plasma.emojier.desktop</Filename>
+  <Filename>firefox.desktop</Filename>
+  <Filename>org.gnome.gedit.desktop</Filename>
+  <Filename>org.kde.iconexplorer.desktop</Filename>
+  <Filename>org.kde.kinfocenter.desktop</Filename>
+  <Filename>org.kde.konsole.desktop</Filename>
+  <Filename>org.kde.kmenuedit.desktop</Filename>
+  <Filename>org.kde.spectacle.desktop</Filename>
+  <Filename>org.kde.plasma-systemmonitor.desktop</Filename>
+  <Filename>systemsettings.desktop</Filename>
+  <Filename>vlc.desktop</Filename>
+  <Filename>org.pulseaudio.pavucontrol.desktop</Filename>
+ </Layout>
+</Menu>
