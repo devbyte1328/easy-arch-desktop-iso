@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# Hardcode the branch (set to "test" for test branch, "master" for master branch)
+# Hardcode the branch ("test" for test branch, "master" for master branch)
 BRANCH="master"
 
-# Set base URL based on branch
+# Set base URL based on selected branch
 if [ "$BRANCH" = "test" ]; then
   BASE_URL="https://raw.githubusercontent.com/devbyte1328/arch-setup/refs/heads/test"
   echo "Using config files from test branch"
@@ -12,7 +12,7 @@ else
   echo "Using config files from master branch"
 fi
 
-# Check if running as root
+# Verify root privileges
 if [ "$EUID" -ne 0 ]; then
   echo "Please run as root"
   exit 1
@@ -20,10 +20,10 @@ fi
 
 echo "Starting Arch Linux installation..."
 
-# Set NTP
+# Enable Network Time Protocol
 timedatectl set-ntp true
 
-# Function to convert size to bytes for comparison
+# Function to convert size strings to bytes for comparison
 convert_to_bytes() {
     local size=$1
     local unit=${size: -1}
@@ -39,7 +39,7 @@ convert_to_bytes() {
 
 echo "Detecting largest storage device..."
 
-# Get list of disks (excluding partitions and ROMs)
+# Find the largest disk (excluding partitions and ROMs)
 largest_size=0
 largest_disk=""
 
@@ -64,29 +64,29 @@ echo "Largest disk found: $largest_disk ($size)"
 echo "Erasing $largest_disk..."
 dd if=/dev/zero of="$largest_disk" bs=4M status=progress || true
 
-# Partitioning the detected disk
+# Partition the detected disk
 echo "Partitioning $largest_disk..."
 echo -e "g\nn\n\n\n+1G\nn\n\n\n\nw" | fdisk "$largest_disk"
 
-# Format partitions
+# Format the partitions
 mkfs.fat -F32 "${largest_disk}1"
 mkfs.ext4 "${largest_disk}2"
 
-# Mount partitions
+# Mount the partitions
 mkdir -p /mnt
 mount "${largest_disk}2" /mnt
 mkdir -p /mnt/boot/EFI
 mount "${largest_disk}1" /mnt/boot/EFI
 
-# Install base system with curl for timezone detection
+# Install base system with additional utilities
 pacstrap /mnt base linux linux-firmware bc curl
 
-# Generate fstab
+# Generate fstab file
 genfstab -U /mnt >> /mnt/etc/fstab
 
-# Chroot into the system
+# Chroot into the new system and configure it
 arch-chroot /mnt /bin/bash <<EOF
-  # Automatically detect timezone using ipapi.co
+  # Detect and set timezone automatically
   TIMEZONE=\$(curl -s https://ipapi.co/timezone)
   if [ -n "\$TIMEZONE" ] && [ -f "/usr/share/zoneinfo/\$TIMEZONE" ]; then
     echo "Detected timezone: \$TIMEZONE"
@@ -97,11 +97,11 @@ arch-chroot /mnt /bin/bash <<EOF
   fi
   hwclock --systohc
 
-  # Detect country and set languages
+  # Detect country and configure languages
   COUNTRY=\$(curl -s https://ipapi.co/country)
   LANGUAGE_MAP=\$(curl -s $BASE_URL/conf/language_mappings)
   
-  # Default to English
+  # Default to English settings
   PRIMARY_LANG="en_US.UTF-8"
   SECONDARY_LANG=""
   PRIMARY_KB="us"
@@ -115,7 +115,7 @@ arch-chroot /mnt /bin/bash <<EOF
     fi
   fi
 
-  # Configure locales
+  # Configure and generate locales
   sed -i "s/#\$PRIMARY_LANG/\$PRIMARY_LANG/" /etc/locale.gen
   if [ -n "\$SECONDARY_LANG" ]; then
     sed -i "s/#\$SECONDARY_LANG/\$SECONDARY_LANG/" /etc/locale.gen
@@ -123,42 +123,43 @@ arch-chroot /mnt /bin/bash <<EOF
   locale-gen
   echo "LANG=\$PRIMARY_LANG" > /etc/locale.conf
 
-  # Initramfs
+  # Generate initramfs
   mkinitcpio -P
 
-  # Install additional packages
+  # Install essential packages
   pacman -S --needed --noconfirm git base-devel
   pacman -S --noconfirm grub efibootmgr os-prober mtools dosfstools linux-headers networkmanager nm-connection-editor pipewire pipewire-pulse pipewire-alsa pavucontrol dialog
 
-  # Create a temporary build user for AUR packages
+  # Create temporary build user for AUR packages
   useradd -m -s /bin/bash builder
   echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers.d/builder
   chown -R builder:builder /home/builder
 
-  # Install yay-bin as the builder user
+  # Install yay-bin and brave-bin as the builder user
   su - builder -c "
     git clone https://aur.archlinux.org/yay-bin.git /home/builder/yay-bin
     cd /home/builder/yay-bin
     makepkg -si --noconfirm
+    yay -S brave-bin --noconfirm
   "
 
-  # Clean up the temporary build user
+  # Remove temporary build user and cleanup
   userdel -r builder
   rm -f /etc/sudoers.d/builder
   rm -rf /home/builder/yay-bin
 
-  # GRUB setup
+  # Install and configure GRUB
   grub-install --target=x86_64-efi --bootloader-id=grub_uefi --recheck
   grub-mkconfig -o /boot/grub/grub.cfg
 
-  # Enable NetworkManager
+  # Enable NetworkManager service
   systemctl enable NetworkManager
 
-  # Create user 'main'
+  # Create main user
   useradd -m -G wheel main
   passwd -d main
 
-  # Uncomment wheel group in sudoers with NOPASSWD (optional)
+  # Configure sudo privileges for wheel group
   sed -i 's/# %wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) NOPASSWD: ALL/' /etc/sudoers
 
   # Set root password
@@ -167,12 +168,12 @@ arch-chroot /mnt /bin/bash <<EOF
   # Install display driver
   pacman -S --noconfirm xf86-video-vmware
 
-  # Install Xorg and desktop environment
-  pacman -S --noconfirm xorg sddm plasma konsole nano gedit dolphin firefox
+  # Install Xorg and KDE Plasma desktop environment
+  pacman -S --noconfirm xorg sddm plasma konsole nano gedit dolphin
   pacman -R --noconfirm plasma-welcome discover
   systemctl enable sddm
 
-  # Configure SDDM autologin
+  # Configure SDDM for autologin
   mkdir -p /etc/sddm.conf.d
   cat << 'SDDM' > /etc/sddm.conf.d/autologin.conf
 [Autologin]
@@ -180,11 +181,11 @@ User=main
 Session=plasma.desktop
 SDDM
 
-  # Set keyboard layout for console
+  # Set console keyboard layout
   echo "KEYMAP=us" > /etc/vconsole.conf
   echo "FONT=lat2-16" >> /etc/vconsole.conf
 
-  # Set X11 keyboard layout dynamically
+  # Configure X11 keyboard layout
   mkdir -p /etc/X11/xorg.conf.d
   cat << KEYBOARD > /etc/X11/xorg.conf.d/00-keyboard.conf
 Section "InputClass"
@@ -195,7 +196,7 @@ Section "InputClass"
 EndSection
 KEYBOARD
 
-  # Create .config directory for user 'main' and download config files
+  # Set up user config files
   mkdir -p /home/main/.config/menus
   curl -o /home/main/.config/plasma-org.kde.plasma.desktop-appletsrc $BASE_URL/conf/plasma-org.kde.plasma.desktop-appletsrc
   curl -o /home/main/.config/plasmashellrc $BASE_URL/conf/plasmashellrc
@@ -205,7 +206,7 @@ KEYBOARD
   curl -o /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/main.qml $BASE_URL/conf/main.qml
   curl -o /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/Footer.qml $BASE_URL/conf/Footer.qml
 
-  # Install python-pip and change wallpapers to black
+  # Install Python and modify wallpapers
   pacman -S --noconfirm python-pip
   python -m venv /root/temp_env
   /root/temp_env/bin/python -m pip install pillow
@@ -230,7 +231,7 @@ PYTHON
   /root/temp_env/bin/python /root/blackout.py
   rm -rf /root/temp_env /root/blackout.py
 
-  # Create autostart script to set look and feel only once
+  # Create autostart script for look and feel
   mkdir -p /home/main/.config/autostart-scripts
   cat << 'AUTOSTART' > /home/main/.config/autostart-scripts/set-lookandfeel.sh
 #!/bin/bash
@@ -245,6 +246,6 @@ AUTOSTART
   chown main:main /home/main/.config/autostart-scripts/set-lookandfeel.sh
 EOF
 
-# Unmount and reboot
+# Unmount partitions and reboot
 umount -R /mnt
 reboot
