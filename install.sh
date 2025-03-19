@@ -85,7 +85,7 @@ arch-chroot /mnt /bin/bash <<EOF
 
   # Detect country and set languages
   COUNTRY=\$(curl -s https://ipapi.co/country)
-  LANGUAGE_MAP=\$(curl -s https://raw.githubusercontent.com/devbyte1328/arch-install/refs/heads/master/conf/language_mappings)
+  LANGUAGE_MAP=\$(curl -s https://raw.githubusercontent.com/devbyte1328/arch-setup/refs/heads/master/conf/language_mappings)
   
   # Default to English
   PRIMARY_LANG="en_US.UTF-8"
@@ -171,13 +171,13 @@ KEYBOARD
 
   # Create .config directory for user 'main' and download config files
   mkdir -p /home/main/.config/menus
-  curl -o /home/main/.config/plasma-org.kde.plasma.desktop-appletsrc https://raw.githubusercontent.com/devbyte1328/arch-install/refs/heads/master/conf/plasma-org.kde.plasma.desktop-appletsrc
-  curl -o /home/main/.config/plasmashellrc https://raw.githubusercontent.com/devbyte1328/arch-install/refs/heads/master/conf/plasmashellrc
-  curl -o /home/main/.config/menus/applications-kmenuedit.menu https://raw.githubusercontent.com/devbyte1328/arch-install/refs/heads/master/conf/applications-kmenuedit.menu
+  curl -o /home/main/.config/plasma-org.kde.plasma.desktop-appletsrc https://raw.githubusercontent.com/devbyte1328/arch-setup/refs/heads/master/conf/plasma-org.kde.plasma.desktop-appletsrc
+  curl -o /home/main/.config/plasmashellrc https://raw.githubusercontent.com/devbyte1328/arch-setup/refs/heads/master/conf/plasmashellrc
+  curl -o /home/main/.config/menus/applications-kmenuedit.menu https://raw.githubusercontent.com/devbyte1328/arch-setup/refs/heads/master/conf/applications-kmenuedit.menu
   chown -R main:main /home/main/.config
   mkdir -p /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui
-  curl -o /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/main.qml https://raw.githubusercontent.com/devbyte1328/arch-install/refs/heads/master/conf/main.qml
-  curl -o /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/Footer.qml https://raw.githubusercontent.com/devbyte1328/arch-install/refs/heads/master/conf/Footer.qml
+  curl -o /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/main.qml https://raw.githubusercontent.com/devbyte1328/arch-setup/refs/heads/master/conf/main.qml
+  curl -o /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/Footer.qml https://raw.githubusercontent.com/devbyte1328/arch-setup/refs/heads/master/conf/Footer.qml
 
   # Install python-pip and change wallpapers to black in both images and images_dark
   pacman -S --noconfirm python-pip
