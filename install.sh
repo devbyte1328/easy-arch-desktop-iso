@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Hardcode the branch (set to "test" for test branch, "master" for master branch)
-BRANCH="master"
+BRANCH="test"
 
 # Set base URL based on branch
 if [ "$BRANCH" = "test" ]; then
@@ -73,7 +73,10 @@ mkfs.fat -F32 "${largest_disk}1"
 mkfs.ext4 "${largest_disk}2"
 
 # Mount partitions
+mkdir -p /mnt
 mount "${largest_disk}2" /mnt
+mkdir -p /mnt/boot/EFI
+mount "${largest_disk}1" /mnt/boot/EFI
 
 # Install base system with curl for timezone detection
 pacstrap /mnt base linux linux-firmware bc curl
@@ -124,11 +127,25 @@ arch-chroot /mnt /bin/bash <<EOF
   mkinitcpio -P
 
   # Install additional packages
-  pacman -S --noconfirm grub base-devel efibootmgr os-prober mtools dosfstools linux-headers networkmanager nm-connection-editor pipewire pipewire-pulse pipewire-alsa pavucontrol dialog
+  pacman -S --needed --noconfirm git base-devel
+  pacman -S --noconfirm grub efibootmgr os-prober mtools dosfstools linux-headers networkmanager nm-connection-editor pipewire pipewire-pulse pipewire-alsa pavucontrol dialog
 
-  # Mount EFI partition
-  mkdir /boot/EFI
-  mount "${largest_disk}1" /boot/EFI
+  # Create a temporary build user for AUR packages
+  useradd -m -s /bin/bash builder
+  echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers.d/builder
+  chown -R builder:builder /home/builder
+
+  # Install yay-bin as the builder user
+  su - builder -c "
+    git clone https://aur.archlinux.org/yay-bin.git /home/builder/yay-bin
+    cd /home/builder/yay-bin
+    makepkg -si --noconfirm
+  "
+
+  # Clean up the temporary build user
+  userdel -r builder
+  rm -f /etc/sudoers.d/builder
+  rm -rf /home/builder/yay-bin
 
   # GRUB setup
   grub-install --target=x86_64-efi --bootloader-id=grub_uefi --recheck
@@ -229,5 +246,5 @@ AUTOSTART
 EOF
 
 # Unmount and reboot
-umount -a
+umount -R /mnt
 reboot
