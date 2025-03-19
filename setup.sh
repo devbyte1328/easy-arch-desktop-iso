@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Hardcode the branch (set to "test" for test branch, "master" for master branch)
-BRANCH="master"
+BRANCH="test"
 
 # Set base URL based on branch
 if [ "$BRANCH" = "test" ]; then
@@ -168,7 +168,8 @@ arch-chroot /mnt /bin/bash <<EOF
   pacman -S --noconfirm xf86-video-vmware
 
   # Install Xorg and desktop environment
-  pacman -S --noconfirm xorg sddm plasma konsole nano gedit dolphin firefox
+  yay -S brave-bin --noconfirm
+  pacman -S --noconfirm xorg sddm plasma konsole nano gedit dolphin
   pacman -R --noconfirm plasma-welcome discover
   systemctl enable sddm
 
