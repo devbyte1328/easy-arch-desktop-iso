@@ -1,5 +1,17 @@
 #!/bin/bash
 
+# Hardcode the branch (set to "test" for test branch, "master" for master branch)
+BRANCH="master"
+
+# Set base URL based on branch
+if [ "$BRANCH" = "test" ]; then
+  BASE_URL="https://raw.githubusercontent.com/devbyte1328/arch-setup/refs/heads/test"
+  echo "Using config files from test branch"
+else
+  BASE_URL="https://raw.githubusercontent.com/devbyte1328/arch-setup/refs/heads/master"
+  echo "Using config files from master branch"
+fi
+
 # Check if running as root
 if [ "$EUID" -ne 0 ]; then
   echo "Please run as root"
@@ -32,7 +44,6 @@ largest_size=0
 largest_disk=""
 
 while read -r disk size; do
-    # Skip if not a disk or if it's a ROM
     if [[ ! $disk =~ ^(sd[a-z]|nvme[0-9]n[0-9]) ]] || [[ $disk =~ rom ]]; then
         continue
     fi
@@ -85,7 +96,7 @@ arch-chroot /mnt /bin/bash <<EOF
 
   # Detect country and set languages
   COUNTRY=\$(curl -s https://ipapi.co/country)
-  LANGUAGE_MAP=\$(curl -s https://raw.githubusercontent.com/devbyte1328/arch-setup/refs/heads/master/conf/language_mappings)
+  LANGUAGE_MAP=\$(curl -s $BASE_URL/conf/language_mappings)
   
   # Default to English
   PRIMARY_LANG="en_US.UTF-8"
@@ -93,9 +104,7 @@ arch-chroot /mnt /bin/bash <<EOF
   PRIMARY_KB="us"
   SECONDARY_KB=""
   
-  # Check if country is English-speaking
   if [[ "\$COUNTRY" != "US" && "\$COUNTRY" != "GB" && "\$COUNTRY" != "AU" && "\$COUNTRY" != "CA" && "\$COUNTRY" != "NZ" ]]; then
-    # Find matching language from mappings
     MATCH=\$(echo "\$LANGUAGE_MAP" | grep "^\$COUNTRY|" | head -n 1)
     if [ -n "\$MATCH" ]; then
       SECONDARY_LANG=\$(echo "\$MATCH" | cut -d'|' -f3)
@@ -130,15 +139,15 @@ arch-chroot /mnt /bin/bash <<EOF
 
   # Create user 'main'
   useradd -m -G wheel main
-  passwd -d main  # Remove password for 'main'
+  passwd -d main
 
   # Uncomment wheel group in sudoers with NOPASSWD (optional)
   sed -i 's/# %wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) NOPASSWD: ALL/' /etc/sudoers
 
-  # Set root password (keep it for safety)
+  # Set root password
   echo "root:1" | chpasswd
 
-  # Install display driver (adjust as needed)
+  # Install display driver
   pacman -S --noconfirm xf86-video-vmware
 
   # Install Xorg and desktop environment
@@ -171,15 +180,15 @@ KEYBOARD
 
   # Create .config directory for user 'main' and download config files
   mkdir -p /home/main/.config/menus
-  curl -o /home/main/.config/plasma-org.kde.plasma.desktop-appletsrc https://raw.githubusercontent.com/devbyte1328/arch-setup/refs/heads/master/conf/plasma-org.kde.plasma.desktop-appletsrc
-  curl -o /home/main/.config/plasmashellrc https://raw.githubusercontent.com/devbyte1328/arch-setup/refs/heads/master/conf/plasmashellrc
-  curl -o /home/main/.config/menus/applications-kmenuedit.menu https://raw.githubusercontent.com/devbyte1328/arch-setup/refs/heads/master/conf/applications-kmenuedit.menu
+  curl -o /home/main/.config/plasma-org.kde.plasma.desktop-appletsrc $BASE_URL/conf/plasma-org.kde.plasma.desktop-appletsrc
+  curl -o /home/main/.config/plasmashellrc $BASE_URL/conf/plasmashellrc
+  curl -o /home/main/.config/menus/applications-kmenuedit.menu $BASE_URL/conf/applications-kmenuedit.menu
   chown -R main:main /home/main/.config
   mkdir -p /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui
-  curl -o /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/main.qml https://raw.githubusercontent.com/devbyte1328/arch-setup/refs/heads/master/conf/main.qml
-  curl -o /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/Footer.qml https://raw.githubusercontent.com/devbyte1328/arch-setup/refs/heads/master/conf/Footer.qml
+  curl -o /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/main.qml $BASE_URL/conf/main.qml
+  curl -o /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/Footer.qml $BASE_URL/conf/Footer.qml
 
-  # Install python-pip and change wallpapers to black in both images and images_dark
+  # Install python-pip and change wallpapers to black
   pacman -S --noconfirm python-pip
   python -m venv /root/temp_env
   /root/temp_env/bin/python -m pip install pillow
