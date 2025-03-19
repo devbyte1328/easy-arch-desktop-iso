@@ -7,6 +7,7 @@
  </Include>
  <!-- Explicitly flatten everything -->
  <Exclude>
+  <Filename>org.kde.kmenuedit.desktop</Filename>
   <Filename>bssh.desktop</Filename>
   <Filename>nm-connection-editor.desktop</Filename>
   <Filename>bvnc.desktop</Filename>
@@ -26,6 +27,7 @@
  <Menu>
   <Name>.hidden</Name>
   <Include>
+   <Filename>org.kde.kmenuedit.desktop</Filename>
    <Filename>bssh.desktop</Filename>
    <Filename>nm-connection-editor.desktop</Filename>
    <Filename>bvnc.desktop</Filename>
@@ -45,18 +47,5 @@
  </Menu>
  <Layout>
   <Merge type="files"/>
-  <Filename>org.kde.dolphin.desktop</Filename>
-  <Filename>org.kde.plasma.emojier.desktop</Filename>
-  <Filename>firefox.desktop</Filename>
-  <Filename>org.gnome.gedit.desktop</Filename>
-  <Filename>org.kde.iconexplorer.desktop</Filename>
-  <Filename>org.kde.kinfocenter.desktop</Filename>
-  <Filename>org.kde.konsole.desktop</Filename>
-  <Filename>org.kde.kmenuedit.desktop</Filename>
-  <Filename>org.kde.spectacle.desktop</Filename>
-  <Filename>org.kde.plasma-systemmonitor.desktop</Filename>
-  <Filename>systemsettings.desktop</Filename>
-  <Filename>vlc.desktop</Filename>
-  <Filename>org.pulseaudio.pavucontrol.desktop</Filename>
  </Layout>
 </Menu>
