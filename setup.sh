@@ -205,6 +205,7 @@ KEYBOARD
   mkdir -p /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui
   curl -o /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/main.qml $BASE_URL/conf/kde/main.qml
   curl -o /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/Footer.qml $BASE_URL/conf/kde/Footer.qml
+  curl -o /home/main/.config/kwalletrc $BASE_URL/conf/brave/kwalletrc
 
   # Install Python and modify wallpapers
   pacman -S --noconfirm python-pip
