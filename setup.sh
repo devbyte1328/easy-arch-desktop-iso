@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Hardcode the branch ("test" for test branch, "master" for master branch)
-BRANCH="master"
+BRANCH="test"
 
 # Set base URL based on selected branch
 if [ "$BRANCH" = "test" ]; then
@@ -99,7 +99,7 @@ arch-chroot /mnt /bin/bash <<EOF
 
   # Detect country and configure languages
   COUNTRY=\$(curl -s https://ipapi.co/country)
-  LANGUAGE_MAP=\$(curl -s $BASE_URL/conf/language_mappings)
+  LANGUAGE_MAP=\$(curl -s $BASE_URL/conf/kde/language_mappings)
   
   # Default to English settings
   PRIMARY_LANG="en_US.UTF-8"
@@ -198,13 +198,13 @@ KEYBOARD
 
   # Set up user config files
   mkdir -p /home/main/.config/menus
-  curl -o /home/main/.config/plasma-org.kde.plasma.desktop-appletsrc $BASE_URL/conf/plasma-org.kde.plasma.desktop-appletsrc
-  curl -o /home/main/.config/plasmashellrc $BASE_URL/conf/plasmashellrc
-  curl -o /home/main/.config/menus/applications-kmenuedit.menu $BASE_URL/conf/applications-kmenuedit.menu
+  curl -o /home/main/.config/plasma-org.kde.plasma.desktop-appletsrc $BASE_URL/conf/kde/plasma-org.kde.plasma.desktop-appletsrc
+  curl -o /home/main/.config/plasmashellrc $BASE_URL/conf/kde/plasmashellrc
+  curl -o /home/main/.config/menus/applications-kmenuedit.menu $BASE_URL/conf/kde/applications-kmenuedit.menu
   chown -R main:main /home/main/.config
   mkdir -p /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui
-  curl -o /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/main.qml $BASE_URL/conf/main.qml
-  curl -o /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/Footer.qml $BASE_URL/conf/Footer.qml
+  curl -o /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/main.qml $BASE_URL/conf/kde/main.qml
+  curl -o /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/Footer.qml $BASE_URL/conf/kde/Footer.qml
 
   # Install Python and modify wallpapers
   pacman -S --noconfirm python-pip
@@ -244,6 +244,24 @@ fi
 AUTOSTART
   chmod +x /home/main/.config/autostart-scripts/set-lookandfeel.sh
   chown main:main /home/main/.config/autostart-scripts/set-lookandfeel.sh
+
+  # Create autostart script for Brave configuration
+  cat << 'AUTOSTART_BRAVE' > /home/main/.config/autostart-scripts/set-brave.sh
+#!/bin/bash
+FLAG_FILE="/home/main/.brave_set"
+
+if [ ! -f "\$FLAG_FILE" ]; then
+    git clone -b "$BRANCH" https://github.com/devbyte1328/arch-setup.git
+    cd arch-setup/conf/brave
+    mkdir -p /home/main/.config/BraveSoftware/Brave-Browser
+    cp -r BraveSoftware/ /home/main/.config/
+    cd ../../..
+    rm -rf arch-setup/
+    touch "\$FLAG_FILE"
+fi
+AUTOSTART_BRAVE
+  chmod +x /home/main/.config/autostart-scripts/set-brave.sh
+  chown main:main /home/main/.config/autostart-scripts/set-brave.sh
 EOF
 
 # Unmount partitions and reboot
