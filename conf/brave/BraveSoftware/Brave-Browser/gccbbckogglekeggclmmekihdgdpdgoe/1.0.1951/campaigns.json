@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 2,
+  "campaigns": [
+    {
+      "version": 1,
+      "advertiserId": "772a768d-b00b-4f2b-b0cd-5f06bd0eb036",
+      "campaignId": "e734b6e6-4bb9-4661-81b4-39932ebdff61",
+      "startAt": "2025-03-19T04:00:00.000Z",
+      "endAt": "2025-03-20T03:59:59.999Z",
+      "dailyCap": 20,
+      "priority": 1,
+      "ptr": 1,
+      "metrics": "p3a",
+      "geoTargets": [
+        "BR",
+        "CA",
+        "GB",
+        "US"
+      ],
+      "creativeSets": [
+        {
+          "creativeSetId": "c0beadff-c6df-426d-b0c4-7317e5432739",
+          "perDay": 20,
+          "perMonth": 0,
+          "perWeek": 0,
+          "totalMax": 20,
+          "value": "0.01",
+          "creatives": [
+            {
+              "creativeInstanceId": "1e9a7317-e16f-4edb-a3fa-d30ad6bb37fa",
+              "targetUrl": "https://consensus2025.coindesk.com/register/?promo=BRAVE&utm_campaign=Brave_NTT&utm_content=c25&utm_medium=marketing&utm_source=Brave&utm_term=paid&utm_id=c25",
+              "alt": "CoinDesk - Consensus 2025 - Cryptos most Influential event is coming to toronto - claim your spot",
+              "companyName": "CoinDesk",
+              "wallpaper": {
+                "type": "image",
+                "relativeUrl": "f3d470df-d59c-4993-98fb-27df05847425.jpg",
+                "button": {
+                  "image": {
+                    "relativeUrl": "93f36b50-fb95-4177-971f-f9e98ca6d56f.png"
+                  }
+                },
+                "focalPoint": {
+                  "x": 1280,
+                  "y": 720
+                }
+              }
+            },
+            {
+              "creativeInstanceId": "1c90a9ed-2469-4af9-8dfe-64b10b688c0a",
+              "targetUrl": "https://consensus2025.coindesk.com/register/?promo=BRAVE&utm_campaign=Brave_NTT&utm_content=c25&utm_medium=marketing&utm_source=Brave&utm_term=paid&utm_id=c25",
+              "alt": "CoinDesk - Consensus 2025 - Cryptos most Influential event is coming to toronto - claim your spot",
+              "companyName": "CoinDesk",
+              "wallpaper": {
+                "type": "image",
+                "relativeUrl": "4cf4f96c-3115-40f3-9248-27674f935ded.jpg",
+                "button": {
+                  "image": {
+                    "relativeUrl": "03e87133-0a64-4f9c-a4a9-ab2e02e0771e.png"
+                  }
+                },
+                "focalPoint": {
+                  "x": 1442,
+                  "y": 720
+                }
+              }
+            },
+            {
+              "creativeInstanceId": "12ad5a7e-c620-4a90-a580-afb0f823658f",
+              "targetUrl": "https://consensus2025.coindesk.com/register/?promo=BRAVE&utm_campaign=Brave_NTT&utm_content=c25&utm_medium=marketing&utm_source=Brave&utm_term=paid&utm_id=c25",
+              "alt": "CoinDesk - Consensus 2025 - Cryptos most Influential event is coming to toronto - claim your spot",
+              "companyName": "CoinDesk",
+              "wallpaper": {
+                "type": "image",
+                "relativeUrl": "7999eb82-4822-4473-a446-7ead808830df.jpg",
+                "button": {
+                  "image": {
+                    "relativeUrl": "03e87133-0a64-4f9c-a4a9-ab2e02e0771e.png"
+                  }
+                },
+                "focalPoint": {
+                  "x": 1280,
+                  "y": 720
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

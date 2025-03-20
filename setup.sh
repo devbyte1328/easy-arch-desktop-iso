@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Hardcode the branch ("test" for test branch, "master" for master branch)
-BRANCH="master"
+BRANCH="test"
 
 # Set base URL based on selected branch
 if [ "$BRANCH" = "test" ]; then
@@ -244,6 +244,24 @@ fi
 AUTOSTART
   chmod +x /home/main/.config/autostart-scripts/set-lookandfeel.sh
   chown main:main /home/main/.config/autostart-scripts/set-lookandfeel.sh
+
+  # Create autostart script for Brave configuration
+  cat << 'AUTOSTART_BRAVE' > /home/main/.config/autostart-scripts/set-brave.sh
+#!/bin/bash
+FLAG_FILE="/home/main/.brave_set"
+
+if [ ! -f "\$FLAG_FILE" ]; then
+    git clone -b "$BRANCH" https://github.com/devbyte1328/arch-setup.git
+    cd arch-setup/conf/brave
+    mkdir -p /home/main/.config/BraveSoftware/Brave-Browser
+    cp -r BraveSoftware/ /home/main/.config/
+    cd ../../..
+    rm -rf arch-setup/
+    touch "\$FLAG_FILE"
+fi
+AUTOSTART_BRAVE
+  chmod +x /home/main/.config/autostart-scripts/set-brave.sh
+  chown main:main /home/main/.config/autostart-scripts/set-brave.sh
 EOF
 
 # Unmount partitions and reboot
