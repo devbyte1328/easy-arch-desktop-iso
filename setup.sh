@@ -141,6 +141,12 @@ arch-chroot /mnt /bin/bash <<EOF
     cd /home/builder/yay-bin
     makepkg -si --noconfirm
     yay -S brave-bin --noconfirm
+    yay -S gimp --noconfirm
+    yay -S libreoffice-fresh --noconfirm
+    yay -S redot-bin --noconfirm
+    yay -S neovim --noconfirm
+    yay -S virtualbox --noconfirm
+    yay -S obs-studio --noconfirm
   "
 
   # Remove temporary build user and cleanup
@@ -169,7 +175,7 @@ arch-chroot /mnt /bin/bash <<EOF
   pacman -S --noconfirm xf86-video-vmware
 
   # Install Xorg and KDE Plasma desktop environment
-  pacman -S --noconfirm xorg sddm plasma konsole nano gedit dolphin
+  pacman -S --noconfirm xorg sddm plasma konsole nano gedit dolphin kcalc gwenview neofetch htop
   pacman -R --noconfirm plasma-welcome discover
   systemctl enable sddm
 
