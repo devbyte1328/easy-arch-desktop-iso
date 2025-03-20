@@ -99,7 +99,7 @@ arch-chroot /mnt /bin/bash <<EOF
 
   # Detect country and configure languages
   COUNTRY=\$(curl -s https://ipapi.co/country)
-  LANGUAGE_MAP=\$(curl -s $BASE_URL/conf/language_mappings)
+  LANGUAGE_MAP=\$(curl -s $BASE_URL/conf/kde/language_mappings)
   
   # Default to English settings
   PRIMARY_LANG="en_US.UTF-8"
@@ -198,13 +198,13 @@ KEYBOARD
 
   # Set up user config files
   mkdir -p /home/main/.config/menus
-  curl -o /home/main/.config/plasma-org.kde.plasma.desktop-appletsrc $BASE_URL/conf/plasma-org.kde.plasma.desktop-appletsrc
-  curl -o /home/main/.config/plasmashellrc $BASE_URL/conf/plasmashellrc
-  curl -o /home/main/.config/menus/applications-kmenuedit.menu $BASE_URL/conf/applications-kmenuedit.menu
+  curl -o /home/main/.config/plasma-org.kde.plasma.desktop-appletsrc $BASE_URL/conf/kde/plasma-org.kde.plasma.desktop-appletsrc
+  curl -o /home/main/.config/plasmashellrc $BASE_URL/conf/kde/plasmashellrc
+  curl -o /home/main/.config/menus/applications-kmenuedit.menu $BASE_URL/conf/kde/applications-kmenuedit.menu
   chown -R main:main /home/main/.config
   mkdir -p /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui
-  curl -o /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/main.qml $BASE_URL/conf/main.qml
-  curl -o /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/Footer.qml $BASE_URL/conf/Footer.qml
+  curl -o /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/main.qml $BASE_URL/conf/kde/main.qml
+  curl -o /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/Footer.qml $BASE_URL/conf/kde/Footer.qml
 
   # Install Python and modify wallpapers
   pacman -S --noconfirm python-pip
