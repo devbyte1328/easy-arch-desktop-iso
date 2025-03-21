@@ -178,6 +178,8 @@ arch-chroot /mnt /bin/bash <<EOF
     yay -S neovim --noconfirm
     yay -S virtualbox --noconfirm
     yay -S obs-studio --noconfirm
+    yay -S openshot --noconfirm
+    yay -S blender --noconfirm
   "
 
   # Remove temporary build user and cleanup
