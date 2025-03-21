@@ -74,21 +74,15 @@ human_size=$(lsblk -d -o SIZE -n "$largest_disk")
 
 echo "Largest disk found: $largest_disk ($human_size)"
 
-# Prompt for confirmation
-echo "WARNING: This will repartition and format $largest_disk, erasing all existing data."
-read -p "Proceed with partitioning and formatting? (y/N): " confirm
-if [[ ! $confirm =~ ^[Yy]$ ]]; then
-    echo "Operation aborted by user."
-    exit 0
-fi
+echo "Erasing all existing data..."
 
-# Disk wipe options (choose one by commenting/uncommenting)
-# Full erase (slow, uncomment if needed):
-# echo "Erasing $largest_disk with full wipe (this may take a while)..."
-# dd if=/dev/zero of="$largest_disk" bs=4M status=progress || true
-# Fast wipe (default):
-echo "Wiping existing filesystem signatures from $largest_disk..."
-wipefs -a "$largest_disk"
+if [ "$BRANCH" = "master" ]; then
+    echo "Erasing $largest_disk with full wipe (this may take a while)..."
+    dd if=/dev/zero of="$largest_disk" bs=4M status=progress || true
+else
+    echo "Wiping existing filesystem signatures from $largest_disk..."
+    wipefs -a "$largest_disk"
+fi
 
 # Partition the detected disk
 echo "Partitioning $largest_disk..."
