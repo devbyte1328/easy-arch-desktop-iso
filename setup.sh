@@ -204,8 +204,31 @@ arch-chroot /mnt /bin/bash <<EOF
   # Set root password
   echo "root:1" | chpasswd
 
-  # Install display driver
-  pacman -S --noconfirm xf86-video-vmware
+  # Detect and install appropriate display drivers
+  echo "Detecting graphics hardware and virtualization environment..."
+  
+  # Check if running in VirtualBox
+  if [ "$(systemd-detect-virt)" = "oracle" ]; then
+    echo "Running in VirtualBox, installing VirtualBox-specific drivers and utilities..."
+    pacman -S --noconfirm xf86-video-vmware virtualbox-guest-utils
+    systemctl enable vboxservice
+  else
+    echo "Not running in VirtualBox, checking physical GPU..."
+    # Use lspci to detect GPU
+    if lspci | grep -i "vga" | grep -i "nvidia" > /dev/null; then
+      echo "NVIDIA GPU detected, installing NVIDIA drivers..."
+      pacman -S --noconfirm nvidia nvidia-utils nvidia-settings
+    elif lspci | grep -i "vga" | grep -i "amd" > /dev/null || lspci | grep -i "vga" | grep -i "ati" > /dev/null; then
+      echo "AMD GPU detected, installing AMD drivers..."
+      pacman -S --noconfirm xf86-video-amdgpu
+    elif lspci | grep -i "vga" | grep -i "intel" > /dev/null; then
+      echo "Intel GPU detected, installing Intel drivers..."
+      pacman -S --noconfirm xf86-video-intel
+    else
+      echo "No specific GPU detected or unsupported hardware, falling back to generic VESA driver..."
+      pacman -S --noconfirm xf86-video-vesa
+    fi
+  fi
 
   # Install Xorg and KDE Plasma desktop environment
   pacman -S --noconfirm xorg sddm plasma konsole nano gedit dolphin kcalc gwenview neofetch htop
