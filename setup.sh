@@ -28,55 +28,92 @@ convert_to_bytes() {
     local size=$1
     local unit=${size: -1}
     local num=${size%[A-Za-z]*}
-    
+
+    # Use awk to handle floating-point numbers and convert to integer
     case $unit in
-        G) echo $(bc <<< "scale=0; $num * 1024 * 1024 * 1024") ;;
-        M) echo $(bc <<< "scale=0; $num * 1024 * 1024") ;;
-        K) echo $(bc <<< "scale=0; $num * 1024") ;;
-        *) echo "$num" ;;
+        T) echo $(awk "BEGIN {printf \"%.0f\", $num * 1024 * 1024 * 1024 * 1024}") ;;
+        G) echo $(awk "BEGIN {printf \"%.0f\", $num * 1024 * 1024 * 1024}") ;;
+        M) echo $(awk "BEGIN {printf \"%.0f\", $num * 1024 * 1024}") ;;
+        K) echo $(awk "BEGIN {printf \"%.0f\", $num * 1024}") ;;
+        *) echo $(awk "BEGIN {printf \"%.0f\", $num}") ;;
     esac
 }
 
 echo "Detecting largest storage device..."
 
-# Find the largest disk (excluding partitions and ROMs)
+# Find the largest disk (excluding partitions, ROMs, and disks with mounted partitions)
 largest_size=0
 largest_disk=""
 
 while read -r disk size; do
-    if [[ ! $disk =~ ^(sd[a-z]|nvme[0-9]n[0-9]) ]] || [[ $disk =~ rom ]]; then
+    # Skip non-disk devices, ROMs, and loop devices
+    if [[ ! $disk =~ ^(sd[a-z]|nvme[0-9]n[0-9]) ]] || [[ $disk =~ rom ]] || [[ $disk =~ loop ]]; then
         continue
     fi
-    
+
+    # Check if the disk has mounted partitions
+    if lsblk -d -o NAME,MOUNTPOINTS -n "/dev/$disk" | grep -q "[[:space:]]\+/"; then
+        echo "Skipping $disk (has mounted partitions)"
+        continue
+    fi
+
     size_bytes=$(convert_to_bytes "$size")
-    if (( size_bytes > largest_size )); then
+    if [ "$size_bytes" -gt "$largest_size" ]; then
         largest_size=$size_bytes
         largest_disk="/dev/$disk"
     fi
-done < <(lsblk -d -o NAME,SIZE -n | grep -v "loop")
+done < <(lsblk -d -o NAME,SIZE -n)
 
 if [ -z "$largest_disk" ]; then
     echo "No suitable disk found!"
     exit 1
 fi
 
-echo "Largest disk found: $largest_disk ($size)"
-echo "Erasing $largest_disk..."
-dd if=/dev/zero of="$largest_disk" bs=4M status=progress || true
+# Convert largest_size back to human-readable format for display
+human_size=$(lsblk -d -o SIZE -n "$largest_disk")
+
+echo "Largest disk found: $largest_disk ($human_size)"
+
+# Prompt for confirmation
+echo "WARNING: This will repartition and format $largest_disk, erasing all existing data."
+read -p "Proceed with partitioning and formatting? (y/N): " confirm
+if [[ ! $confirm =~ ^[Yy]$ ]]; then
+    echo "Operation aborted by user."
+    exit 0
+fi
+
+# Disk wipe options (choose one by commenting/uncommenting)
+# Full erase (slow, uncomment if needed):
+# echo "Erasing $largest_disk with full wipe (this may take a while)..."
+# dd if=/dev/zero of="$largest_disk" bs=4M status=progress || true
+# Fast wipe (default):
+echo "Wiping existing filesystem signatures from $largest_disk..."
+wipefs -a "$largest_disk"
 
 # Partition the detected disk
 echo "Partitioning $largest_disk..."
 echo -e "g\nn\n\n\n+1G\nn\n\n\n\nw" | fdisk "$largest_disk"
 
+# Detect if the disk is NVMe or SATA and set partition names accordingly
+if [[ $largest_disk =~ ^/dev/nvme ]]; then
+    part1="${largest_disk}p1"
+    part2="${largest_disk}p2"
+else
+    part1="${largest_disk}1"
+    part2="${largest_disk}2"
+fi
+
 # Format the partitions
-mkfs.fat -F32 "${largest_disk}1"
-mkfs.ext4 "${largest_disk}2"
+echo "Formatting partitions..."
+mkfs.fat -F32 "$part1"
+mkfs.ext4 "$part2"
 
 # Mount the partitions
+echo "Mounting partitions..."
 mkdir -p /mnt
-mount "${largest_disk}2" /mnt
+mount "$part2" /mnt
 mkdir -p /mnt/boot/EFI
-mount "${largest_disk}1" /mnt/boot/EFI
+mount "$part1" /mnt/boot/EFI
 
 # Install base system with additional utilities
 pacstrap /mnt base linux linux-firmware bc curl
