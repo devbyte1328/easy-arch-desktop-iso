@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Hardcode the branch ("test" for test branch, "master" for master branch)
-BRANCH="master"
+BRANCH="test"
 
 # Set base URL based on selected branch
 if [ "$BRANCH" = "test" ]; then
@@ -180,6 +180,7 @@ arch-chroot /mnt /bin/bash <<EOF
     yay -S obs-studio --noconfirm
     yay -S openshot --noconfirm
     yay -S blender --noconfirm
+    yay -S rar --noconfirm
   "
 
   # Remove temporary build user and cleanup
@@ -268,6 +269,7 @@ KEYBOARD
   curl -o /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/main.qml $BASE_URL/conf/kde/main.qml
   curl -o /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/Footer.qml $BASE_URL/conf/kde/Footer.qml
   curl -o /home/main/.config/kwalletrc $BASE_URL/conf/brave/kwalletrc
+  curl -o /etc/pacman.conf $BASE_URL/conf/pacman/pacman.conf
 
   # Install Python and modify wallpapers
   pacman -S --noconfirm python-pip
