@@ -327,6 +327,8 @@ fi
 AUTOSTART_BRAVE
   chmod +x /home/main/.config/autostart-scripts/set-brave.sh
   chown main:main /home/main/.config/autostart-scripts/set-brave.sh
+
+pacman -Syu
 EOF
 
 # Unmount partitions and reboot
