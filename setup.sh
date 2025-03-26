@@ -271,6 +271,7 @@ KEYBOARD
   curl -o /home/main/.config/kwalletrc $BASE_URL/conf/brave/kwalletrc
   curl -o /etc/pacman.conf $BASE_URL/conf/pacman/pacman.conf
   curl -o /home/main/.config/kwinrc $BASE_URL/conf/kde/kwinrc
+  curl -o /home/main/.config/kwinoutputconfig.json $BASE_URL/conf/kde/kwinoutputconfig.json
 
   # Install Python and modify wallpapers
   pacman -S --noconfirm python-pip
