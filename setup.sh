@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Hardcode the branch ("test" for test branch, "master" for master branch)
-BRANCH="test"
+BRANCH="master"
 
 # Set base URL based on selected branch
 if [ "$BRANCH" = "test" ]; then
