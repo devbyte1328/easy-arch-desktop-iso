@@ -181,6 +181,7 @@ arch-chroot /mnt /bin/bash <<EOF
     yay -S openshot --noconfirm
     yay -S blender --noconfirm
     yay -S rar --noconfirm
+    yay -S kclock --noconfirm
   "
 
   # Remove temporary build user and cleanup
