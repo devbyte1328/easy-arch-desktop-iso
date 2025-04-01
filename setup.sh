@@ -174,17 +174,7 @@ arch-chroot /mnt /bin/bash <<EOF
     git clone https://aur.archlinux.org/yay-bin.git /home/builder/yay-bin
     cd /home/builder/yay-bin
     makepkg -si --noconfirm
-    yay -S brave-bin --noconfirm
-    yay -S gimp --noconfirm
-    yay -S libreoffice-fresh --noconfirm
-    yay -S redot-bin --noconfirm
-    yay -S neovim --noconfirm
-    yay -S virtualbox --noconfirm
-    yay -S obs-studio --noconfirm
-    yay -S openshot --noconfirm
-    yay -S blender --noconfirm
-    yay -S rar --noconfirm
-    yay -S kclock --noconfirm
+    yay -S brave-bin gimp libreoffice-fresh redot-bin neovim virtualbox obs-studio openshot blender rar kclock --noconfirm
   "
 
   # Remove temporary build user and cleanup
@@ -279,6 +269,7 @@ KEYBOARD
 
   # Install Python and modify wallpapers
   pacman -S --noconfirm python-pip
+  pip3 install tqdm --break-system-packages
   python -m venv /root/temp_env
   /root/temp_env/bin/python -m pip install pillow
   cat << 'PYTHON' > /root/blackout.py
