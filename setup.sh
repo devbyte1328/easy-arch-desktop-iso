@@ -267,14 +267,6 @@ KEYBOARD
   curl -o /home/main/.config/kwinrc $BASE_URL/conf/kde/kwinrc
   curl -o /home/main/.config/powerdevilrc $BASE_URL/conf/kde/powerdevilrc
 
-  curl -o /home/main/.config/konsolerc $BASE_URL/conf/kde/konsolerc
-  curl -o /home/main/.local/share/kxmlgui5/konsole/konsoleui.rc $BASE_URL/conf/kde/konsoleui.rc
-  curl -o /home/main/.local/share/kxmlgui5/konsole/sessionui.rc $BASE_URL/conf/kde/sessionui.rc
-  curl -o /home/main/.local/share/konsole/"Profile 1.profile" $BASE_URL/conf/kde/"Profile 1.profile"
-  curl -o /home/main/.local/state/konsolestaterc $BASE_URL/conf/kde/konsolestaterc
-  curl -o /home/main/.local/share/konsole/catppuccin-mocha.colorscheme https://raw.githubusercontent.com/catppuccin/konsole/refs/heads/main/themes/catppuccin-mocha.colorscheme
-
-
   # Install Python and modify wallpapers
   pacman -S --noconfirm python-pip
   python -m venv /root/temp_env
@@ -363,6 +355,21 @@ fi
 AUTOSTART_TQDM
   chmod +x /home/main/.config/autostart-scripts/set-tqdm.sh
   chown main:main /home/main/.config/autostart-scripts/set-tqdm.sh
+
+  # Create autostart script for downloading Konsole colorscheme
+  cat << 'AUTOSTART_KONSOLE' > /home/main/.config/autostart-scripts/set-konsole-colorscheme.sh
+#!/bin/bash
+FLAG_FILE="/home/main/.konsole_colorscheme_set"
+
+if [ ! -f "\$FLAG_FILE" ]; then
+    mkdir -p /home/main/.local/share/konsole
+    curl -o /home/main/.local/share/konsole/catppuccin-mocha.colorscheme https://raw.githubusercontent.com/catppuccin/konsole/refs/heads/main/themes/catppuccin-mocha.colorscheme
+    chown main:main /home/main/.local/share/konsole/catppuccin-mocha.colorscheme
+    touch "\$FLAG_FILE"
+fi
+AUTOSTART_KONSOLE
+  chmod +x /home/main/.config/autostart-scripts/set-konsole-colorscheme.sh
+  chown main:main /home/main/.config/autostart-scripts/set-konsole-colorscheme.sh
 
   pacman -Syu --noconfirm
 EOF
