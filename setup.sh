@@ -226,7 +226,7 @@ arch-chroot /mnt /bin/bash <<EOF
   fi
 
   # Install Xorg and KDE Plasma desktop environment
-  pacman -S --noconfirm xorg sddm plasma konsole nano gedit dolphin kcalc gwenview neofetch htop docker
+  pacman -S --noconfirm xorg sddm plasma konsole nano gedit dolphin kcalc gwenview neofetch htop docker ttf-0xproto-nerd
   pacman -R --noconfirm plasma-welcome discover
   systemctl enable sddm
 
@@ -355,6 +355,21 @@ fi
 AUTOSTART_TQDM
   chmod +x /home/main/.config/autostart-scripts/set-tqdm.sh
   chown main:main /home/main/.config/autostart-scripts/set-tqdm.sh
+
+  # Create autostart script for downloading Konsole colorscheme
+  cat << 'AUTOSTART_KONSOLE' > /home/main/.config/autostart-scripts/set-konsole-colorscheme.sh
+#!/bin/bash
+FLAG_FILE="/home/main/.konsole_colorscheme_set"
+
+if [ ! -f "\$FLAG_FILE" ]; then
+    mkdir -p /home/main/.local/share/konsole
+    curl -o /home/main/.local/share/konsole/catppuccin-mocha.colorscheme https://raw.githubusercontent.com/catppuccin/konsole/refs/heads/main/themes/catppuccin-mocha.colorscheme
+    chown main:main /home/main/.local/share/konsole/catppuccin-mocha.colorscheme
+    touch "\$FLAG_FILE"
+fi
+AUTOSTART_KONSOLE
+  chmod +x /home/main/.config/autostart-scripts/set-konsole-colorscheme.sh
+  chown main:main /home/main/.config/autostart-scripts/set-konsole-colorscheme.sh
 
   pacman -Syu --noconfirm
 EOF
