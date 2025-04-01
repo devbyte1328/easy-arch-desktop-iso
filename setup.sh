@@ -174,7 +174,7 @@ arch-chroot /mnt /bin/bash <<EOF
     git clone https://aur.archlinux.org/yay-bin.git /home/builder/yay-bin
     cd /home/builder/yay-bin
     makepkg -si --noconfirm
-    yay -S brave-bin gimp libreoffice-fresh redot-bin neovim virtualbox obs-studio openshot blender rar kclock --noconfirm
+    yay -S brave-bin gimp libreoffice-fresh redot-bin neovim virtualbox obs-studio openshot blender rar kclock xclip --noconfirm
   "
 
   # Remove temporary build user and cleanup
@@ -269,7 +269,6 @@ KEYBOARD
 
   # Install Python and modify wallpapers
   pacman -S --noconfirm python-pip
-  pip3 install tqdm --break-system-packages
   python -m venv /root/temp_env
   /root/temp_env/bin/python -m pip install pillow
   cat << 'PYTHON' > /root/blackout.py
@@ -342,6 +341,19 @@ fi
 AUTOSTART_KSCREEN
   chmod +x /home/main/.config/autostart-scripts/set-kscreenlockerrc.sh
   chown main:main /home/main/.config/autostart-scripts/set-kscreenlockerrc.sh
+
+  # Create autostart script for installing pip3 and tqdm
+  cat << 'AUTOSTART_TQDM' > /home/main/.config/autostart-scripts/set-tqdm.sh
+#!/bin/bash
+FLAG_FILE="/home/main/.tqdm_set"
+
+if [ ! -f "\$FLAG_FILE" ]; then
+    pip3 install tqdm --break-system-packages
+    touch "\$FLAG_FILE"
+fi
+AUTOSTART_TQDM
+  chmod +x /home/main/.config/autostart-scripts/set-tqdm.sh
+  chown main:main /home/main/.config/autostart-scripts/set-tqdm.sh
 
   pacman -Syu --noconfirm
 EOF
