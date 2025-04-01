@@ -342,12 +342,13 @@ AUTOSTART_KSCREEN
   chmod +x /home/main/.config/autostart-scripts/set-kscreenlockerrc.sh
   chown main:main /home/main/.config/autostart-scripts/set-kscreenlockerrc.sh
 
-  # Create autostart script for installing pip3 and tqdm
+  # Create autostart script for installing python-pip and tqdm
   cat << 'AUTOSTART_TQDM' > /home/main/.config/autostart-scripts/set-tqdm.sh
 #!/bin/bash
 FLAG_FILE="/home/main/.tqdm_set"
 
 if [ ! -f "\$FLAG_FILE" ]; then
+    sudo pacman -S --noconfirm python-pip
     pip3 install tqdm --break-system-packages
     touch "\$FLAG_FILE"
 fi
