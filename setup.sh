@@ -226,7 +226,7 @@ arch-chroot /mnt /bin/bash <<EOF
   fi
 
   # Install Xorg and KDE Plasma desktop environment
-  pacman -S --noconfirm xorg sddm plasma konsole nano gedit dolphin kcalc gwenview neofetch htop docker ttf-0xproto-nerd
+  pacman -S --noconfirm xorg sddm plasma konsole nano gedit dolphin kcalc gwenview neofetch htop docker ttf-0xproto-nerd unzip
   pacman -R --noconfirm plasma-welcome discover
   systemctl enable sddm
 
