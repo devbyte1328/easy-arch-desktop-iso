@@ -226,7 +226,7 @@ arch-chroot /mnt /bin/bash <<EOF
   fi
 
   # Install Xorg and KDE Plasma desktop environment
-  pacman -S --noconfirm xorg sddm plasma konsole nano gedit dolphin kcalc gwenview neofetch htop docker
+  pacman -S --noconfirm xorg sddm plasma konsole nano gedit dolphin kcalc gwenview neofetch htop docker ttf-0xproto-nerd
   pacman -R --noconfirm plasma-welcome discover
   systemctl enable sddm
 
@@ -272,6 +272,7 @@ KEYBOARD
   curl -o /home/main/.local/share/kxmlgui5/konsole/sessionui.rc $BASE_URL/conf/kde/sessionui.rc
   curl -o /home/main/.local/share/konsole/"Profile 1.profile" $BASE_URL/conf/kde/"Profile 1.profile"
   curl -o /home/main/.local/state/konsolestaterc $BASE_URL/conf/kde/konsolestaterc
+  curl -o /home/main/.local/share/konsole/catppuccin-mocha.colorscheme https://raw.githubusercontent.com/catppuccin/konsole/refs/heads/main/themes/catppuccin-mocha.colorscheme
 
 
   # Install Python and modify wallpapers
