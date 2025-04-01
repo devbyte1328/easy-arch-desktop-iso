@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Hardcode the branch ("test" for test branch, "master" for master branch)
-BRANCH="master"
+BRANCH="test"
 
 # Set base URL based on selected branch
 if [ "$BRANCH" = "test" ]; then
@@ -266,6 +266,13 @@ KEYBOARD
   curl -o /etc/pacman.conf $BASE_URL/conf/pacman/pacman.conf
   curl -o /home/main/.config/kwinrc $BASE_URL/conf/kde/kwinrc
   curl -o /home/main/.config/powerdevilrc $BASE_URL/conf/kde/powerdevilrc
+
+  curl -o /home/main/.config/konsolerc $BASE_URL/conf/kde/konsolerc
+  curl -o /home/main/.local/share/kxmlgui5/konsole/konsoleui.rc $BASE_URL/conf/kde/konsoleui.rc
+  curl -o /home/main/.local/share/kxmlgui5/konsole/sessionui.rc $BASE_URL/conf/kde/sessionui.rc
+  curl -o /home/main/.local/share/konsole/"Profile 1.profile" $BASE_URL/conf/kde/"Profile 1.profile"
+  curl -o /home/main/.local/state/konsolestaterc $BASE_URL/conf/kde/konsolestaterc
+
 
   # Install Python and modify wallpapers
   pacman -S --noconfirm python-pip
