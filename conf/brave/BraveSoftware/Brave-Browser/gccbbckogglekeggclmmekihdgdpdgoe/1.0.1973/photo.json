@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "campaigns": [
+    {
+      "campaignId": "8977a86a-52b4-4a5d-9f70-02e80558ba2b",
+      "logo": {
+        "imageUrl": "e2addb9b-2bb3-4734-9bf6-9f6bb9add363.png",
+        "destinationUrl": "https://brave.com/podcast/e65/?mtm_source=brave-browser&mtm_medium=brave-ntp&mtm_campaign=brave-technologist&mtm_content=podcast",
+        "alt": "The Brave Technologist Podcast: Episode 65 - Preparing the Next Generation for AI. Special guest: EY - Listen Now",
+        "companyName": "Brave Software"
+      },
+      "wallpapers": [
+        {
+          "imageUrl": "20e17725-4da6-4ec2-aa96-d2adb7d6e370.jpg",
+          "creativeInstanceId": "51ccf262-d3ca-4ae8-8f7c-2fb9b71c1fd0",
+          "focalPoint": {
+            "x": 760,
+            "y": 720
+          }
+        }
+      ]
+    }
+  ],
+  "campaigns2": [
+    {
+      "campaignId": "8977a86a-52b4-4a5d-9f70-02e80558ba2b",
+      "logo": {
+        "imageUrl": "e2addb9b-2bb3-4734-9bf6-9f6bb9add363.png",
+        "destinationUrl": "https://brave.com/podcast/e65/?mtm_source=brave-browser&mtm_medium=brave-ntp&mtm_campaign=brave-technologist&mtm_content=podcast",
+        "alt": "The Brave Technologist Podcast: Episode 65 - Preparing the Next Generation for AI. Special guest: EY - Listen Now",
+        "companyName": "Brave Software"
+      },
+      "wallpapers": [
+        {
+          "imageUrl": "20e17725-4da6-4ec2-aa96-d2adb7d6e370.jpg",
+          "creativeInstanceId": "51ccf262-d3ca-4ae8-8f7c-2fb9b71c1fd0",
+          "focalPoint": {
+            "x": 760,
+            "y": 720
+          }
+        }
+      ]
+    }
+  ]
+}

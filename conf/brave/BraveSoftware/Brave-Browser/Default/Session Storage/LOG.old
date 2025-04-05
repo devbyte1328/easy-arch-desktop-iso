@@ -1,3 +1,2 @@
-2025/04/01-15:09:20.179 4 Reusing MANIFEST /home/main/.config/BraveSoftware/Brave-Browser/Default/Session Storage/MANIFEST-000001
-2025/04/01-15:09:20.183 4 Recovering log #3
-2025/04/01-15:09:20.184 4 Reusing old log /home/main/.config/BraveSoftware/Brave-Browser/Default/Session Storage/000003.log 
+2025/04/05-10:29:19.874 6 Creating DB /home/main/.config/BraveSoftware/Brave-Browser/Default/Session Storage__tmp_for_rebuild since it was missing.
+2025/04/05-10:29:19.948 6 Reusing MANIFEST /home/main/.config/BraveSoftware/Brave-Browser/Default/Session Storage__tmp_for_rebuild/MANIFEST-000001
