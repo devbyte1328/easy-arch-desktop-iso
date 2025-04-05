@@ -161,9 +161,6 @@ arch-chroot /mnt /bin/bash <<EOF
   pacman -S --needed --noconfirm git base-devel
   pacman -S --noconfirm grub efibootmgr os-prober mtools dosfstools linux-headers networkmanager nm-connection-editor pipewire pipewire-pulse pipewire-alsa pavucontrol dialog
 
-  # Fetch and apply the custom logind.conf
-  curl -o /etc/systemd/logind.conf $BASE_URL/conf/kde/logind.conf
-  
   # Create temporary build user for AUR packages
   useradd -m -s /bin/bash builder
   echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers.d/builder
