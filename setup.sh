@@ -194,7 +194,7 @@ arch-chroot /mnt /bin/bash <<EOF
   sed -i 's/# %wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) NOPASSWD: ALL/' /etc/sudoers
 
   # Set root password
-  echo "root:1" | chpasswd
+  echo "root:root" | chpasswd
 
   # Detect and install appropriate display drivers
   echo "Detecting graphics hardware and virtualization environment..."
@@ -262,6 +262,11 @@ KEYBOARD
   curl -o /home/main/.config/kwalletrc $BASE_URL/conf/brave/kwalletrc
   curl -o /etc/pacman.conf $BASE_URL/conf/pacman/pacman.conf
   curl -o /home/main/.config/kwinrc $BASE_URL/conf/kde/kwinrc
+
+  mkdir -p /home/main/Desktop
+  curl -o /home/main/Desktop/set-password.sh $BASE_URL/conf/system/set-password.sh
+  chmod +x /home/main/Desktop/set-password.sh
+  chown main:main /home/main/Desktop/set-password.sh
 
   # Install Python and modify wallpapers
   pacman -S --noconfirm python-pip
