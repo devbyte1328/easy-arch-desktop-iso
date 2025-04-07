@@ -20,9 +20,7 @@ if ! grep -q '^main ALL=(ALL:ALL) ALL' "$sudoers_file"; then
 fi
 
 # Cleanup
-echo "Passwords updated!"
-echo "Deleting script..."
-echo "It's recommended to reboot."
+echo "Passwords updated! shell script self deleting..."
 
 rm -- "$0"
 
