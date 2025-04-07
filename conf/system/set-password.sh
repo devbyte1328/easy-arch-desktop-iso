@@ -22,7 +22,7 @@ fi
 # Cleanup
 echo "Passwords updated!"
 echo "Deleting script..."
-echo "It is recommended to reboot."
+echo "It's recommended to reboot."
 
 rm -- "$0"
 
