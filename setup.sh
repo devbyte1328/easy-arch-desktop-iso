@@ -1,15 +1,18 @@
 #!/bin/bash
 
 # Hardcode the branch ("test" for test branch, "master" for master branch)
-BRANCH="master"
+BRANCH="stable"
 
 # Set base URL based on selected branch
 if [ "$BRANCH" = "test" ]; then
-  BASE_URL="https://raw.githubusercontent.com/devbyte1328/arch-setup/refs/heads/test"
-  echo "Using config files from test branch"
+    BASE_URL="https://raw.githubusercontent.com/devbyte1328/arch-setup/refs/heads/test"
+    echo "Using config files from test branch"
+elif [ "$BRANCH" = "stable" ]; then
+    BASE_URL="https://raw.githubusercontent.com/devbyte1328/arch-setup/refs/heads/stable"
+    echo "Using config files from stable branch"
 else
-  BASE_URL="https://raw.githubusercontent.com/devbyte1328/arch-setup/refs/heads/master"
-  echo "Using config files from master branch"
+    BASE_URL="https://raw.githubusercontent.com/devbyte1328/arch-setup/refs/heads/master"
+    echo "Using config files from master branch"
 fi
 
 # Verify root privileges
@@ -109,8 +112,16 @@ mount "$part2" /mnt
 mkdir -p /mnt/boot/EFI
 mount "$part1" /mnt/boot/EFI
 
+
 # Install base system with additional utilities
-pacstrap /mnt base linux linux-firmware bc curl
+if [ "$BRANCH" = "test" ]; then
+  pacstrap /mnt base linux linux-firmware bc curl
+elif [ "$BRANCH" = "stable" ]; then
+  echo "Server=https://archive.archlinux.org/repos/2025/04/10/\$repo/os/\$arch" > /etc/pacman.d/mirrorlist
+  pacstrap /mnt base linux linux-firmware util-linux bc curl
+else
+  pacstrap /mnt base linux linux-firmware bc curl
+fi
 
 # Generate fstab file
 genfstab -U /mnt >> /mnt/etc/fstab
@@ -157,9 +168,39 @@ arch-chroot /mnt /bin/bash <<EOF
   # Generate initramfs
   mkinitcpio -P
 
-  # Install essential packages
-  pacman -S --needed --noconfirm git base-devel
-  pacman -S --noconfirm grub efibootmgr os-prober mtools dosfstools linux-headers networkmanager nm-connection-editor pipewire pipewire-pulse pipewire-alsa pavucontrol dialog ufw
+  # Install essential packages based on BRANCH
+  if [ "$BRANCH" = "test" ]; then
+    echo "Installing packages for TEST branch..."
+    pacman -S --needed --noconfirm git base-devel
+    pacman -S --noconfirm grub efibootmgr os-prober mtools dosfstools linux-headers networkmanager nm-connection-editor pipewire pipewire-pulse pipewire-alsa pavucontrol dialog ufw vim neovim htop
+  elif [ "$BRANCH" = "stable" ]; then
+    echo "Installing packages for STABLE branch..."
+    pacman -U --needed --noconfirm https://archive.archlinux.org/packages/g/git/git-2.49.0-1-x86_64.pkg.tar.zst
+    pacman -U --needed --noconfirm https://archive.archlinux.org/packages/b/base-devel/base-devel-1-2-any.pkg.tar.zst
+    pacman -U --noconfirm https://archive.archlinux.org/packages/g/git/git-2.49.0-1-x86_64.pkg.tar.zst
+    pacman -U --noconfirm https://archive.archlinux.org/packages/b/base-devel/base-devel-1-2-any.pkg.tar.zst
+    pacman -U --noconfirm https://archive.archlinux.org/packages/g/grub/grub-2%3A2.12rc1-7-x86_64.pkg.tar.zst
+    pacman -U --noconfirm https://archive.archlinux.org/packages/e/efibootmgr/efibootmgr-18-3-x86_64.pkg.tar.zst
+    pacman -U --noconfirm https://archive.archlinux.org/packages/o/os-prober/os-prober-1.83-1-x86_64.pkg.tar.zst
+    pacman -U --noconfirm https://archive.archlinux.org/packages/m/mtools/mtools-4.0.28-1-x86_64.pkg.tar.zst
+    pacman -U --noconfirm https://archive.archlinux.org/packages/d/dosfstools/dosfstools-4.2-5-x86_64.pkg.tar.zst
+    pacman -U --noconfirm https://archive.archlinux.org/packages/l/linux-headers/linux-headers-6.9.arch1-1-x86_64.pkg.tar.zst
+    pacman -U --noconfirm https://archive.archlinux.org/packages/n/networkmanager/networkmanager-1.52.0-1-x86_64.pkg.tar.zst
+    pacman -U --noconfirm https://archive.archlinux.org/packages/n/nm-connection-editor/nm-connection-editor-1.8.24-1-x86_64.pkg.tar.xz
+    pacman -U --noconfirm https://archive.archlinux.org/packages/p/pipewire/pipewire-1%3A1.4.1-1-x86_64.pkg.tar.zst
+    pacman -U --noconfirm https://archive.archlinux.org/packages/p/pipewire-pulse/pipewire-pulse-1%3A1.4.1-1-x86_64.pkg.tar.zst
+    pacman -U --noconfirm https://archive.archlinux.org/packages/p/pipewire-alsa/pipewire-alsa-1%3A1.4.1-1-x86_64.pkg.tar.zst
+    pacman -U --noconfirm https://archive.archlinux.org/packages/p/pavucontrol/pavucontrol-1%3A6.1-1-x86_64.pkg.tar.zst
+    pacman -U --noconfirm https://archive.archlinux.org/packages/d/dialog/dialog-1%3A1.3_20250116-1-x86_64.pkg.tar.zst
+    pacman -U --noconfirm https://archive.archlinux.org/packages/u/ufw/ufw-0.36.2-5-any.pkg.tar.zst
+    pacman -U --noconfirm https://archive.archlinux.org/packages/v/vim/vim-9.1.1236-2-x86_64.pkg.tar.zst
+    pacman -U --noconfirm https://archive.archlinux.org/packages/n/neovim/neovim-0.9.5-6-x86_64.pkg.tar.zst
+    pacman -U --noconfirm https://archive.archlinux.org/packages/h/htop/htop-3.4.1-1-x86_64.pkg.tar.zst
+  else
+    echo "Installing packages for MASTER branch..."
+    pacman -S --needed --noconfirm git base-devel
+    pacman -S --noconfirm grub efibootmgr os-prober mtools dosfstools linux-headers networkmanager nm-connection-editor pipewire pipewire-pulse pipewire-alsa pavucontrol dialog ufw vim neovim htop
+  fi
 
   # Create temporary build user for AUR packages
   useradd -m -s /bin/bash builder
@@ -372,7 +413,13 @@ AUTOSTART_KONSOLE
   chmod +x /home/main/.config/autostart-scripts/set-konsole-colorscheme.sh
   chown main:main /home/main/.config/autostart-scripts/set-konsole-colorscheme.sh
 
-  pacman -Syu --noconfirm
+  if [ "$BRANCH" = "test" ]; then
+    pacman -Syu --noconfirm
+  elif [ "$BRANCH" = "stable" ]; then
+    pacman -Sy --noconfirm
+  else
+    pacman -Syu --noconfirm
+  fi
 EOF
 
 # Unmount partitions and reboot
