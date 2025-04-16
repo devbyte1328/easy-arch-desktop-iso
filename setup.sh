@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Hardcode the branch ("test" for test branch, "master" for master branch)
-BRANCH="master"
+BRANCH="test"
 
 # Set base URL based on selected branch
 if [ "$BRANCH" = "test" ]; then
@@ -264,7 +264,7 @@ arch-chroot /mnt /bin/bash <<EOF
   fi
 
   # Install Xorg and KDE Plasma desktop environment
-  pacman -S --noconfirm xorg sddm plasma konsole nano gedit dolphin kcalc gwenview neofetch htop docker ttf-0xproto-nerd unzip kamoso
+  pacman -S --noconfirm xorg sddm plasma konsole nano gedit dolphin kcalc gwenview neofetch htop docker ttf-0xproto-nerd unzip kamoso qbittorrent deskflow tesseract tesseract-data-eng python-pip
   pacman -R --noconfirm plasma-welcome discover
   systemctl enable sddm
 
@@ -383,20 +383,6 @@ fi
 AUTOSTART_KSCREEN
   chmod +x /home/main/.config/autostart-scripts/set-kscreenlockerrc.sh
   chown main:main /home/main/.config/autostart-scripts/set-kscreenlockerrc.sh
-
-  # Create autostart script for installing python-pip and tqdm
-  cat << 'AUTOSTART_TQDM' > /home/main/.config/autostart-scripts/set-tqdm.sh
-#!/bin/bash
-FLAG_FILE="/home/main/.tqdm_set"
-
-if [ ! -f "\$FLAG_FILE" ]; then
-    sudo pacman -S --noconfirm python-pip
-    pip3 install tqdm --break-system-packages
-    touch "\$FLAG_FILE"
-fi
-AUTOSTART_TQDM
-  chmod +x /home/main/.config/autostart-scripts/set-tqdm.sh
-  chown main:main /home/main/.config/autostart-scripts/set-tqdm.sh
 
   # Create autostart script for downloading Konsole colorscheme
   cat << 'AUTOSTART_KONSOLE' > /home/main/.config/autostart-scripts/set-konsole-colorscheme.sh
