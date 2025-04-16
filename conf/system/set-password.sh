@@ -19,8 +19,10 @@ if ! grep -q '^main ALL=(ALL:ALL) ALL' "$sudoers_file"; then
     sed -i '/^root ALL=(ALL:ALL) ALL/a main ALL=(ALL:ALL) ALL' "$sudoers_file"
 fi
 
+# Ensure 'main' owns their home directory
+sudo chown -R main:main /home/main
+
 # Cleanup
 echo "Passwords updated! shell script self deleting..."
 
 rm -- "$0"
-
