@@ -264,9 +264,11 @@ arch-chroot /mnt /bin/bash <<EOF
   fi
 
   # Install Xorg and KDE Plasma desktop environment
-  pacman -S --noconfirm xorg sddm plasma konsole nano gedit dolphin kcalc gwenview neofetch htop docker ttf-0xproto-nerd unzip kamoso qbittorrent deskflow tesseract tesseract-data-eng python-pip
+  pacman -S --noconfirm xorg sddm plasma konsole nano gedit dolphin kcalc gwenview neofetch htop docker docker-compose ttf-0xproto-nerd unzip kamoso qbittorrent deskflow tesseract tesseract-data-eng python-pip
   pacman -R --noconfirm plasma-welcome discover
   systemctl enable sddm
+  systemctl enable docker
+  systemctl start docker
 
   # Configure SDDM for autologin
   mkdir -p /etc/sddm.conf.d
