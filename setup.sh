@@ -48,9 +48,9 @@ echo "Detecting largest storage device..."
 largest_size=0
 largest_disk=""
 
-while read -r disk size; do
-    # Skip non-disk devices, ROMs, and loop devices
-    if [[ ! $disk =~ ^(sd[a-z]|nvme[0-9]n[0-9]) ]] || [[ $disk =~ rom ]] || [[ $disk =~ loop ]]; then
+while read -r disk hotplug size; do
+    # Skip loop devices and USB-connected drives
+    if [[ "$hotplug" -eq 1 ]] || [[ "$disk" == loop* ]]; then
         continue
     fi
 
@@ -65,7 +65,7 @@ while read -r disk size; do
         largest_size=$size_bytes
         largest_disk="/dev/$disk"
     fi
-done < <(lsblk -d -o NAME,SIZE -n)
+done < <(lsblk -d -o NAME,HOTPLUG,SIZE -n)
 
 if [ -z "$largest_disk" ]; then
     echo "No suitable disk found!"
