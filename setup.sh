@@ -43,6 +43,13 @@ ln -sf /usr/lib/systemd/system/bluetooth.service airootfs/etc/systemd/system/mul
 ln -sf /usr/lib/systemd/system/org.cups.cupsd.service airootfs/etc/systemd/system/multi-user.target.wants/org.cups.cupsd.service
 ln -sf /etc/systemd/system/locale-setup.service airootfs/etc/systemd/system/multi-user.target.wants/locale-setup.service
 
+echo "[*] Setting up sudoers..."
+mkdir -p airootfs/etc/sudoers.d
+cp "$CONFDIR/00-rootpw" airootfs/etc/sudoers.d/00-rootpw
+cp "$CONFDIR/00-main" airootfs/etc/sudoers.d/00-main
+chmod 440 airootfs/etc/sudoers.d/00-rootpw
+chmod 440 airootfs/etc/sudoers.d/00-main
+
 echo "[*] Copying profile definition..."
 cp "$CONFDIR/profiledef.sh" "$WORKDIR/profiledef.sh"
 
