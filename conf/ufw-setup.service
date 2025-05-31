@@ -1,0 +1,13 @@
+[Unit]
+Description=Initial UFW setup
+After=network.target
+ConditionPathExists=/root/setup-ufw.sh
+
+[Service]
+Type=oneshot
+ExecStart=/root/setup-ufw.sh
+RemainAfterExit=true
+
+[Install]
+WantedBy=multi-user.target
+

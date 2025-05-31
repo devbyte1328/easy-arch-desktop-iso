@@ -31,6 +31,15 @@ echo "[*] Adding locale systemd service..."
 mkdir -p airootfs/etc/systemd/system
 cp "$CONFDIR/locale-setup.service" airootfs/etc/systemd/system/locale-setup.service
 
+echo "[*] Adding setup-ufw script..."
+mkdir -p airootfs/root
+cp "$CONFDIR/setup-ufw.sh" airootfs/root/setup-ufw.sh
+chmod +x airootfs/root/setup-ufw.sh
+
+echo "[*] Adding ufw systemd service..."
+mkdir -p airootfs/etc/systemd/system
+cp "$CONFDIR/ufw-setup.service" airootfs/etc/systemd/system/ufw-setup.service
+
 echo "[*] Adding LightDM config..."
 mkdir -p airootfs/etc/lightdm
 cp "$CONFDIR/lightdm.conf" airootfs/etc/lightdm/lightdm.conf
@@ -42,6 +51,7 @@ ln -sf /usr/lib/systemd/system/NetworkManager.service airootfs/etc/systemd/syste
 ln -sf /usr/lib/systemd/system/bluetooth.service airootfs/etc/systemd/system/multi-user.target.wants/bluetooth.service
 ln -sf /usr/lib/systemd/system/org.cups.cupsd.service airootfs/etc/systemd/system/multi-user.target.wants/org.cups.cupsd.service
 ln -sf /etc/systemd/system/locale-setup.service airootfs/etc/systemd/system/multi-user.target.wants/locale-setup.service
+ln -sf /etc/systemd/system/ufw-setup.service airootfs/etc/systemd/system/multi-user.target.wants/ufw-setup.service
 
 echo "[*] Setting up sudoers..."
 mkdir -p airootfs/etc/sudoers.d
