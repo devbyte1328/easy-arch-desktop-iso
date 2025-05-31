@@ -1,0 +1,13 @@
+[Unit]
+Description=Auto-detect locale, keyboard, and timezone
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/root/setup-locale.sh
+StandardOutput=journal
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
