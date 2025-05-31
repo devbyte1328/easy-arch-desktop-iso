@@ -21,6 +21,11 @@ mkdir -p airootfs/etc
 cp "$CONFDIR/passwd" airootfs/etc/passwd
 cp "$CONFDIR/shadow" airootfs/etc/shadow
 cp "$CONFDIR/gshadow" airootfs/etc/gshadow
+cp "$CONFDIR/group" airootfs/etc/group
+
+echo "[*] Creating home directory and .dmrc for main user..."
+mkdir -p airootfs/home/main
+chown -R 1000:998 airootfs/home/main
 
 echo "[*] Adding setup-locale script..."
 mkdir -p airootfs/root
