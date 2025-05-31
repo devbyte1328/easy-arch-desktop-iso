@@ -1,0 +1,1 @@
+sudo bash -c 'find work/ -type d -exec mountpoint -q {} \; -exec umount -l {} \;; rm -rfv work/'
