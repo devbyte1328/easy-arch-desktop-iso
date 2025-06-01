@@ -126,6 +126,8 @@ xl2tpd
 zsh
 bc
 curl
+git
+base-devel
 os-prober
 linux-headers
 networkmanager
