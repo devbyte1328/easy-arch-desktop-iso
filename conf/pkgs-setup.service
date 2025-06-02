@@ -1,11 +1,11 @@
 [Unit]
-Description=Initial UFW setup
+Description=Configure Packages
 After=network.target
-ConditionPathExists=/root/setup-ufw.sh
+ConditionPathExists=/root/setup-pkgs.sh
 
 [Service]
 Type=oneshot
-ExecStart=/root/setup-ufw.sh
+ExecStart=/root/setup-pkgs.sh
 RemainAfterExit=true
 
 [Install]

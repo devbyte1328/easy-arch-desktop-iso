@@ -27,6 +27,6 @@ file_permissions=(
   ["/usr/local/bin/livecd-sound"]="0:0:755"
   ["/root/setup-locale.sh"]="0:0:755"
   ["/etc/systemd/system/locale-setup.service"]="0:0:644"
-  ["/root/setup-ufw.sh"]="0:0:755"
-  ["/etc/systemd/system/ufw-setup.service"]="0:0:644"
+  ["/root/setup-pkgs.sh"]="0:0:755"
+  ["/etc/systemd/system/pkgs-setup.service"]="0:0:644"
 )
