@@ -1,5 +1,6 @@
 #!/bin/bash
-set -euo pipefail
+
+set -o pipefail
 
 WORKDIR="$(pwd)"
 CONFDIR="$WORKDIR/conf"
@@ -20,7 +21,7 @@ echo "[*] Running setup-yay script (handles build and copy)..."
 bash "$CONFDIR/setup-yay.sh" "$WORKDIR" "$SUDO_USER"
 
 echo "[*] Running setup-aur-packages.sh (download and build packages)..."
-bash "$CONFDIR/setup-aur-packages.sh" "$WORKDIR"
+bash "$CONFDIR/setup-aur-packages.sh" "$WORKDIR" "$SUDO_USER"
 
 echo "[*] Setting up users..."
 mkdir -p airootfs/etc

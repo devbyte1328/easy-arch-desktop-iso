@@ -1,5 +1,4 @@
 #!/bin/bash
-set -euo pipefail
 
 WORKDIR="$1"
 BUILD_USER="$2"
