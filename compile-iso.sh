@@ -14,6 +14,11 @@ sudo pacman -Sy --noconfirm --needed archiso git base-devel
 echo "[*] Copying releng base into working directory..."
 cp -r /usr/share/archiso/configs/releng/* "$WORKDIR"
 
+echo "[*] Adding custom bootloader entries and config files..."
+cp "$CONFDIR/01-archiso-x86_64-linux.conf" "$WORKDIR/efiboot/loader/entries/"
+cp "$CONFDIR/02-archiso-x86_64-speech-linux.conf" "$WORKDIR/efiboot/loader/entries/"
+cp "$CONFDIR/archiso_sys-linux.cfg" "$WORKDIR/syslinux/"
+
 echo "[*] Copying custom package list..."
 cp "$CONFDIR/packages.x86_64" "$WORKDIR/packages.x86_64"
 
