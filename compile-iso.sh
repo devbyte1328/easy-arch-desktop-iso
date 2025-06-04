@@ -25,6 +25,9 @@ cp "$CONFDIR/packages.x86_64" "$WORKDIR/packages.x86_64"
 echo "[*] Running setup-yay script (handles build and copy)..."
 bash "$CONFDIR/setup-yay.sh" "$WORKDIR" "$SUDO_USER"
 
+echo "[*] Running setup-aur-packages.sh (download and build packages)..."
+bash "$CONFDIR/setup-aur-packages.sh" "$WORKDIR" "$SUDO_USER"
+
 echo "[*] Setting up users..."
 mkdir -p airootfs/etc
 cp "$CONFDIR/passwd" airootfs/etc/passwd
@@ -81,5 +84,5 @@ rm -rf "$WORKDIR/temp_yay_build" "$WORKDIR/yay-bin" "$WORKDIR/temp_aur_pkg_build
 echo "[*] Building ISO..."
 sudo mkarchiso -v "$WORKDIR"
 
-echo "[✓] ISO built successfully in ./out/"
+echo "[✓] ISO built successfully in out/"
 
