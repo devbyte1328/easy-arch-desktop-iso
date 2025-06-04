@@ -25,9 +25,6 @@ cp "$CONFDIR/packages.x86_64" "$WORKDIR/packages.x86_64"
 echo "[*] Running setup-yay script (handles build and copy)..."
 bash "$CONFDIR/setup-yay.sh" "$WORKDIR" "$SUDO_USER"
 
-echo "[*] Running setup-aur-packages.sh (download and build packages)..."
-bash "$CONFDIR/setup-aur-packages.sh" "$WORKDIR" "$SUDO_USER"
-
 echo "[*] Setting up users..."
 mkdir -p airootfs/etc
 cp "$CONFDIR/passwd" airootfs/etc/passwd
@@ -38,9 +35,6 @@ cp "$CONFDIR/group" airootfs/etc/group
 echo "[*] Creating home directory and .dmrc for main user..."
 mkdir -p airootfs/home/main
 chown -R 1000:998 airootfs/home/main
-
-echo "[*] Fixing .bashrc to work with packages..."
-cp "$CONFDIR/bashrc" airootfs/home/main/.bashrc
 
 echo "[*] Adding setup-locale script..."
 mkdir -p airootfs/root
