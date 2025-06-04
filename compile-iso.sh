@@ -39,6 +39,9 @@ echo "[*] Creating home directory and .dmrc for main user..."
 mkdir -p airootfs/home/main
 chown -R 1000:998 airootfs/home/main
 
+echo "[*] Fixing .bashrc to work with packages..."
+cp "$CONFDIR/bashrc" airootfs/home/main/.bashrc
+
 echo "[*] Adding setup-locale script..."
 mkdir -p airootfs/root
 cp "$CONFDIR/setup-locale.sh" airootfs/root/setup-locale.sh
