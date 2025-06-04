@@ -227,3 +227,9 @@ xf86-video-vmware
 xf86-video-voodoo
 firefox
 kclock
+dotnet-sdk
+dotnet-runtime
+dotnet-host
+libadwaita
+hicolor-icon-theme
+webp-pixbuf-loader
