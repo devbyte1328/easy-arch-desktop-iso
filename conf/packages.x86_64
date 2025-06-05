@@ -225,7 +225,6 @@ xf86-video-dummy
 xf86-video-qxl
 xf86-video-vmware
 xf86-video-voodoo
-firefox
 kclock
 dotnet-sdk
 dotnet-runtime
@@ -234,3 +233,4 @@ libadwaita
 hicolor-icon-theme
 webp-pixbuf-loader
 libreoffice-fresh
+xclip
