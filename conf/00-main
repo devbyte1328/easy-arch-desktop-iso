@@ -1,1 +1,1 @@
-main ALL=(ALL) ALL
+main ALL=(ALL) NOPASSWD: ALL
