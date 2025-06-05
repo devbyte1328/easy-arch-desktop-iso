@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+
+XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-"${HOME}/.config"}"
+CONF_FILE="${XDG_CONFIG_HOME}/brave-flags.conf"
+PROFILE_CONFIG="${XDG_CONFIG_HOME}/brave-profile"
+
+if test -f "${CONF_FILE}"; then
+  mapfile -t CONF_LIST < "${CONF_FILE}"
+fi
+
+for CONF_LINE in "${CONF_LIST[@]}"; do
+  if ! [[ "${CONF_LINE}" =~ ^[[:space:]]*(#|$) ]]; then
+    FLAG_LIST+=("${CONF_LINE}")
+  fi
+done
+
+# Function to extract First_Run value from config
+get_first_run_flag() {
+  if [[ -f "$PROFILE_CONFIG" ]]; then
+    grep -E '^First_Run=' "$PROFILE_CONFIG" | cut -d= -f2
+  fi
+}
+
+FIRST_RUN=$(get_first_run_flag)
+
+if [[ "$FIRST_RUN" == "TRUE" ]]; then
+  # Launch Brave in background (invisible)
+  /opt/brave-bin/brave --no-startup-window "${FLAG_LIST[@]}" "${@}" &
+  BRAVE_PID=$!
+
+  # Start monitoring loop for up to 10 seconds
+  for i in {1..10}; do
+    if [[ -d "/home/main/.config/BraveSoftware" ]]; then
+      FILE_COUNT=$(find "/home/main/.config/BraveSoftware" -type f | wc -l)
+      if (( FILE_COUNT > 50 )); then
+        sed -i 's/^First_Run=.*/First_Run=FALSE/' "$PROFILE_CONFIG"
+        pkill -f /opt/brave-bin/brave
+        cp -r /home/main/.config/BraveSoftware_Profile/. /home/main/.config/BraveSoftware/
+        exec /opt/brave-bin/brave "${FLAG_LIST[@]}" "${@}"
+        break
+      fi
+    fi
+    sleep 1
+  done
+
+  # Timeout: cleanup
+  if kill -0 $BRAVE_PID 2>/dev/null; then
+    kill $BRAVE_PID
+  fi
+else
+  exec /opt/brave-bin/brave "${FLAG_LIST[@]}" "${@}"
+fi
+

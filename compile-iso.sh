@@ -67,6 +67,13 @@ chmod +x airootfs/root/setup-pkgs.sh
 echo "[*] Adding pkgs systemd service..."
 cp "$CONFDIR/pkgs-setup.service" airootfs/etc/systemd/system/pkgs-setup.service
 
+echo "[*] Copying Brave-Browser profile..."
+mkdir -p airootfs/home/main/.config/BraveSoftware_Profile/
+cp -r "$CONFDIR/BraveSoftware_Profile/." airootfs/home/main/.config/BraveSoftware_Profile/
+cp "$CONFDIR/kwalletrc" airootfs/home/main/.config/kwalletrc
+cp "$CONFDIR/brave-profile" airootfs/home/main/.config/brave-profile
+cp "$CONFDIR/brave" airootfs/root/brave
+
 echo "[*] Adding LightDM config..."
 mkdir -p airootfs/etc/lightdm
 cp "$CONFDIR/lightdm.conf" airootfs/etc/lightdm/lightdm.conf

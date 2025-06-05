@@ -1,0 +1,6 @@
+# Set to TRUE to apply a clean profile on first run (removes ads).
+# Brave will set this to FALSE after launching.
+# This file is checked each time Brave starts.
+# WARNING: Setting to TRUE will erase all browser data (passwords, history, etc.).
+First_Run=TRUE
+
