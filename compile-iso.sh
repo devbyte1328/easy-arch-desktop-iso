@@ -47,7 +47,7 @@ cp "$CONFDIR/system/shadow" airootfs/etc/shadow
 cp "$CONFDIR/system/gshadow" airootfs/etc/gshadow
 cp "$CONFDIR/system/group" airootfs/etc/group
 
-echo "[*] Creating home directory and .dmrc for main user..."
+echo "[*] Creating home directory and configuring permissions to allow LightDM autologin..."
 mkdir -p airootfs/home/main
 chown -R 1000:998 airootfs/home/main
 
@@ -59,6 +59,15 @@ chmod +x airootfs/root/setup-locale.sh
 echo "[*] Adding locale systemd service..."
 mkdir -p airootfs/etc/systemd/system
 cp "$CONFDIR/system/locale-setup.service" airootfs/etc/systemd/system/locale-setup.service
+
+echo "[*] Apply KDE minimal theme..."
+mkdir -p airootfs/home/main/.config/menus
+cp "$CONFDIR/kde/Footer.qml" airootfs/root/Footer.qml
+cp "$CONFDIR/kde/main.qml" airootfs/root/main.qml
+cp "$CONFDIR/kde/plasmashellrc" airootfs/home/main/.config/plasmashellrc
+cp "$CONFDIR/kde/kwinrc" airootfs/home/main/.config/kwinrc
+cp "$CONFDIR/kde/plasma-org.kde.plasma.desktop-appletsrc" airootfs/home/main/.config/plasma-org.kde.plasma.desktop-appletsrc
+cp "$CONFDIR/kde/applications-kmenuedit.menu" airootfs/home/main/.config/menus/applications-kmenuedit.menu
 
 echo "[*] Configure pacman..."
 cp "$CONFDIR/system/pacman.conf" airootfs/etc/pacman.conf

@@ -7,6 +7,9 @@
  </Include>
  <!-- Explicitly flatten everything -->
  <Exclude>
+  <Filename>lftp.desktop</Filename>
+  <Filename>stoken-gui.desktop</Filename>
+  <Filename>stoken-gui-small.desktop</Filename>
   <Filename>org.kde.kmenuedit.desktop</Filename>
   <Filename>bssh.desktop</Filename>
   <Filename>nm-connection-editor.desktop</Filename>
@@ -27,6 +30,9 @@
  <Menu>
   <Name>.hidden</Name>
   <Include>
+   <Filename>lftp.desktop</Filename>
+   <Filename>stoken-gui.desktop</Filename>
+   <Filename>stoken-gui-small.desktop</Filename>
    <Filename>org.kde.kmenuedit.desktop</Filename>
    <Filename>bssh.desktop</Filename>
    <Filename>nm-connection-editor.desktop</Filename>
