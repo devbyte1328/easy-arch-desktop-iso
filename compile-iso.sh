@@ -60,6 +60,9 @@ echo "[*] Adding locale systemd service..."
 mkdir -p airootfs/etc/systemd/system
 cp "$CONFDIR/locale-setup.service" airootfs/etc/systemd/system/locale-setup.service
 
+echo "[*] Configure pacman..."
+cp "$CONFDIR/pacman.conf" airootfs/etc/pacman.conf
+
 echo "[*] Adding setup-pkgs script..."
 cp "$CONFDIR/setup-pkgs.sh" airootfs/root/setup-pkgs.sh
 chmod +x airootfs/root/setup-pkgs.sh
