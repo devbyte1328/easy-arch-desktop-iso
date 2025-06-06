@@ -5,7 +5,7 @@ set -o pipefail
 WORKDIR="$(pwd)"
 CONFDIR="$WORKDIR/conf"
 
-echo "[*] Cleaning up old build directories..."
+echo "[*] Cleaning up previous build directories..."
 # Define airootfs path
 AIROOTFS="$WORKDIR/work/x86_64/airootfs"
 # Unmount any virtual filesystems if mounted
@@ -18,7 +18,7 @@ done
 # Ensure recursive unmount in case of nested mounts
 sudo umount -R "$AIROOTFS" 2>/dev/null || true
 # Now safely remove build directories
-rm -rfv "$WORKDIR/out" "$WORKDIR/work" "$WORKDIR/.temp"
+rm -rfv "$WORKDIR/out" "$WORKDIR/work" "$WORKDIR/.temp" "$WORKDIR/airootfs" "$WORKDIR/efiboot" "$WORKDIR/grub" "$WORKDIR/syslinux" "$WORKDIR/bootstrap_packages.x86_64" "$WORKDIR/packages.x86_64" "$WORKDIR/pacman.conf" "$WORKDIR/profiledef.sh"  
 
 echo "[*] Installing archiso and git if needed..."
 sudo pacman -Sy --noconfirm --needed archiso git base-devel
@@ -100,7 +100,7 @@ chmod 440 airootfs/etc/sudoers.d/00-main
 echo "[*] Copying profile definition..."
 cp "$CONFDIR/system/profiledef.sh" "$WORKDIR/profiledef.sh"
 
-echo "[*] Cleaning up old build directories..."
+echo "[*] Cleaning up temp directory..."
 rm -rfv "$WORKDIR/.temp"
 
 echo "[*] Building ISO..."
