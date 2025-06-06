@@ -12,6 +12,11 @@ furnished to do so, subject to the following conditions:
 The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
 
+EXCEPTION:  
+All files located under the folder path `/conf/brave/` are **not** licensed under the MIT License.  
+These files are subject to the **Mozilla Public License 2.0 (MPL 2.0)**, as they are derived in full or in part from the [Brave Browser project](https://github.com/brave/brave-browser), which is licensed under the MPL 2.0.  
+Please refer to the MPL 2.0 license terms for usage, modification, and distribution of those files.
+
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -19,3 +24,4 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
