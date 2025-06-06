@@ -3,7 +3,7 @@
 
 iso_name="easy_archlinux"
 iso_label="EASY_ARCH_$(date --date="@${SOURCE_DATE_EPOCH:-$(date +%s)}" +%Y%m)"
-iso_publisher="devbyte1328 <https://github.com/devbyte1328/arch-setup>"
+iso_publisher="devbyte1328 <https://github.com/devbyte1328/easy-arch-desktop-iso>"
 iso_application="Easy Arch Installer/Arch Linux Live/Rescue DVD"
 iso_version="$(date --date="@${SOURCE_DATE_EPOCH:-$(date +%s)}" +%Y.%m.%d)"
 install_dir="arch"
