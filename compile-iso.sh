@@ -32,7 +32,7 @@ cp "$CONFDIR/system/02-archiso-x86_64-speech-linux.conf" "$WORKDIR/efiboot/loade
 cp "$CONFDIR/system/archiso_sys-linux.cfg" "$WORKDIR/syslinux/"
 
 echo "[*] Copying custom package list..."
-cp "$CONFDIR/system/packages.x86_64" "$WORKDIR/packages.x86_64"
+cp "$CONFDIR/packages.x86_64" "$WORKDIR/packages.x86_64"
 
 echo "[*] Running setup-yay script (handles build and copy)..."
 bash "$CONFDIR/system/setup-yay.sh" "$WORKDIR" "$SUDO_USER"
@@ -64,7 +64,7 @@ echo "[*] Configure pacman..."
 cp "$CONFDIR/system/pacman.conf" airootfs/etc/pacman.conf
 
 echo "[*] Adding setup-pkgs script..."
-cp "$CONFDIR/system/setup-pkgs.sh" airootfs/root/setup-pkgs.sh
+cp "$CONFDIR/setup-pkgs.sh" airootfs/root/setup-pkgs.sh
 chmod +x airootfs/root/setup-pkgs.sh
 
 echo "[*] Adding pkgs systemd service..."
