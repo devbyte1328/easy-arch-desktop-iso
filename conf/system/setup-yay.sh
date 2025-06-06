@@ -2,7 +2,7 @@
 
 WORKDIR="$1"
 BUILD_USER="$2"
-YAY_BUILD_DIR="$WORKDIR/temp_yay_build"
+YAY_BUILD_DIR="$WORKDIR/.temp/yay_build"
 
 echo "[*] Downloading yay from AUR..."
 git clone https://aur.archlinux.org/yay.git "$YAY_BUILD_DIR"

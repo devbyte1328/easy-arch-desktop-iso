@@ -18,7 +18,7 @@ done
 # Ensure recursive unmount in case of nested mounts
 sudo umount -R "$AIROOTFS" 2>/dev/null || true
 # Now safely remove build directories
-rm -rf "$WORKDIR/out" "$WORKDIR/work" "$WORKDIR/temp_yay_build" "$WORKDIR/yay-bin" "$WORKDIR/temp_aur_pkg_builds"
+rm -rfv "$WORKDIR/out" "$WORKDIR/work" "$WORKDIR/.temp"
 
 echo "[*] Installing archiso and git if needed..."
 sudo pacman -Sy --noconfirm --needed archiso git base-devel
@@ -27,25 +27,25 @@ echo "[*] Copying releng base into working directory..."
 cp -r /usr/share/archiso/configs/releng/* "$WORKDIR"
 
 echo "[*] Adding custom bootloader entries and config files..."
-cp "$CONFDIR/01-archiso-x86_64-linux.conf" "$WORKDIR/efiboot/loader/entries/"
-cp "$CONFDIR/02-archiso-x86_64-speech-linux.conf" "$WORKDIR/efiboot/loader/entries/"
-cp "$CONFDIR/archiso_sys-linux.cfg" "$WORKDIR/syslinux/"
+cp "$CONFDIR/system/01-archiso-x86_64-linux.conf" "$WORKDIR/efiboot/loader/entries/"
+cp "$CONFDIR/system/02-archiso-x86_64-speech-linux.conf" "$WORKDIR/efiboot/loader/entries/"
+cp "$CONFDIR/system/archiso_sys-linux.cfg" "$WORKDIR/syslinux/"
 
 echo "[*] Copying custom package list..."
-cp "$CONFDIR/packages.x86_64" "$WORKDIR/packages.x86_64"
+cp "$CONFDIR/system/packages.x86_64" "$WORKDIR/packages.x86_64"
 
 echo "[*] Running setup-yay script (handles build and copy)..."
-bash "$CONFDIR/setup-yay.sh" "$WORKDIR" "$SUDO_USER"
+bash "$CONFDIR/system/setup-yay.sh" "$WORKDIR" "$SUDO_USER"
 
 echo "[*] Running setup-aur-packages.sh (download and build packages)..."
-bash "$CONFDIR/setup-aur-packages.sh" "$WORKDIR" "$SUDO_USER"
+bash "$CONFDIR/system/setup-aur-packages.sh" "$WORKDIR" "$SUDO_USER"
 
 echo "[*] Setting up users..."
 mkdir -p airootfs/etc
-cp "$CONFDIR/passwd" airootfs/etc/passwd
-cp "$CONFDIR/shadow" airootfs/etc/shadow
-cp "$CONFDIR/gshadow" airootfs/etc/gshadow
-cp "$CONFDIR/group" airootfs/etc/group
+cp "$CONFDIR/system/passwd" airootfs/etc/passwd
+cp "$CONFDIR/system/shadow" airootfs/etc/shadow
+cp "$CONFDIR/system/gshadow" airootfs/etc/gshadow
+cp "$CONFDIR/system/group" airootfs/etc/group
 
 echo "[*] Creating home directory and .dmrc for main user..."
 mkdir -p airootfs/home/main
@@ -53,33 +53,33 @@ chown -R 1000:998 airootfs/home/main
 
 echo "[*] Adding setup-locale script..."
 mkdir -p airootfs/root
-cp "$CONFDIR/setup-locale.sh" airootfs/root/setup-locale.sh
+cp "$CONFDIR/system/setup-locale.sh" airootfs/root/setup-locale.sh
 chmod +x airootfs/root/setup-locale.sh
 
 echo "[*] Adding locale systemd service..."
 mkdir -p airootfs/etc/systemd/system
-cp "$CONFDIR/locale-setup.service" airootfs/etc/systemd/system/locale-setup.service
+cp "$CONFDIR/system/locale-setup.service" airootfs/etc/systemd/system/locale-setup.service
 
 echo "[*] Configure pacman..."
-cp "$CONFDIR/pacman.conf" airootfs/etc/pacman.conf
+cp "$CONFDIR/system/pacman.conf" airootfs/etc/pacman.conf
 
 echo "[*] Adding setup-pkgs script..."
-cp "$CONFDIR/setup-pkgs.sh" airootfs/root/setup-pkgs.sh
+cp "$CONFDIR/system/setup-pkgs.sh" airootfs/root/setup-pkgs.sh
 chmod +x airootfs/root/setup-pkgs.sh
 
 echo "[*] Adding pkgs systemd service..."
-cp "$CONFDIR/pkgs-setup.service" airootfs/etc/systemd/system/pkgs-setup.service
+cp "$CONFDIR/system/pkgs-setup.service" airootfs/etc/systemd/system/pkgs-setup.service
 
 echo "[*] Copying Brave-Browser profile..."
 mkdir -p airootfs/home/main/.config/BraveSoftware_Profile/
-cp -r "$CONFDIR/BraveSoftware_Profile/." airootfs/home/main/.config/BraveSoftware_Profile/
-cp "$CONFDIR/kwalletrc" airootfs/home/main/.config/kwalletrc
-cp "$CONFDIR/brave-profile" airootfs/home/main/.config/brave-profile
-cp "$CONFDIR/brave" airootfs/root/brave
+cp -r "$CONFDIR/brave/BraveSoftware_Profile/." airootfs/home/main/.config/BraveSoftware_Profile/
+cp "$CONFDIR/brave/kwalletrc" airootfs/home/main/.config/kwalletrc
+cp "$CONFDIR/brave/brave-profile" airootfs/home/main/.config/brave-profile
+cp "$CONFDIR/brave/brave" airootfs/root/brave
 
 echo "[*] Adding LightDM config..."
 mkdir -p airootfs/etc/lightdm
-cp "$CONFDIR/lightdm.conf" airootfs/etc/lightdm/lightdm.conf
+cp "$CONFDIR/system/lightdm.conf" airootfs/etc/lightdm/lightdm.conf
 
 echo "[*] Linking systemd services..."
 mkdir -p airootfs/etc/systemd/system/{multi-user.target.wants,graphical.target.wants}
@@ -92,19 +92,18 @@ ln -sf /etc/systemd/system/pkgs-setup.service airootfs/etc/systemd/system/multi-
 
 echo "[*] Setting up sudoers..."
 mkdir -p airootfs/etc/sudoers.d
-cp "$CONFDIR/00-rootpw" airootfs/etc/sudoers.d/00-rootpw
-cp "$CONFDIR/00-main" airootfs/etc/sudoers.d/00-main
+cp "$CONFDIR/system/00-rootpw" airootfs/etc/sudoers.d/00-rootpw
+cp "$CONFDIR/system/00-main" airootfs/etc/sudoers.d/00-main
 chmod 440 airootfs/etc/sudoers.d/00-rootpw
 chmod 440 airootfs/etc/sudoers.d/00-main
 
 echo "[*] Copying profile definition..."
-cp "$CONFDIR/profiledef.sh" "$WORKDIR/profiledef.sh"
+cp "$CONFDIR/system/profiledef.sh" "$WORKDIR/profiledef.sh"
 
 echo "[*] Cleaning up old build directories..."
-rm -rf "$WORKDIR/temp_yay_build" "$WORKDIR/yay-bin" "$WORKDIR/temp_aur_pkg_builds"
+rm -rfv "$WORKDIR/.temp"
 
 echo "[*] Building ISO..."
 sudo mkarchiso -v "$WORKDIR"
-
 echo "[✓] ISO built successfully in out/"
 
