@@ -68,6 +68,7 @@ cp "$CONFDIR/kde/plasmashellrc" airootfs/home/main/.config/plasmashellrc
 cp "$CONFDIR/kde/kwinrc" airootfs/home/main/.config/kwinrc
 cp "$CONFDIR/kde/plasma-org.kde.plasma.desktop-appletsrc" airootfs/home/main/.config/plasma-org.kde.plasma.desktop-appletsrc
 cp "$CONFDIR/kde/applications-kmenuedit.menu" airootfs/home/main/.config/menus/applications-kmenuedit.menu
+cp "$CONFDIR/kde/kdeglobals" airootfs/home/main/.config/kdeglobals
 
 echo "[*] Configure pacman..."
 cp "$CONFDIR/system/pacman.conf" airootfs/etc/pacman.conf
