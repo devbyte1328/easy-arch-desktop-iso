@@ -51,6 +51,16 @@ echo "[*] Creating home directory and configuring permissions to allow LightDM a
 mkdir -p airootfs/home/main
 chown -R 1000:998 airootfs/home/main
 
+echo "[*] Copying custom script to Desktop..."
+cp "$CONFDIR/system/your_script.sh" airootfs/home/main/Desktop/your_script.sh
+chmod +x airootfs/home/main/Desktop/your_script.sh
+
+echo "[*] Setting up Easy Arch ISO Installer script that runs on startup..."]
+mkdir -p airootfs/home/main/.config/autostart
+mkdir -p airootfs/home/main/Desktop
+cp "$CONFDIR/install/easy-arch-iso-install.desktop" airootfs/home/main/.config/autostart/easy-arch-iso-install.desktop
+cp "$CONFDIR/install/easy-arch-iso-installer.sh" airootfs/home/main/Desktop/easy-arch-iso-installer.sh
+
 echo "[*] Adding setup-locale script..."
 mkdir -p airootfs/root
 cp "$CONFDIR/system/setup-locale.sh" airootfs/root/setup-locale.sh
