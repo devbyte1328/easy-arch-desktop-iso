@@ -51,15 +51,12 @@ echo "[*] Creating home directory and configuring permissions to allow LightDM a
 mkdir -p airootfs/home/main
 chown -R 1000:998 airootfs/home/main
 
-echo "[*] Copying custom script to Desktop..."
-cp "$CONFDIR/system/your_script.sh" airootfs/home/main/Desktop/your_script.sh
-chmod +x airootfs/home/main/Desktop/your_script.sh
-
 echo "[*] Setting up Easy Arch ISO Installer script that runs on startup..."]
 mkdir -p airootfs/home/main/.config/autostart
 mkdir -p airootfs/home/main/Desktop
-cp "$CONFDIR/install/easy-arch-iso-install.desktop" airootfs/home/main/.config/autostart/easy-arch-iso-install.desktop
 cp "$CONFDIR/install/easy-arch-iso-installer.sh" airootfs/home/main/Desktop/easy-arch-iso-installer.sh
+### Temporarily commented out
+#cp "$CONFDIR/install/easy-arch-iso-install.desktop" airootfs/home/main/.config/autostart/easy-arch-iso-install.desktop
 
 echo "[*] Adding setup-locale script..."
 mkdir -p airootfs/root
@@ -121,6 +118,9 @@ chmod 440 airootfs/etc/sudoers.d/00-main
 
 echo "[*] Copying profile definition..."
 cp "$CONFDIR/system/profiledef.sh" "$WORKDIR/profiledef.sh"
+
+echo "[*] Downloading and caching packages for harddrive installation..."
+bash "$CONFDIR/install/setup-base-pkgs-cache.sh"
 
 echo "[*] Cleaning up temp directory..."
 rm -rfv "$WORKDIR/.temp"
