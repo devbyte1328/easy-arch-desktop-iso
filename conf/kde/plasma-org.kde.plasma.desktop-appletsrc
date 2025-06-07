@@ -17,6 +17,10 @@ wallpaperplugin=org.kde.image
 immutability=1
 plugin=org.kde.plasma.digitalclock
 
+[Containments][2][Applets][20][Configuration]
+popupHeight=400
+popupWidth=560
+
 [Containments][2][Applets][20][Configuration][Appearance]
 fontWeight=400
 
@@ -62,10 +66,10 @@ SystrayContainmentId=8
 [Containments][2][General]
 AppletOrder=3;4;5;6;7;20;21
 
-[Containments][22]
-ItemGeometries-1280x800=
+[Containments][23]
+ItemGeometries-800x600=
 ItemGeometriesHorizontal=
-activityId=16c519aa-e9e6-4c40-9fb6-fb45a6e3b493
+activityId=5d72faff-383a-4055-bc2d-943d2a491f55
 formfactor=0
 immutability=1
 lastScreen=0
@@ -73,8 +77,17 @@ location=0
 plugin=org.kde.plasma.folder
 wallpaperplugin=org.kde.image
 
-[Containments][22][General]
-positions={"1280x800":[]}
+[Containments][23][ConfigDialog]
+DialogHeight=527
+DialogWidth=720
+
+[Containments][23][General]
+positions={"800x600":[]}
+
+[Containments][23][Wallpaper][org.kde.image][General]
+Image=/usr/share/wallpapers/MinimalBlack/
+PreviewImage=/usr/share/wallpapers/MinimalBlack/
+SlidePaths=/usr/share/wallpapers/
 
 [Containments][8]
 activityId=

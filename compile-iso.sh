@@ -62,6 +62,7 @@ cp "$CONFDIR/system/locale-setup.service" airootfs/etc/systemd/system/locale-set
 
 echo "[*] Apply KDE minimal theme..."
 mkdir -p airootfs/home/main/.config/menus
+mkdir -p airootfs/root/Next
 cp "$CONFDIR/kde/Footer.qml" airootfs/root/Footer.qml
 cp "$CONFDIR/kde/main.qml" airootfs/root/main.qml
 cp "$CONFDIR/kde/plasmashellrc" airootfs/home/main/.config/plasmashellrc
@@ -69,6 +70,7 @@ cp "$CONFDIR/kde/kwinrc" airootfs/home/main/.config/kwinrc
 cp "$CONFDIR/kde/plasma-org.kde.plasma.desktop-appletsrc" airootfs/home/main/.config/plasma-org.kde.plasma.desktop-appletsrc
 cp "$CONFDIR/kde/applications-kmenuedit.menu" airootfs/home/main/.config/menus/applications-kmenuedit.menu
 cp "$CONFDIR/kde/kdeglobals" airootfs/home/main/.config/kdeglobals
+cp -r "$CONFDIR/kde/Next/." airootfs/root/Next/
 
 echo "[*] Configure pacman..."
 cp "$CONFDIR/system/pacman.conf" airootfs/etc/pacman.conf

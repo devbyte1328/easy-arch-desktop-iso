@@ -17,3 +17,4 @@ echo "[*] Apply KDE minimal theme..."
 sudo mkdir -p /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/
 sudo cp /root/Footer.qml /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/Footer.qml
 sudo cp /root/main.qml /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/main.qml
+sudo cp -r /root/Next/. /usr/share/wallpapers/Next/
