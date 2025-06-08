@@ -1,6 +1,6 @@
 [Desktop Entry]
 Type=Application
-Exec=konsole -e bash -c "/home/main/Desktop/easy-arch-iso-installer.sh; exec bash"
+Exec=konsole -e bash -c "sudo /home/main/Desktop/easy-arch-iso-installer.sh; exec bash"
 Hidden=false
 NoDisplay=false
 Name=Run Script

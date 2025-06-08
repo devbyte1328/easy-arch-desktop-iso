@@ -5,11 +5,12 @@ LIGHT_BLUE='\033[1;34m'
 RESET='\033[0m'
 
 echo -e "${LIGHT_BLUE}Welcome to Easy Arch Installation${RESET}"
+echo -e "${YELLOW}WARNING:${RESET} This will erase everything on the targeted disk${RESET}"
 echo "Select an installation option:"
-echo "1. Automatically detect and erase largest hard drive (excludes USB drives) and install Easy Arch"
-echo "2. Manually select hard drive to erase and install Easy Arch"
+echo "1. Automatically detect largest disk (excludes USB drives) and install Easy Arch"
+echo "2. Manually select disk to erase and install Easy Arch"
 read -p "Enter option (1 or 2): " choice
-
+	
 if [ "$choice" = "2" ]; then
     echo "Hello World!"
     exit 0
