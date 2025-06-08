@@ -2,10 +2,11 @@
 
 # ANSI color code for light blue (Arch Linux logo color)
 LIGHT_BLUE='\033[1;34m'
+RED='\033[1;31m'
 RESET='\033[0m'
 
 echo -e "${LIGHT_BLUE}Welcome to Easy Arch Installation${RESET}"
-echo -e "${YELLOW}WARNING:${RESET} This will erase everything on the targeted disk${RESET}"
+echo -e "${RED}WARNING:${RESET} This will erase everything on the targeted disk${RESET}"
 echo "Select an installation option:"
 echo "1. Automatically detect largest disk (excludes USB drives) and install Easy Arch"
 echo "2. Manually select disk to erase and install Easy Arch"
