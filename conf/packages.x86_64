@@ -223,7 +223,6 @@ xf86-video-vesa
 xf86-video-fbdev
 xf86-video-dummy
 xf86-video-qxl
-xf86-video-vmware
 xf86-video-voodoo
 kclock
 dotnet-sdk

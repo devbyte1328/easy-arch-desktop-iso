@@ -8,7 +8,7 @@ https://github.com/brave/brave-browser
 https://github.com/brave/brave-browser?tab=MPL-2.0-1-ov-file#readme
 https://www.mozilla.org/en-US/MPL/2.0/
 
-Additionally, any third-party packages that are downloaded and installed through the provided scripts are subject to their own licenses.  
+Additionally, any third-party packages that are downloaded and installed with the provided scripts are subject to their own licenses.  
 Users must comply with the license terms of those third-party packages independently of the MIT License below.
 
 ---
