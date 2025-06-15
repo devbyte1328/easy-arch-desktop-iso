@@ -1,9 +1,43 @@
 #!/bin/bash
 
-mkdir -p "airootfs/root/base-pkgs-cache"
-MIRROR="https://mirror.pkgbuild.com"
-PKGS=("base" "linux" "linux-firmware" "bc" "curl")
-for PKG in "${PKGS[@]}"; do
-    PKG_PATH=$(curl -s "$MIRROR/core/os/x86_64/" | grep -oP "${PKG}-[0-9][^ ]*?\.pkg\.tar\.zst" | head -1)
-    curl -L "$MIRROR/core/os/x86_64/$PKG_PATH" -o "airootfs/root/base-pkgs-cache/$PKG_PATH"
-done
+# Set temp location for pacman to safely write
+TMPROOT="/tmp/easyarch-tmp"
+TMPDB="$TMPROOT/db"
+TMPCACHE="$TMPROOT/cache"
+
+# Set final destination (relative to current dir)
+FINALDB="airootfs/root/easyarch-db"
+FINALCACHE="airootfs/root/easyarch-repo"
+
+# Create safe temp dirs
+mkdir -p "$TMPDB/sync"
+mkdir -p "$TMPCACHE"
+
+echo "Downloading and caching base packages using pacman..."
+# Sync packages into temp
+sudo pacman -Syyw \
+  --noconfirm \
+  --cachedir "$TMPCACHE" \
+  --dbpath "$TMPDB" \
+  base linux linux-firmware bc curl
+
+# Check if pacman succeeded
+if [ $? -ne 0 ]; then
+  echo "Pacman failed. Aborting."
+  exit 1
+fi
+
+# Create final destination dirs
+mkdir -p "$FINALDB"
+mkdir -p "$FINALCACHE"
+
+# Move downloaded data back to working directory
+cp -r "$TMPDB/"* "$FINALDB/"
+cp -r "$TMPCACHE/"* "$FINALCACHE/"
+
+# Cleanup
+echo "🧹 Cleaning up temporary files..."
+rm -rf "$TMPROOT"
+
+echo "Packages downloaded and moved to working directory successfully."
+

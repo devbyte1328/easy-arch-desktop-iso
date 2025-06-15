@@ -37,7 +37,7 @@ cp "$CONFDIR/packages.x86_64" "$WORKDIR/packages.x86_64"
 echo "[*] Running setup-yay script (handles build and copy)..."
 bash "$CONFDIR/system/setup-yay.sh" "$WORKDIR" "$SUDO_USER"
 
-echo "[*] Running setup-aur-packages.sh (download and build packages)..."
+echo "[*] Running setup-aur-packages.sh (download packages)..."
 bash "$CONFDIR/system/setup-aur-packages.sh" "$WORKDIR" "$SUDO_USER"
 
 echo "[*] Setting up users..."
@@ -50,13 +50,6 @@ cp "$CONFDIR/system/group" airootfs/etc/group
 echo "[*] Creating home directory and configuring permissions to allow LightDM autologin..."
 mkdir -p airootfs/home/main
 chown -R 1000:998 airootfs/home/main
-
-echo "[*] Setting up Easy Arch ISO Installer script that runs on startup..."]
-mkdir -p airootfs/home/main/.config/autostart
-mkdir -p airootfs/home/main/Desktop
-cp "$CONFDIR/install/easy-arch-iso-installer.sh" airootfs/home/main/Desktop/easy-arch-iso-installer.sh
-### Temporarily commented out
-#cp "$CONFDIR/install/easy-arch-iso-install.desktop" airootfs/home/main/.config/autostart/easy-arch-iso-install.desktop
 
 echo "[*] Adding setup-locale script..."
 mkdir -p airootfs/root
@@ -119,8 +112,19 @@ chmod 440 airootfs/etc/sudoers.d/00-main
 echo "[*] Copying profile definition..."
 cp "$CONFDIR/system/profiledef.sh" "$WORKDIR/profiledef.sh"
 
+echo "[*] Setting up Easy Arch ISO Installer script that runs on startup..."]
+mkdir -p airootfs/home/main/.config/autostart
+mkdir -p airootfs/home/main/Desktop
+cp "$CONFDIR/install/easy-arch-iso-installer.sh" airootfs/home/main/Desktop/easy-arch-iso-installer.sh
+### Temporarily commented out
+#cp "$CONFDIR/install/easy-arch-iso-install.desktop" airootfs/home/main/.config/autostart/easy-arch-iso-install.desktop
+
 echo "[*] Downloading and caching packages for harddrive installation..."
 bash "$CONFDIR/install/setup-base-pkgs-cache.sh"
+mkdir -p airootfs/root/pacman-base-conf
+mkdir -p airootfs/root/pacman-easyarch-conf
+cp "$CONFDIR/system/pacman.conf" airootfs/root/pacman-base-conf/pacman.conf
+cp "$CONFDIR/install/pacman.conf" airootfs/root/pacman-easyarch-conf/pacman.conf
 
 echo "[*] Cleaning up temp directory..."
 rm -rfv "$WORKDIR/.temp"

@@ -1,5 +1,9 @@
 #!/bin/bash
 
+set -o pipefail
+
+cd /
+
 # ANSI color code for light blue (Arch Linux logo color)
 LIGHT_BLUE='\033[1;34m'
 RED='\033[1;31m'
@@ -94,3 +98,14 @@ mkdir -p /mnt
 mount "$part2" /mnt
 mkdir -p /mnt/boot/EFI
 mount "$part1" /mnt/boot/EFI
+
+mkdir -p /mnt/easyarch-repo
+mkdir -p /tmp/easyarch-db
+cp -r /root/easyarch-repo/. /mnt/easyarch-repo/
+cp -r /root/easyarch-db/. /tmp/easyarch-db/
+cp /root/pacman-easyarch-conf/pacman.conf /etc/pacman.conf
+
+repo-add easyarch.db.tar.gz
+repo-add /mnt/easyarch-repo/easyarch.db.tar.gz /mnt/easyarch-repo/*.tar.zst
+
+pacstrap /mnt base linux linux-firmware bc curl
