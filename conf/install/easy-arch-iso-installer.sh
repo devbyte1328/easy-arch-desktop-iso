@@ -10,7 +10,7 @@ RED='\033[1;31m'
 RESET='\033[0m'
 
 echo -e "${LIGHT_BLUE}Welcome to Easy Arch Installation${RESET}"
-echo -e "${RED}WARNING:${RESET} This will erase everything on the targeted disk${RESET}"
+echo -e "${RED}WARNING:${RESET} This will erase everything on the targeted disk using wipefs -a, removing all filesystem, RAID, and partition-table signatures${RESET}"
 echo "Select an installation option:"
 echo "1. Automatically detect largest disk (excludes USB drives) and install Easy Arch"
 echo "2. Manually select disk to erase and install Easy Arch"
@@ -71,8 +71,8 @@ human_size=$(lsblk -d -o SIZE -n "$largest_disk")
 
 echo "Largest disk detected: $largest_disk ($human_size)"
 
-echo "Erasing $largest_disk with full wipe (this may take a while)..."
-dd if=/dev/zero of="$largest_disk" bs=4M status=progress || true
+echo "Erasing $largest_disk with 'wipefs -a'..."
+wipefs -a "$largest_disk"
 
 # Partition the detected disk
 echo "Partitioning $largest_disk..."
