@@ -109,3 +109,10 @@ repo-add easyarch.db.tar.gz
 repo-add /mnt/easyarch-repo/easyarch.db.tar.gz /mnt/easyarch-repo/*.tar.zst
 
 pacstrap /mnt base linux linux-firmware bc curl
+
+genfstab -U /mnt >> /mnt/etc/fstab
+
+cp /root/chroot-setup.sh /mnt/chroot-setup.sh
+chmod +x /mnt/chroot-setup.sh
+arch-chroot /mnt /bin/bash /chroot-setup.sh
+rm /mnt/chroot-setup.sh
