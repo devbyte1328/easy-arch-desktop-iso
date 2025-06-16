@@ -99,14 +99,14 @@ mount "$part2" /mnt
 mkdir -p /mnt/boot/EFI
 mount "$part1" /mnt/boot/EFI
 
-mkdir -p /mnt/easyarch-repo
-mkdir -p /tmp/easyarch-db
-cp -r /root/easyarch-repo/. /mnt/easyarch-repo/
-cp -r /root/easyarch-db/. /tmp/easyarch-db/
-cp /root/pacman-easyarch-conf/pacman.conf /etc/pacman.conf
+mkdir -p /mnt/pacstrap-easyarch-repo
+mkdir -p /tmp/pacstrap-easyarch-db
+cp -r /root/pacstrap-easyarch-repo/. /mnt/pacstrap-easyarch-repo/
+cp -r /root/pacstrap-easyarch-db/. /tmp/pacstrap-easyarch-db/
+cp /root/pacstrap-easyarch-conf/pacman.conf /etc/pacman.conf
 
-repo-add easyarch.db.tar.gz
-repo-add /mnt/easyarch-repo/easyarch.db.tar.gz /mnt/easyarch-repo/*.tar.zst
+repo-add pacstrap-easyarch.db.tar.gz
+repo-add /mnt/pacstrap-easyarch-repo/pacstrap-easyarch.db.tar.gz /mnt/pacstrap-easyarch-repo/*.tar.zst
 
 pacstrap /mnt base linux linux-firmware bc curl
 

@@ -6,8 +6,8 @@ TMPDB="$TMPROOT/db"
 TMPCACHE="$TMPROOT/cache"
 
 # Set final destination (relative to current dir)
-FINALDB="airootfs/root/easyarch-db"
-FINALCACHE="airootfs/root/easyarch-repo"
+FINALDB="airootfs/root/pacstrap-easyarch-db"
+FINALCACHE="airootfs/root/pacstrap-easyarch-repo"
 
 # Create safe temp dirs
 mkdir -p "$TMPDB/sync"

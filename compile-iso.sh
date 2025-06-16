@@ -123,12 +123,11 @@ echo "[*] Downloading and caching packages for harddrive installation..."
 bash "$CONFDIR/install/setup-base-pkgs-cache.sh"
 mkdir -p airootfs/root/pacman-base-conf
 mkdir -p airootfs/root/pacman-easyarch-conf
+mkdir -p airootfs/root/pacstrap-easyarch-conf
 cp "$CONFDIR/system/pacman.conf" airootfs/root/pacman-base-conf/pacman.conf
-cp "$CONFDIR/install/pacman.conf" airootfs/root/pacman-easyarch-conf/pacman.conf
+cp "$CONFDIR/install/pacstrap-easyarch-conf/pacman.conf" airootfs/root/pacstrap-easyarch-conf/pacman.conf
 cp "$CONFDIR/install/chroot-setup.sh" airootfs/root/chroot-setup.sh
 cp "$CONFDIR/install/language_mappings" airootfs/root/language_mappings
-
-
 
 echo "[*] Cleaning up temp directory..."
 rm -rfv "$WORKDIR/.temp"
