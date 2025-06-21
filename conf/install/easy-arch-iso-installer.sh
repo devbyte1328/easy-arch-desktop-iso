@@ -4,7 +4,7 @@ set -o pipefail
 
 cd /
 
-# ANSI color code for light blue (Arch Linux logo color)
+# ANSI color codes
 LIGHT_BLUE='\033[1;34m'
 RED='\033[1;31m'
 RESET='\033[0m'
@@ -15,13 +15,13 @@ echo "Select an installation option:"
 echo "1. Automatically detect largest disk (excludes USB drives) and install Easy Arch"
 echo "2. Manually select disk to erase and install Easy Arch"
 read -p "Enter option (1 or 2): " choice
-	
+
 if [ "$choice" = "2" ]; then
-    echo "Hello World!"
+    echo "Manual selection not implemented!"
     exit 0
 fi
 
-# Convert size strings to bytes for comparison
+# Convert size strings to bytes
 convert_to_bytes() {
     local size=$1
     local unit=${size: -1}
@@ -38,22 +38,18 @@ convert_to_bytes() {
 
 echo "Searching for largest storage device..."
 
-# Identify largest disk (excludes partitions, ROMs, and disks with mounted partitions)
+# Identify largest disk
 largest_size=0
 largest_disk=""
 
 while read -r disk hotplug size; do
-    # Skip loop devices and USB-connected drives
     if [[ "$hotplug" -eq 1 || "$disk" == loop* ]]; then
         continue
     fi
-
-    # Skip disks with mounted partitions
     if lsblk -d -o NAME,MOUNTPOINTS -n "/dev/$disk" | grep -q "[[:space:]]\+/"; then
         echo "Skipping $disk (contains mounted partitions)"
         continue
     fi
-
     size_bytes=$(convert_to_bytes "$size")
     if [ "$size_bytes" -gt "$largest_size" ]; then
         largest_size=$size_bytes
@@ -66,19 +62,15 @@ if [ -z "$largest_disk" ]; then
     exit 1
 fi
 
-# Convert largest_size to human-readable format for display
 human_size=$(lsblk -d -o SIZE -n "$largest_disk")
-
 echo "Largest disk detected: $largest_disk ($human_size)"
 
 echo "Erasing $largest_disk with 'wipefs -a'..."
 wipefs -a "$largest_disk"
 
-# Partition the detected disk
 echo "Partitioning $largest_disk..."
 echo -e "g\nn\n\n\n+1G\nn\n\n\n\nw" | fdisk "$largest_disk"
 
-# Determine partition names based on disk type (NVMe or SATA)
 if [[ $largest_disk =~ ^/dev/nvme ]]; then
     part1="${largest_disk}p1"
     part2="${largest_disk}p2"
@@ -87,33 +79,34 @@ else
     part2="${largest_disk}2"
 fi
 
-# Format partitions
 echo "Formatting partitions..."
 mkfs.fat -F32 "$part1"
 mkfs.ext4 "$part2"
 
-# Mount partitions
 echo "Mounting partitions..."
 mkdir -p /mnt
 mount "$part2" /mnt
 mkdir -p /mnt/boot/EFI
 mount "$part1" /mnt/boot/EFI
 
+echo "Setting up local repository..."
 mkdir -p /mnt/pacstrap-easyarch-repo
 mkdir -p /tmp/pacstrap-easyarch-db
 cp -r /root/pacstrap-easyarch-repo/. /mnt/pacstrap-easyarch-repo/
 cp -r /root/pacstrap-easyarch-db/. /tmp/pacstrap-easyarch-db/
 cp /root/pacstrap-easyarch-conf/pacman.conf /etc/pacman.conf
 
-repo-add pacstrap-easyarch.db.tar.gz
-repo-add /mnt/pacstrap-easyarch-repo/pacstrap-easyarch.db.tar.gz /mnt/pacstrap-easyarch-repo/*.tar.zst
-
+echo "Running pacstrap..."
 pacstrap /mnt base linux linux-firmware bc curl
 
+echo "Generating fstab..."
 genfstab -U /mnt >> /mnt/etc/fstab
 
+echo "Copying chroot setup..."
 cp /root/chroot-setup.sh /mnt/chroot-setup.sh
 cp /root/language_mappings /mnt/language_mappings
 chmod +x /mnt/chroot-setup.sh
+
+echo "Running chroot setup..."
 arch-chroot /mnt /bin/bash /chroot-setup.sh
 rm /mnt/chroot-setup.sh
