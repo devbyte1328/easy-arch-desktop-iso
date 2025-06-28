@@ -97,7 +97,7 @@ cp -r /root/pacstrap-easyarch-db/. /tmp/pacstrap-easyarch-db/
 cp /root/pacstrap-easyarch-conf/pacman.conf /etc/pacman.conf
 
 echo "Running pacstrap..."
-pacstrap /mnt base linux linux-firmware bc curl
+pacstrap /mnt $(tr '\n' ' ' < /root/packages.x86_64)
 
 echo "Generating fstab..."
 genfstab -U /mnt >> /mnt/etc/fstab

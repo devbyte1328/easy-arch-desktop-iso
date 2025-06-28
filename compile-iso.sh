@@ -116,9 +116,18 @@ cp $CONFDIR/install/easy-arch-iso-installer.sh airootfs/home/main/Desktop/easy-a
 #cp "$CONFDIR/install/easy-arch-iso-install.desktop" airootfs/home/main/.config/autostart/easy-arch-iso-install.desktop
 
 echo "[*] Downloading and caching packages for harddrive installation..."
-bash $CONFDIR/install/setup-pkgs-cache.sh
+if ! bash $CONFDIR/install/setup-pkgs-cache.sh; then
+    echo "[✗] Downloading packages failed for some reason..."
+    exit 1
+fi
+# Verify the directory exists and is not empty
+if [ ! -d "airootfs/root/pacstrap-easyarch-repo" ] || [ -z "$(ls -A airootfs/root/pacstrap-easyarch-repo)" ]; then
+    echo "[✗] Package cache directory does not exist or is empty."
+    exit 1
+fi
 mkdir -p airootfs/root/pacman-base-conf
 mkdir -p airootfs/root/pacstrap-easyarch-conf
+cp $CONFDIR/packages.x86_64 airootfs/root/packages.x86_64
 cp $CONFDIR/system/pacman.conf airootfs/root/pacman-base-conf/pacman.conf
 cp $CONFDIR/install/pacstrap-easyarch-conf/pacman.conf airootfs/root/pacstrap-easyarch-conf/pacman.conf
 cp $CONFDIR/install/chroot-setup.sh airootfs/root/chroot-setup.sh

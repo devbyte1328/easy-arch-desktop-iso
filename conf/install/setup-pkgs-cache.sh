@@ -24,12 +24,6 @@ sudo pacman -Syyw \
   --dbpath $TMPDB \
   $pkgs $deps
 
-# Check if pacman succeeded
-if [ $? -ne 0 ]; then
-  echo "Pacman failed. Aborting."
-  exit 1
-fi
-
 echo "[*] Creating local repository..."
 repo-add $MNTREPO/pacstrap-easyarch-repo.db.tar.gz $MNTREPO/*.tar.zst
 
