@@ -117,7 +117,7 @@ cp $CONFDIR/install/easy-arch-iso-installer.sh airootfs/home/main/Desktop/easy-a
 
 echo "[*] Downloading and caching packages for harddrive installation..."
 if ! bash $CONFDIR/install/setup-pkgs-cache.sh; then
-    echo "[✗] Downloading packages failed for some reason..."
+    echo "[✗] Downloading packages failed..."
     exit 1
 fi
 # Verify the directory exists and is not empty

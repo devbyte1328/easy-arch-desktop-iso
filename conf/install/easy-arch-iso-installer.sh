@@ -110,3 +110,5 @@ chmod +x /mnt/chroot-setup.sh
 echo "Running chroot setup..."
 arch-chroot /mnt /bin/bash /chroot-setup.sh
 rm /mnt/chroot-setup.sh
+
+umount -R /mnt

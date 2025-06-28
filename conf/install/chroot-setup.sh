@@ -39,3 +39,11 @@ echo "LANG=$PRIMARY_LANG" > /etc/locale.conf
 
 # Generate initramfs
 mkinitcpio -P
+
+grub-install --target=x86_64-efi --bootloader-id=grub_uefi --recheck
+
+grub-mkconfig -o /boot/grub/grub.cfg
+
+systemctl enable lightdm
+
+systemctl enable NetworkManager
