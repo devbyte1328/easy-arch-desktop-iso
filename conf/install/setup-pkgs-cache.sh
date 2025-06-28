@@ -14,8 +14,8 @@ mkdir -p $MNTREPO
 
 echo "[*] Downloading and caching base packages using pacman..."
 # Get list of all dependencies
-pkgs="base linux linux-firmware bc curl"
-deps=$(pacman -Sp $pkgs | grep -v "^file://" | sort -u)
+pkgs=$(tr '\n' ' ' < packages.x86_64)
+deps=$(pacman -Sp $pkgs | grep -v "^file://" | grep -E '^[a-zA-Z0-9]' | awk '{print $1}' | sort -u)
 
 # Download packages and dependencies
 sudo pacman -Syyw \

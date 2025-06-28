@@ -116,9 +116,8 @@ cp $CONFDIR/install/easy-arch-iso-installer.sh airootfs/home/main/Desktop/easy-a
 #cp "$CONFDIR/install/easy-arch-iso-install.desktop" airootfs/home/main/.config/autostart/easy-arch-iso-install.desktop
 
 echo "[*] Downloading and caching packages for harddrive installation..."
-bash $CONFDIR/install/setup-base-pkgs-cache.sh
+bash $CONFDIR/install/setup-pkgs-cache.sh
 mkdir -p airootfs/root/pacman-base-conf
-mkdir -p airootfs/root/pacman-easyarch-conf
 mkdir -p airootfs/root/pacstrap-easyarch-conf
 cp $CONFDIR/system/pacman.conf airootfs/root/pacman-base-conf/pacman.conf
 cp $CONFDIR/install/pacstrap-easyarch-conf/pacman.conf airootfs/root/pacstrap-easyarch-conf/pacman.conf
