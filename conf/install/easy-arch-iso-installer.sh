@@ -107,6 +107,24 @@ cp /root/chroot-setup.sh /mnt/chroot-setup.sh
 cp /root/language_mappings /mnt/language_mappings
 chmod +x /mnt/chroot-setup.sh
 
+echo "Setting up users and sudo config..."
+mkdir -p /mnt/etc
+mkdir -p /mnt/etc/sudoers.d
+cp /etc/passwd /mnt/etc/passwd
+cp /etc/shadow /mnt/etc/shadow
+cp /etc/gshadow /mnt/etc/gshadow
+cp /etc/group /mnt/etc/group
+cp /etc/sudoers.d/00-rootpw /mnt/etc/sudoers.d/00-rootpw
+cp /etc/sudoers.d/00-main /mnt/etc/sudoers.d/00-main
+chmod 440 /mnt/etc/sudoers.d/00-rootpw
+chmod 440 /mnt/etc/sudoers.d/00-main
+
+echo "[*] Adding LightDM config..."
+mkdir -p /mnt/home/main
+chown -R 1000:998 /mnt/home/main
+mkdir -p /mnt/etc/lightdm
+cp /etc/lightdm/lightdm.conf /mnt/etc/lightdm/lightdm.conf
+
 echo "Running chroot setup..."
 arch-chroot /mnt /bin/bash /chroot-setup.sh
 rm /mnt/chroot-setup.sh
