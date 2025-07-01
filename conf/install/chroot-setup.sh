@@ -9,6 +9,7 @@ else
   echo "Failed to detect timezone or invalid response, falling back to UTC"
   ln -sf /usr/share/zoneinfo/UTC /etc/localtime
 fi
+
 hwclock --systohc
 
 # Detect country and configure languages
@@ -41,9 +42,13 @@ echo "LANG=$PRIMARY_LANG" > /etc/locale.conf
 mkinitcpio -P
 
 grub-install --target=x86_64-efi --bootloader-id=grub_uefi --recheck
-
 grub-mkconfig -o /boot/grub/grub.cfg
 
 systemctl enable lightdm
-
 systemctl enable NetworkManager
+
+mkdir -p /home/main/.config
+chown 1000:998 /home/main/.config
+chmod 755 /home/main/.config/first-boot-setup.sh
+chmod 644 /etc/systemd/system/first-boot-setup.service
+systemctl enable first-boot-setup.service

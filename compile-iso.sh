@@ -112,8 +112,7 @@ echo "[*] Setting up Easy Arch ISO Installer script that runs on startup..."
 mkdir -p airootfs/home/main/.config/autostart
 mkdir -p airootfs/home/main/Desktop
 cp $CONFDIR/install/easy-arch-iso-installer.sh airootfs/home/main/Desktop/easy-arch-iso-installer.sh
-### Temporarily commented out
-#cp "$CONFDIR/install/easy-arch-iso-install.desktop" airootfs/home/main/.config/autostart/easy-arch-iso-install.desktop
+cp "$CONFDIR/install/easy-arch-iso-install.desktop" airootfs/home/main/.config/autostart/easy-arch-iso-install.desktop
 
 echo "[*] Downloading and caching packages for harddrive installation..."
 if ! bash $CONFDIR/install/setup-pkgs-cache.sh; then
@@ -132,6 +131,10 @@ cp $CONFDIR/system/pacman.conf airootfs/root/pacman-base-conf/pacman.conf
 cp $CONFDIR/install/pacstrap-easyarch-conf/pacman.conf airootfs/root/pacstrap-easyarch-conf/pacman.conf
 cp $CONFDIR/install/chroot-setup.sh airootfs/root/chroot-setup.sh
 cp $CONFDIR/install/language_mappings airootfs/root/language_mappings
+
+echo "[*] Copying and setting up first boot configuration script..."
+cp $CONFDIR/install/first-boot-setup.sh airootfs/root/first-boot-setup.sh
+cp $CONFDIR/install/first-boot-setup.service airootfs/root/first-boot-setup.service
 
 echo "[*] Cleaning up temp directory..."
 rm -rfv $WORKDIR/.temp

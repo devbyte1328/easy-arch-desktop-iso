@@ -1,0 +1,11 @@
+[Unit]
+Description=First boot configuration
+After=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/home/main/.config/first-boot-setup.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

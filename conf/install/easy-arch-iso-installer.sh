@@ -125,6 +125,13 @@ chown -R 1000:998 /mnt/home/main
 mkdir -p /mnt/etc/lightdm
 cp /etc/lightdm/lightdm.conf /mnt/etc/lightdm/lightdm.conf
 
+echo "[*] Copying over first boot configuration files..."
+mkdir -p /mnt/home/main/.config
+mkdir -p /mnt/etc/systemd/system
+mkdir -p /mnt/etc/profile.d
+cp /root/first-boot-setup.sh /mnt/home/main/.config/first-boot-setup.sh
+cp /root/first-boot-setup.service /mnt/etc/systemd/system/first-boot-setup.service
+
 echo "Running chroot setup..."
 arch-chroot /mnt /bin/bash /chroot-setup.sh
 rm /mnt/chroot-setup.sh
