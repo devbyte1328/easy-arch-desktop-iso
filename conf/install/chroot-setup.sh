@@ -44,6 +44,15 @@ mkinitcpio -P
 grub-install --target=x86_64-efi --bootloader-id=grub_uefi --recheck
 grub-mkconfig -o /boot/grub/grub.cfg
 
+mkdir -p /tmp/yay-build
+chmod 777 /tmp/yay-build
+mv /root/yay-build/* /tmp/yay-build/
+useradd -m builduser
+chown -R builduser:builduser /tmp/yay-build
+su - builduser -c "cd /tmp/yay-build && makepkg -si --noconfirm --skippgpcheck -f"
+cd /root
+userdel -r builduser || true
+
 systemctl enable lightdm
 systemctl enable NetworkManager
 

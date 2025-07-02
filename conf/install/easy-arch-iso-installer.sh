@@ -125,6 +125,10 @@ chown -R 1000:998 /mnt/home/main
 mkdir -p /mnt/etc/lightdm
 cp /etc/lightdm/lightdm.conf /mnt/etc/lightdm/lightdm.conf
 
+echo "[*] Copying over yay build files..."
+mkdir -p /mnt/root/yay-build
+cp -r /root/yay-build/. /mnt/root/yay-build/
+
 echo "[*] Copying over first boot configuration files..."
 mkdir -p /mnt/home/main/.config
 mkdir -p /mnt/etc/systemd/system

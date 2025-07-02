@@ -17,7 +17,7 @@ sudo umount -R $AIROOTFS 2>/dev/null || true
 rm -rfv $WORKDIR/out $WORKDIR/work $WORKDIR/.temp $WORKDIR/airootfs $WORKDIR/efiboot $WORKDIR/grub $WORKDIR/syslinux $WORKDIR/bootstrap_packages.x86_64 $WORKDIR/packages.x86_64 $WORKDIR/pacman.conf $WORKDIR/profiledef.sh  
 
 echo "[*] Installing archiso and git if needed..."
-sudo pacman -Sy --noconfirm --needed archiso git base-devel
+sudo pacman -Sy --noconfirm --needed archiso git base-devel go
 
 echo "[*] Copying releng base into working directory..."
 cp -r /usr/share/archiso/configs/releng/* $WORKDIR
