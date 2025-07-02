@@ -130,7 +130,6 @@ cp $CONFDIR/packages.x86_64 airootfs/root/packages.x86_64
 cp $CONFDIR/system/pacman.conf airootfs/root/pacman-base-conf/pacman.conf
 cp $CONFDIR/install/pacstrap-easyarch-conf/pacman.conf airootfs/root/pacstrap-easyarch-conf/pacman.conf
 cp $CONFDIR/install/chroot-setup.sh airootfs/root/chroot-setup.sh
-cp $CONFDIR/install/language_mappings airootfs/root/language_mappings
 
 echo "[*] Copying and setting up first boot configuration script..."
 cp $CONFDIR/install/first-boot-setup.sh airootfs/root/first-boot-setup.sh

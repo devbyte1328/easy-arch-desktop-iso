@@ -103,8 +103,8 @@ echo "Generating fstab..."
 genfstab -U /mnt >> /mnt/etc/fstab
 
 echo "Copying chroot setup..."
+mkdir -p /mnt/root
 cp /root/chroot-setup.sh /mnt/chroot-setup.sh
-cp /root/language_mappings /mnt/language_mappings
 chmod +x /mnt/chroot-setup.sh
 
 echo "Setting up users and sudo config..."
