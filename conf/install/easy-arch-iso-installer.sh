@@ -129,6 +129,10 @@ echo "[*] Copying over yay build files..."
 mkdir -p /mnt/root/yay-build
 cp -r /root/yay-build/. /mnt/root/yay-build/
 
+echo "[*] Copying over aur pkg build files..."
+mkdir -p /mnt/root/aur_pkgs
+cp -r /root/aur_pkgs/. /mnt/root/aur_pkgs/
+
 echo "[*] Copying over first boot configuration files..."
 mkdir -p /mnt/home/main/.config
 mkdir -p /mnt/etc/systemd/system

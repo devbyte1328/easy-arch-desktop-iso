@@ -101,6 +101,8 @@ touch /var/log/.locale_set
 # Generate initramfs
 mkinitcpio -P
 
+pacman -U --noconfirm /root/aur_pkgs/*.pkg.tar.zst
+
 grub-install --target=x86_64-efi --bootloader-id=grub_uefi --recheck
 grub-mkconfig -o /boot/grub/grub.cfg
 
