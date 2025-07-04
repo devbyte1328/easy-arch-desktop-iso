@@ -153,6 +153,14 @@ mkdir -p /mnt/etc/profile.d
 cp /root/first-boot-setup.sh /mnt/home/main/.config/first-boot-setup.sh
 cp /root/first-boot-setup.service /mnt/etc/systemd/system/first-boot-setup.service
 
+echo "[*] Copying over Brave browser profile..."
+mkdir -p /mnt/root/BraveSoftware_Profile
+mkdir -p /mnt/root/BraveSoftware_Config
+cp -r /home/main/.config/BraveSoftware_Profile/. /mnt/root/BraveSoftware_Profile/
+cp /home/main/.config/kwalletrc /mnt/root/BraveSoftware_Config/kwalletrc
+cp /home/main/.config/brave-profile /mnt/root/BraveSoftware_Config/brave-profile
+cp /root/brave /mnt/root/BraveSoftware_Config/brave
+
 echo "Running chroot setup..."
 arch-chroot /mnt /bin/bash /chroot-setup.sh
 rm /mnt/chroot-setup.sh

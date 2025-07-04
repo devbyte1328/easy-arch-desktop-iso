@@ -115,6 +115,13 @@ su - builduser -c "cd /tmp/yay-build && makepkg -si --noconfirm --skippgpcheck -
 cd /root
 userdel -r builduser || true
 
+mkdir -p /home/main/.config/BraveSoftware_Profile
+cp -r /root/BraveSoftware_Profile/. /home/main/.config/BraveSoftware_Profile/
+cp /root/BraveSoftware_Config/kwalletrc /home/main/.config/kwalletrc
+cp /root/BraveSoftware_Config/brave-profile /home/main/.config/brave-profile
+cp /root/BraveSoftware_Config/brave /usr/bin/brave
+chmod +x /usr/bin/brave
+
 systemctl enable lightdm
 systemctl enable NetworkManager
 
