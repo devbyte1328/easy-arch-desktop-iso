@@ -133,6 +133,19 @@ echo "[*] Copying over aur pkg build files..."
 mkdir -p /mnt/root/aur_pkgs
 cp -r /root/aur_pkgs/. /mnt/root/aur_pkgs/
 
+echo "[*] Copying over KDE minimal theme files..."
+mkdir -p /mnt/home/main/.config/menus
+mkdir -p /mnt/root/kde
+mkdir -p /mnt/usr/share/wallpapers/Next
+cp /root/kde/Footer.qml /mnt/root/Footer.qml
+cp /root/kde/main.qml /mnt/root/main.qml
+cp /root/kde/plasmashellrc /mnt/home/main/.config/plasmashellrc
+cp /root/kde/kwinrc /mnt/home/main/.config/kwinrc
+cp /root/kde/plasma-org.kde.plasma.desktop-appletsrc /mnt/home/main/.config/plasma-org.kde.plasma.desktop-appletsrc
+cp /root/kde/applications-kmenuedit.menu /mnt/home/main/.config/menus/applications-kmenuedit.menu
+cp /root/kde/kdeglobals /mnt/home/main/.config/kdeglobals
+cp -r /root/kde/Next/. /mnt/usr/share/wallpapers/Next
+
 echo "[*] Copying over first boot configuration files..."
 mkdir -p /mnt/home/main/.config
 mkdir -p /mnt/etc/systemd/system
