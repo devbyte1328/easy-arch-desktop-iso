@@ -95,6 +95,9 @@ fi
 
 hwclock --systohc
 
+pacman-key --init
+pacman-key --populate archlinux
+
 # Mark setup complete
 touch /var/log/.locale_set
 
@@ -130,3 +133,5 @@ chown 1000:998 /home/main/.config
 chmod 755 /home/main/.config/first-boot-setup.sh
 chmod 644 /etc/systemd/system/first-boot-setup.service
 systemctl enable first-boot-setup.service
+
+chmod 666 /home/main/.config/plasmashellrc
