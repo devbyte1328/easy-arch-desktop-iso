@@ -49,15 +49,20 @@ while true; do
                 echo -e "${LIGHT_BLUE}Configuration Loaded:${RESET}"
                 echo "Root Password: $root_password"
                 echo "Username Password: $username_password"
+                # Start Python script in background and capture PID
+                python3 easy-arch-screen-holder.py &
+                PYTHON_PID=$!
+                # Trap to send close signal via pipe and kill process
+                trap 'if [[ -f /tmp/overlay_pipe_fd ]]; then PIPE_FD=$(cat /tmp/overlay_pipe_fd); echo "close" >&$PIPE_FD; sleep 1; kill $PYTHON_PID 2>/dev/null; rm -f /tmp/overlay_pipe_fd; fi' EXIT
                 konsole -e bash -c "
-                    sleep 1;
+                    sleep 2;
                     if [[ \"$root_password\" != \"None\" ]]; then
                         echo -e 'Setting root password...';
                         echo 'root:$root_password' | chpasswd;
                     else
                         echo 'Skipping root password (None).';
                     fi
-                    sleep 1;
+                    sleep 2;
                     if [[ \"$username_password\" != \"None\" ]]; then
                         echo -e 'Setting password for username \"main\"...';
                         echo 'main:$username_password' | chpasswd;
@@ -65,7 +70,14 @@ while true; do
                         echo 'Skipping user password (None).';
                     fi
                     echo -e '${LIGHT_BLUE}Configuration applied. Closing window...${RESET}';
-                    sleep 3;
+                    sleep 2;
+                    if [[ -f /tmp/overlay_pipe_fd ]]; then
+                        PIPE_FD=$(cat /tmp/overlay_pipe_fd);
+                        echo 'close' >&\$PIPE_FD;
+                        sleep 1;
+                        kill $PYTHON_PID 2>/dev/null;
+                        rm -f /tmp/overlay_pipe_fd;
+                    fi
                 "
             else
                 echo -e "${RED}Configuration file not found!${RESET}"
@@ -90,4 +102,3 @@ config_json="${config_json//__username_password__/$value_username_password}"
 echo "$config_json" > "$CONFIG_FILE"
 umask 000
 chmod 666 "$CONFIG_FILE"
-
