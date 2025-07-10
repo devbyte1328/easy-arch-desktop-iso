@@ -21,7 +21,6 @@ echo "2. Load Configuration"
 CONFIG_FILE="easy-arch-configuration.json"
 JSON_TEMPLATE='{
     "root_password": "__root_password__",
-    "username": "__username__",
     "username_password": "__username_password__"
 }'
 
@@ -30,33 +29,44 @@ while true; do
     case $choice in
         1)
             echo "Creating configuration..."
-            read -s -p "Enter Root Password: " value_root_password
+            read -s -p "Enter Root Password (default is no password): " value_root_password
             echo ""
-            read -p "Enter Username: " value_username
-            read -s -p "Enter Password for $value_username: " value_username_password
+            read -s -p "Enter Password for username 'main' (default is no password): " value_username_password
             echo ""
             echo -e "${LIGHT_BLUE}Configuration saved to '$CONFIG_FILE'.${RESET}"
             break
             ;;
         2)
             echo "Loading configuration..."
-
             SELECTED_FILE=$(kdialog --getopenfilename "$PWD" "*.json" 2>/dev/null)
-
             if [[ -z "$SELECTED_FILE" ]]; then
                 echo -e "${RED}No file selected. Exiting.${RESET}"
                 exit 1
             fi
-
             if [[ -f "$SELECTED_FILE" ]]; then
-                root_password=$(grep '"root_password"' "$SELECTED_FILE" | sed 's/.*: "\(.*\)".*/\1/')
-                username=$(grep '"username"' "$SELECTED_FILE" | sed 's/.*: "\(.*\)".*/\1/')
-                username_password=$(grep '"username_password"' "$SELECTED_FILE" | sed 's/.*: "\(.*\)".*/\1/')
-
+                root_password=$(jq -r '.root_password' "$SELECTED_FILE")
+                username_password=$(jq -r '.username_password' "$SELECTED_FILE")
                 echo -e "${LIGHT_BLUE}Configuration Loaded:${RESET}"
                 echo "Root Password: $root_password"
-                echo "Username: $username"
                 echo "Username Password: $username_password"
+                konsole -e bash -c "
+                    sleep 1;
+                    if [[ \"$root_password\" != \"None\" ]]; then
+                        echo -e 'Setting root password...';
+                        echo 'root:$root_password' | chpasswd;
+                    else
+                        echo 'Skipping root password (None).';
+                    fi
+                    sleep 1;
+                    if [[ \"$username_password\" != \"None\" ]]; then
+                        echo -e 'Setting password for username \"main\"...';
+                        echo 'main:$username_password' | chpasswd;
+                    else
+                        echo 'Skipping user password (None).';
+                    fi
+                    echo -e '${LIGHT_BLUE}Configuration applied. Closing window...${RESET}';
+                    sleep 3;
+                "
             else
                 echo -e "${RED}Configuration file not found!${RESET}"
             fi
@@ -68,14 +78,15 @@ while true; do
     esac
 done
 
+# Apply defaults if values are empty
 [[ -z "$value_root_password" ]] && value_root_password="None"
-[[ -z "$value_username" ]] && value_username="None"
 [[ -z "$value_username_password" ]] && value_username_password="None"
 
+# Build final config JSON
 config_json="${JSON_TEMPLATE//__root_password__/$value_root_password}"
-config_json="${config_json//__username__/$value_username}"
 config_json="${config_json//__username_password__/$value_username_password}"
 
+# Save to file with safe permissions
 echo "$config_json" > "$CONFIG_FILE"
 umask 000
 chmod 666 "$CONFIG_FILE"

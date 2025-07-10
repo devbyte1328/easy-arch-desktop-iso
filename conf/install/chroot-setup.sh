@@ -125,6 +125,10 @@ cp /root/BraveSoftware_Config/brave-profile /home/main/.config/brave-profile
 cp /root/BraveSoftware_Config/brave /usr/bin/brave
 chmod +x /usr/bin/brave
 
+mkdir -p /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/
+cp /root/Footer.qml /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/Footer.qml
+cp /root/main.qml /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/main.qml
+
 systemctl enable lightdm
 systemctl enable NetworkManager
 
