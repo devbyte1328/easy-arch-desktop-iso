@@ -23,6 +23,7 @@ JSON_TEMPLATE='{
     "root_password": "__root_password__",
     "username_password": "__username_password__",
     "install_packages": __install_packages__,
+    "cache_packages": __cache_packages__,
     "packages": __packages__
 }'
 
@@ -34,19 +35,25 @@ while true; do
             echo ""
             read -p "Enter Root Password (default is no password): " value_root_password
             echo ""
-            echo ""
             read -p "Enter Password for username 'main' (default is no password): " value_username_password
             echo ""
-            echo ""
-            read -p "Install packages? (y/n, requires internet, uses pacman then yay for unavailable packages): " install_packages
+            read -p "Install packages? (y/n): " install_packages
             echo ""
             if [[ "$install_packages" == "y" || "$install_packages" == "Y" ]]; then
                 value_install_packages="true"
-                read -p "Enter packages (comma-separated, e.g., neofetch,rar,obs-studio): " package_list
+                read -p "Cache packages? (y/n): " cache_packages
+                echo ""
+                if [[ "$cache_packages" == "y" || "$cache_packages" == "Y" ]]; then
+                    value_cache_packages="true"
+                else
+                    value_cache_packages="false"
+                fi
+                read -p "Enter packages (e.g., neofetch,rar,obs-studio): " package_list
                 packages_array=$(echo "$package_list" | tr ',' '\n' | jq -R . | jq -s .)
                 echo ""
             else
                 value_install_packages="false"
+                value_cache_packages="false"
                 packages_array="[]"
             fi
             echo -e "${LIGHT_BLUE}Configuration saved to '$CONFIG_FILE'.${RESET}"
@@ -63,11 +70,13 @@ while true; do
                 root_password=$(jq -r '.root_password' "$SELECTED_FILE")
                 username_password=$(jq -r '.username_password' "$SELECTED_FILE")
                 install_packages=$(jq -r '.install_packages' "$SELECTED_FILE")
+                cache_packages=$(jq -r '.cache_packages' "$SELECTED_FILE")
                 packages=$(jq -r '.packages | join(", ")' "$SELECTED_FILE")
                 echo -e "${LIGHT_BLUE}Configuration Loaded:${RESET}"
                 echo "Root Password: $root_password"
                 echo "Username Password: $username_password"
                 echo "Install Packages: $install_packages"
+                echo "Cache Packages: $cache_packages"
                 echo "Packages: $packages"
                 # Start Python script in background and capture PID
                 python3 easy-arch-screen-holder.py 2>/dev/null &
@@ -114,11 +123,13 @@ done
 # Apply defaults if values are empty
 [[ -z "$value_root_password" ]] && value_root_password="None"
 [[ -z "$value_username_password" ]] && value_username_password="None"
+[[ -z "$value_cache_packages" ]] && value_cache_packages="false"
 
 # Build final config JSON
 config_json="${JSON_TEMPLATE//__root_password__/$value_root_password}"
 config_json="${config_json//__username_password__/$value_username_password}"
 config_json="${config_json//__install_packages__/$value_install_packages}"
+config_json="${config_json//__cache_packages__/$value_cache_packages}"
 config_json="${config_json//__packages__/$packages_array}"
 
 # Save to file with safe permissions
