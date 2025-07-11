@@ -5,10 +5,20 @@ from PyQt6.QtWidgets import QApplication, QWidget
 from PyQt6.QtGui import QPixmap, QPainter
 from PyQt6.QtCore import Qt, QRect, QTimer
 
+# Suppress Qt logging warnings
+os.environ["QT_LOGGING_RULES"] = "qt5.widgets.warning=false;qt6.widgets.warning=false"
+
 class FullscreenOverlay(QWidget):
     def __init__(self, image_path, screen_geometry, pipe_fd):
         super().__init__()
+        # Validate image file
+        if not os.path.exists(image_path):
+            print(f"Error: Image file '{image_path}' not found.", file=sys.stderr)
+            QApplication.quit()
         self.pixmap = QPixmap(image_path)
+        if self.pixmap.isNull():
+            print(f"Error: Failed to load image '{image_path}'.", file=sys.stderr)
+            QApplication.quit()
         self.screen_geometry = screen_geometry
         self.pipe_fd = pipe_fd
         self.setGeometry(self.screen_geometry)

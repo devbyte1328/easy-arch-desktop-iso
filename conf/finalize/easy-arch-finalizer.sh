@@ -21,7 +21,9 @@ echo "2. Load Configuration"
 CONFIG_FILE="easy-arch-configuration.json"
 JSON_TEMPLATE='{
     "root_password": "__root_password__",
-    "username_password": "__username_password__"
+    "username_password": "__username_password__",
+    "install_packages": __install_packages__,
+    "packages": __packages__
 }'
 
 while true; do
@@ -33,6 +35,15 @@ while true; do
             echo ""
             read -s -p "Enter Password for username 'main' (default is no password): " value_username_password
             echo ""
+            read -p "Install packages? (y/n, requires internet, uses pacman then yay for unavailable packages): " install_packages
+            if [[ "$install_packages" == "y" || "$install_packages" == "Y" ]]; then
+                value_install_packages="true"
+                read -p "Enter packages (comma-separated, e.g., neofetch,rar,obs-studio): " package_list
+                packages_array=$(echo "$package_list" | tr ',' '\n' | jq -R . | jq -s .)
+            else
+                value_install_packages="false"
+                packages_array="[]"
+            fi
             echo -e "${LIGHT_BLUE}Configuration saved to '$CONFIG_FILE'.${RESET}"
             break
             ;;
@@ -46,39 +57,44 @@ while true; do
             if [[ -f "$SELECTED_FILE" ]]; then
                 root_password=$(jq -r '.root_password' "$SELECTED_FILE")
                 username_password=$(jq -r '.username_password' "$SELECTED_FILE")
+                install_packages=$(jq -r '.install_packages' "$SELECTED_FILE")
+                packages=$(jq -r '.packages | join(", ")' "$SELECTED_FILE")
                 echo -e "${LIGHT_BLUE}Configuration Loaded:${RESET}"
                 echo "Root Password: $root_password"
                 echo "Username Password: $username_password"
+                echo "Install Packages: $install_packages"
+                echo "Packages: $packages"
                 # Start Python script in background and capture PID
-                python3 easy-arch-screen-holder.py &
+                python3 easy-arch-screen-holder.py 2>/dev/null &
                 PYTHON_PID=$!
                 # Trap to send close signal via pipe and kill process
-                trap 'if [[ -f /tmp/overlay_pipe_fd ]]; then PIPE_FD=$(cat /tmp/overlay_pipe_fd); echo "close" >&$PIPE_FD; sleep 1; kill $PYTHON_PID 2>/dev/null; rm -f /tmp/overlay_pipe_fd; fi' EXIT
+                trap 'if [[ -f /tmp/overlay_pipe_fd ]]; then PIPE_FD=$(cat /tmp/overlay_pipe_fd 2>/dev/null); echo "close" >&$PIPE_FD; sleep 1; kill $PYTHON_PID 2>/dev/null; rm -f /tmp/overlay_pipe_fd; fi' EXIT
                 konsole -e bash -c "
                     sleep 2;
                     if [[ \"$root_password\" != \"None\" ]]; then
                         echo -e 'Setting root password...';
-                        echo 'root:$root_password' | chpasswd;
+                        echo 'root:$root_password' | chpasswd 2>/dev/null;
                     else
-                        echo 'Skipping root password (None).';
+                        echo -e 'Skipping root password (None).';
                     fi
                     sleep 2;
                     if [[ \"$username_password\" != \"None\" ]]; then
                         echo -e 'Setting password for username \"main\"...';
-                        echo 'main:$username_password' | chpasswd;
+                        echo 'main:$username_password' | chpasswd 2>/dev/null;
                     else
-                        echo 'Skipping user password (None).';
+                        echo -e 'Skipping user password (None).';
                     fi
                     echo -e '${LIGHT_BLUE}Configuration applied. Closing window...${RESET}';
                     sleep 2;
                     if [[ -f /tmp/overlay_pipe_fd ]]; then
-                        PIPE_FD=$(cat /tmp/overlay_pipe_fd);
+                        PIPE_FD=$(cat /tmp/overlay_pipe_fd 2>/dev/null);
                         echo 'close' >&\$PIPE_FD;
                         sleep 1;
                         kill $PYTHON_PID 2>/dev/null;
                         rm -f /tmp/overlay_pipe_fd;
                     fi
-                "
+                " 2>/dev/null
+                echo -e "${LIGHT_BLUE}Configuration applied.${RESET}"
             else
                 echo -e "${RED}Configuration file not found!${RESET}"
             fi
@@ -97,6 +113,8 @@ done
 # Build final config JSON
 config_json="${JSON_TEMPLATE//__root_password__/$value_root_password}"
 config_json="${config_json//__username_password__/$value_username_password}"
+config_json="${config_json//__install_packages__/$value_install_packages}"
+config_json="${config_json//__packages__/$packages_array}"
 
 # Save to file with safe permissions
 echo "$config_json" > "$CONFIG_FILE"
