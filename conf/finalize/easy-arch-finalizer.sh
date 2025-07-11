@@ -59,12 +59,8 @@ while true; do
             fi
             # Echo user prompt based on install_packages and cache_packages
             if [[ "$value_install_packages" == "true" && "$value_cache_packages" == "true" ]]; then
-                echo -e "${YELLOW}Install and cache packages enabled.${RESET}"
+                echo -e "${YELLOW}[*]Caching packages...${RESET}"
                 bash easy-arch-packages-cache.sh
-            elif [[ "$value_install_packages" == "true" && "$value_cache_packages" == "false" ]]; then
-                echo -e "${YELLOW}Install packages enabled, caching disabled.${RESET}"
-            elif [[ "$value_install_packages" == "false" && "$value_cache_packages" == "false" ]]; then
-                echo -e "${YELLOW}Install and cache packages disabled.${RESET}"
             fi
             echo -e "${LIGHT_BLUE}Configuration saved to '$CONFIG_FILE'.${RESET}"
             break
@@ -95,18 +91,18 @@ while true; do
                 trap 'if [[ -f /tmp/overlay_pipe_fd ]]; then PIPE_FD=$(cat /tmp/overlay_pipe_fd 2>/dev/null); echo "close" >&$PIPE_FD; sleep 1; kill $PYTHON_PID 2>/dev/null; rm -f /tmp/overlay_pipe_fd; fi' EXIT
                 konsole -e bash -c "
                     sleep 2;
-                    if [[ \"$root_password\" != \"None\" ]]; then
+                    if [[ \"$root_password\" != \"none\" ]]; then
                         echo -e 'Setting root password...';
                         echo 'root:$root_password' | chpasswd 2>/dev/null;
                     else
-                        echo -e 'Skipping root password (None).';
+                        echo -e 'Skipping root password (none).';
                     fi
                     sleep 2;
-                    if [[ \"$username_password\" != \"None\" ]]; then
+                    if [[ \"$username_password\" != \"none\" ]]; then
                         echo -e 'Setting password for username \"main\"...';
                         echo 'main:$username_password' | chpasswd 2>/dev/null;
                     else
-                        echo -e 'Skipping user password (None).';
+                        echo -e 'Skipping user password (none).';
                     fi
                     echo -e '${LIGHT_BLUE}Configuration applied. Closing window...${RESET}';
                     sleep 2;
@@ -131,8 +127,8 @@ while true; do
 done
 
 # Apply defaults if values are empty
-[[ -z "$value_root_password" ]] && value_root_password="None"
-[[ -z "$value_username_password" ]] && value_username_password="None"
+[[ -z "$value_root_password" ]] && value_root_password="none"
+[[ -z "$value_username_password" ]] && value_username_password="none"
 [[ -z "$value_cache_packages" ]] && value_cache_packages="false"
 
 # Build final config JSON
