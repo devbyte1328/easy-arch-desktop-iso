@@ -161,6 +161,17 @@ cp /home/main/.config/kwalletrc /mnt/root/BraveSoftware_Config/kwalletrc
 cp /home/main/.config/brave-profile /mnt/root/BraveSoftware_Config/brave-profile
 cp /root/brave /mnt/root/BraveSoftware_Config/brave
 
+echo "[*] Building yay and copying over bin file..."
+mkdir -p /tmp/yay-build
+chmod 777 /tmp/yay-build
+cp -r /root/yay-build/* /tmp/yay-build/.
+cd /tmp/yay-build
+sudo -u main makepkg -s --noconfirm --skippgpcheck
+cd /root
+mkdir -p /mnt/usr/bin
+cp /tmp/yay-build/pkg/yay/usr/bin/yay /mnt/usr/bin/yay
+chmod +x /mnt/usr/bin/yay
+
 echo "Running chroot setup..."
 arch-chroot /mnt /bin/bash /chroot-setup.sh
 rm /mnt/chroot-setup.sh
