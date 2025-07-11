@@ -32,10 +32,10 @@ while true; do
         1)
             echo "Creating configuration..."
             echo ""
-            read -s -p "Enter Root Password (default is no password): " value_root_password
+            read -p "Enter Root Password (default is no password): " value_root_password
             echo ""
             echo ""
-            read -s -p "Enter Password for username 'main' (default is no password): " value_username_password
+            read -p "Enter Password for username 'main' (default is no password): " value_username_password
             echo ""
             echo ""
             read -p "Install packages? (y/n, requires internet, uses pacman then yay for unavailable packages): " install_packages
