@@ -31,15 +31,20 @@ while true; do
     case $choice in
         1)
             echo "Creating configuration..."
+            echo ""
             read -s -p "Enter Root Password (default is no password): " value_root_password
+            echo ""
             echo ""
             read -s -p "Enter Password for username 'main' (default is no password): " value_username_password
             echo ""
+            echo ""
             read -p "Install packages? (y/n, requires internet, uses pacman then yay for unavailable packages): " install_packages
+            echo ""
             if [[ "$install_packages" == "y" || "$install_packages" == "Y" ]]; then
                 value_install_packages="true"
                 read -p "Enter packages (comma-separated, e.g., neofetch,rar,obs-studio): " package_list
                 packages_array=$(echo "$package_list" | tr ',' '\n' | jq -R . | jq -s .)
+                echo ""
             else
                 value_install_packages="false"
                 packages_array="[]"
