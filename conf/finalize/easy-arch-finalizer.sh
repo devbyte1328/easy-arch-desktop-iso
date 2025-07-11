@@ -60,6 +60,7 @@ while true; do
             # Echo user prompt based on install_packages and cache_packages
             if [[ "$value_install_packages" == "true" && "$value_cache_packages" == "true" ]]; then
                 echo -e "${YELLOW}Install and cache packages enabled.${RESET}"
+                bash easy-arch-packages-cache.sh
             elif [[ "$value_install_packages" == "true" && "$value_cache_packages" == "false" ]]; then
                 echo -e "${YELLOW}Install packages enabled, caching disabled.${RESET}"
             elif [[ "$value_install_packages" == "false" && "$value_cache_packages" == "false" ]]; then
