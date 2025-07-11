@@ -41,6 +41,7 @@ while true; do
             echo ""
             if [[ "$install_packages" == "y" || "$install_packages" == "Y" ]]; then
                 value_install_packages="true"
+                echo "The next part requires internet connection if set to true"
                 read -p "Cache packages? (y/n): " cache_packages
                 echo ""
                 if [[ "$cache_packages" == "y" || "$cache_packages" == "Y" ]]; then
@@ -55,6 +56,14 @@ while true; do
                 value_install_packages="false"
                 value_cache_packages="false"
                 packages_array="[]"
+            fi
+            # Echo user prompt based on install_packages and cache_packages
+            if [[ "$value_install_packages" == "true" && "$value_cache_packages" == "true" ]]; then
+                echo -e "${YELLOW}Install and cache packages enabled.${RESET}"
+            elif [[ "$value_install_packages" == "true" && "$value_cache_packages" == "false" ]]; then
+                echo -e "${YELLOW}Install packages enabled, caching disabled.${RESET}"
+            elif [[ "$value_install_packages" == "false" && "$value_cache_packages" == "false" ]]; then
+                echo -e "${YELLOW}Install and cache packages disabled.${RESET}"
             fi
             echo -e "${LIGHT_BLUE}Configuration saved to '$CONFIG_FILE'.${RESET}"
             break
