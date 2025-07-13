@@ -86,10 +86,8 @@ while true; do
                 echo "Install Packages: $install_packages"
                 echo "Cache Packages: $cache_packages"
                 echo "Packages: $packages"
-                # Start Python script in background and capture PID
+                
                 python3 easy-arch-screen-holder.py 2>/dev/null &
-                PYTHON_PID=$!
-                trap 'if [[ -f /tmp/overlay_pipe_fd ]]; then PIPE_FD=$(cat /tmp/overlay_pipe_fd 2>/dev/null); echo "close" >&$PIPE_FD; sleep 1; kill $PYTHON_PID 2>/dev/null; rm -f /tmp/overlay_pipe_fd; fi' EXIT
 		
 		if [[ "$root_password" != "none" || "$username_password" != "none" ]]; then
 		    konsole -e bash -c "
@@ -111,28 +109,47 @@ while true; do
 			sleep 2;
 			exit 0;
 		    " 2>/dev/null
-		else
-		    echo -e "${YELLOW}Skipping password configuration (set to 'none').${RESET}"
 		fi
 
 		if [[ "$install_packages" == "true" && "$cache_packages" == "true" ]]; then
-		    # Your logic when both are true
-		    echo "Install packages is TRUE and Cache packages is TRUE"
+		    konsole -e bash -c "
+			sleep 2;
+			sudo pacman -U --noconfirm easy-arch-packages-cache/*.pkg.tar.zst
+			echo -e '${LIGHT_BLUE}Cached packages installed. Closing window...${RESET}';
+			sleep 2;
+			touch /tmp/easy-arch-screen-holder
+			exit 0;
+		    " 2>/dev/null
 		fi
 
 		if [[ "$install_packages" == "true" && "$cache_packages" == "false" ]]; then
-		    # Your logic when install is true but cache is false
-		    echo "Install packages is TRUE and Cache packages is FALSE"
+		    konsole -e bash -c "
+		        echo -e '${LIGHT_BLUE}Installing packages using pacman and yay...${RESET}';
+		        sleep 2;
+		        CONFIG_PATH=\"$PWD/$CONFIG_FILE\"
+		        PACKAGES=\$(jq -r '.packages[]' \"\$CONFIG_PATH\")
+		        for pkg in \$PACKAGES; do
+		            if pacman -Si \$pkg &>/dev/null; then
+		                echo -e '${YELLOW}Installing \$pkg with pacman...${RESET}';
+		                pacman -S --noconfirm \$pkg
+		            else
+		                echo -e '${YELLOW}Package \$pkg not found in pacman, trying yay...${RESET}';
+		                sudo -u main yay -S --noconfirm \$pkg
+		            fi
+		        done
+		        echo -e '${LIGHT_BLUE}Packages downloaded and installed. Closing window...${RESET}';
+		        sleep 2;
+		        touch /tmp/easy-arch-screen-holder
+		        exit 0;
+		    " 2>/dev/null
 		fi
-
-
-		if [[ -f /tmp/overlay_pipe_fd ]]; then
-		    PIPE_FD=$(cat /tmp/overlay_pipe_fd 2>/dev/null)
-		    echo 'close' >&$PIPE_FD
-		    sleep 1
-		    kill $PYTHON_PID 2>/dev/null
-		    rm -f /tmp/overlay_pipe_fd
-		fi
+		
+		konsole -e bash -c "
+		    echo -e '${LIGHT_BLUE}Closing python screen holder...${RESET}';
+		    sleep 2;
+		    touch /tmp/easy-arch-screen-holder
+		    exit 0;
+	    	" 2>/dev/null
 
 		echo -e "${LIGHT_BLUE}Configuration applied.${RESET}"
             else
