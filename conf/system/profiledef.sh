@@ -15,7 +15,14 @@ arch="x86_64"
 cow_spacesize="4G"
 pacman_conf="pacman.conf"
 airootfs_image_type="squashfs"
-airootfs_image_tool_options=('-comp' 'xz' '-Xbcj' 'x86' '-b' '1M' '-Xdict-size' '1M')
+
+#airootfs_image_tool_options=('-comp' 'xz' '-Xbcj' 'x86' '-b' '1M' '-Xdict-size' '1M')
+
+### This line fixes an odd bug that appeared out of nowhere
+### """FATAL ERROR: xz uncompress failed with error code 9""" 
+airootfs_image_tool_options=('-comp' 'zstd' '-Xcompression-level' '15')
+###
+
 bootstrap_tarball_compression=('zstd' '-c' '-T0' '--auto-threads=logical' '--long' '-19')
 file_permissions=(
   ["/etc/shadow"]="0:0:400"

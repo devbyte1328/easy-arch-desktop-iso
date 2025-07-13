@@ -141,6 +141,10 @@ echo "[*] Cleaning up temp directory..."
 rm -rfv $WORKDIR/.temp
 
 echo "[*] Building ISO..."
+### This line fixes an odd bug that appeared out of nowhere
+### """FATAL ERROR: xz uncompress failed with error code 9""" 
+export MKSQUASHFS_OPTIONS="-processors 4"
+###
 sudo mkarchiso -v $WORKDIR
 if [ -d "$WORKDIR/out" ] && [ -n "$(find "$WORKDIR/out" -maxdepth 1 -type f -name '*.iso')" ]; then
     echo "[✓] ISO built successfully in out/ directory"
