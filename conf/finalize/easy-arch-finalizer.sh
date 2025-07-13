@@ -90,25 +90,65 @@ while true; do
                 python3 easy-arch-screen-holder.py 2>/dev/null &
                 PYTHON_PID=$!
                 trap 'if [[ -f /tmp/overlay_pipe_fd ]]; then PIPE_FD=$(cat /tmp/overlay_pipe_fd 2>/dev/null); echo "close" >&$PIPE_FD; sleep 1; kill $PYTHON_PID 2>/dev/null; rm -f /tmp/overlay_pipe_fd; fi' EXIT
-		konsole -e bash -c "
-		    sleep 2;
-		    if [[ \"$root_password\" != \"none\" ]]; then
-			echo -e 'Setting root password...';
-			echo 'root:$root_password' | chpasswd 2>/dev/null;
-		    else
-			echo -e 'Skipping root password (none).';
-		    fi
-		    sleep 2;
-		    if [[ \"$username_password\" != \"none\" ]]; then
-			echo -e 'Setting password for username \"main\"...';
-			echo 'main:$username_password' | chpasswd 2>/dev/null;
-		    else
-			echo -e 'Skipping user password (none).';
-		    fi
-		    echo -e '${LIGHT_BLUE}Configuration applied. Closing window...${RESET}';
-		    sleep 2;
-		    exit 0;
-		" 2>/dev/null
+		
+		if [[ "$root_password" != "none" || "$username_password" != "none" ]]; then
+		    konsole -e bash -c "
+			sleep 2;
+			if [[ \"$root_password\" != \"none\" ]]; then
+			    echo -e 'Setting root password...';
+			    echo 'root:$root_password' | chpasswd 2>/dev/null;
+			else
+			    echo -e 'Skipping root password (none).';
+			fi
+			sleep 2;
+			if [[ \"$username_password\" != \"none\" ]]; then
+			    echo -e 'Setting password for username \"main\"...';
+			    echo 'main:$username_password' | chpasswd 2>/dev/null;
+			else
+			    echo -e 'Skipping user password (none).';
+			fi
+			echo -e '${LIGHT_BLUE}Configuration applied. Closing window...${RESET}';
+			sleep 2;
+			exit 0;
+		    " 2>/dev/null
+		else
+		    echo -e "${YELLOW}Skipping password configuration (set to 'none').${RESET}"
+		fi
+
+
+		if [[ "$root_password" != "none" || "$username_password" != "none" ]]; then
+		    konsole -e bash -c "
+			sleep 2;
+			if [[ \"$root_password\" != \"none\" ]]; then
+			    echo -e 'Setting root password...';
+			    echo 'root:$root_password' | chpasswd 2>/dev/null;
+			else
+			    echo -e 'Skipping root password (none).';
+			fi
+			sleep 2;
+			if [[ \"$username_password\" != \"none\" ]]; then
+			    echo -e 'Setting password for username \"main\"...';
+			    echo 'main:$username_password' | chpasswd 2>/dev/null;
+			else
+			    echo -e 'Skipping user password (none).';
+			fi
+			echo -e '${LIGHT_BLUE}Configuration applied. Closing window...${RESET}';
+			sleep 2;
+			exit 0;
+		    " 2>/dev/null
+		else
+		    echo -e "${YELLOW}Skipping password configuration (set to 'none').${RESET}"
+		fi
+
+		if [[ "$install_packages" == "true" && "$cache_packages" == "true" ]]; then
+		    # Your logic when both are true
+		    echo "Install packages is TRUE and Cache packages is TRUE"
+		fi
+
+		if [[ "$install_packages" == "true" && "$cache_packages" == "false" ]]; then
+		    # Your logic when install is true but cache is false
+		    echo "Install packages is TRUE and Cache packages is FALSE"
+		fi
 
 		if [[ -f /tmp/overlay_pipe_fd ]]; then
 		    PIPE_FD=$(cat /tmp/overlay_pipe_fd 2>/dev/null)
@@ -133,6 +173,7 @@ done
 # Apply defaults if values are empty
 [[ -z "$value_root_password" ]] && value_root_password="none"
 [[ -z "$value_username_password" ]] && value_username_password="none"
+[[ -z "$value_install_packages" ]] && value_install_packages="false"
 [[ -z "$value_cache_packages" ]] && value_cache_packages="false"
 
 # Build final config JSON
