@@ -24,7 +24,15 @@ JSON_TEMPLATE='{
     "username_password": "__username_password__",
     "install_packages": __install_packages__,
     "cache_packages": __cache_packages__,
-    "packages": __packages__
+    "packages": __packages__,
+    "system_settings": __system_settings__,
+    "system_settings_mouse_shake": __system_settings_mouse_shake__,
+    "system_settings_screen_locking": __system_settings_screen_locking__,
+    "system_settings_recent_files": __system_settings_recent_files__,
+    "system_settings_power_management": __system_settings_power_management__,
+    "system_settings_clear_clipboard_history": __system_settings_clear_clipboard_history__,
+    "system_settings_brave_plasma_integration": __system_settings_brave_plasma_integration__,
+    "system_settings_display_configuration_scale": __system_settings_display_configuration_scale__
 }'
 
 while true; do
@@ -63,6 +71,61 @@ while true; do
                 value_install_packages="false"
                 value_cache_packages="false"
                 packages_array="[]"
+            fi
+            read -p "Modify system settings? (y/n): " system_settings
+            if [[ "$system_settings" == "y" || "$system_settings" == "Y" ]]; then
+            	value_system_settings="true"
+            	
+            	read -p "System settings - Mouse Shake? (y/n): " system_settings_mouse_shake
+            	if [[ "$system_settings_mouse_shake" == "y" || "$system_settings_mouse_shake" == "Y" ]]; then
+            		value_system_settings_mouse_shake="true"
+            	else
+            		value_system_settings_mouse_shake="false"
+            	fi
+            
+            	read -p "System settings - Screen Locking? (y/n): " system_settings_screen_locking
+            	if [[ "$system_settings_screen_locking" == "y" || "$system_settings_screen_locking" == "Y" ]]; then
+            		value_system_settings_screen_locking="true"
+            	else
+            		value_system_settings_screen_locking="false"
+            	fi
+            
+            	read -p "System settings - Recent Files? (y/n): " system_settings_recent_files
+            	if [[ "$system_settings_recent_files" == "y" || "$system_settings_recent_files" == "Y" ]]; then
+            		value_system_settings_recent_files="true"
+            	else
+            		value_system_settings_recent_files="false"
+            	fi
+            
+            	read -p "System settings - Power Management? (y/n): " system_settings_power_management
+            	if [[ "$system_settings_power_management" == "y" || "$system_settings_power_management" == "Y" ]]; then
+            		value_system_settings_power_management="true"
+            	else
+            		value_system_settings_power_management="false"
+            	fi
+            
+            	read -p "System settings - Clear Clipboard History? (y/n): " system_settings_clear_clipboard_history
+            	if [[ "$system_settings_clear_clipboard_history" == "y" || "$system_settings_clear_clipboard_history" == "Y" ]]; then
+            		value_system_settings_clear_clipboard_history="true"
+            	else
+            		value_system_settings_clear_clipboard_history="false"
+            	fi
+            
+            	read -p "System settings - Brave Plasma Integration? (y/n): " system_settings_brave_plasma_integration
+            	if [[ "$system_settings_brave_plasma_integration" == "y" || "$system_settings_brave_plasma_integration" == "Y" ]]; then
+            		value_system_settings_brave_plasma_integration="true"
+            	else
+            		value_system_settings_brave_plasma_integration="false" 
+            	fi
+           
+            	read -p "System settings - Display Configuration Scale? (y/n): " system_settings_display_configuration_scale
+            	if [[ "$system_settings_display_configuration_scale" == "y" || "$system_settings_display_configuration_scale" == "Y" ]]; then
+            		value_system_settings_display_configuration_scale="true"
+            	else
+            		value_system_settings_display_configuration_scale="false" 
+            	fi
+            else
+            	value_system_settings="false"
             fi
             echo -e "${LIGHT_BLUE}Configuration saved to '$CONFIG_FILE'.${RESET}"
             break
@@ -168,6 +231,14 @@ done
 [[ -z "$value_username_password" ]] && value_username_password="none"
 [[ -z "$value_install_packages" ]] && value_install_packages="false"
 [[ -z "$value_cache_packages" ]] && value_cache_packages="false"
+[[ -z "$value_system_settings" ]] && value_system_settings_="false"
+[[ -z "$value_system_settings_mouse_shake" ]] && value_system_settings_mouse_shake="false"
+[[ -z "$value_system_settings_screen_locking" ]] && value_system_settings_screen_locking="false"
+[[ -z "$value_system_settings_recent_files" ]] && value_system_settings_recent_files="false"
+[[ -z "$value_system_settings_power_management" ]] && value_system_settings_power_management="false"
+[[ -z "$value_system_settings_clear_clipboard_history" ]] && value_system_settings_clear_clipboard_history="false"
+[[ -z "$value_system_settings_brave_plasma_integration" ]] && value_system_settings_brave_plasma_integration="false"
+[[ -z "$value_system_settings_display_configuration_scale" ]] && value_system_settings_display_configuration_scale="false"
 
 # Build final config JSON
 config_json="${JSON_TEMPLATE//__root_password__/$value_root_password}"
@@ -175,9 +246,16 @@ config_json="${config_json//__username_password__/$value_username_password}"
 config_json="${config_json//__install_packages__/$value_install_packages}"
 config_json="${config_json//__cache_packages__/$value_cache_packages}"
 config_json="${config_json//__packages__/$packages_array}"
+config_json="${config_json//__system_settings__/$value_system_settings}"
+config_json="${config_json//__system_settings_mouse_shake__/$value_system_settings_mouse_shake}"
+config_json="${config_json//__system_settings_screen_locking__/$value_system_settings_screen_locking}"
+config_json="${config_json//__system_settings_recent_files__/$value_system_settings_recent_files}"
+config_json="${config_json//__system_settings_power_management__/$value_system_settings_power_management}"
+config_json="${config_json//__system_settings_clear_clipboard_history__/$value_system_settings_clear_clipboard_history}"
+config_json="${config_json//__system_settings_brave_plasma_integration__/$value_system_settings_brave_plasma_integration}"
+config_json="${config_json//__system_settings_display_configuration_scale__/$value_system_settings_display_configuration_scale}"
 
 # Save to file with safe permissions
 echo "$config_json" > "$CONFIG_FILE"
 umask 000
 chmod 666 "$CONFIG_FILE"
-
