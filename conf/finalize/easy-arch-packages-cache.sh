@@ -22,12 +22,17 @@ mkdir -p $REPO
 
 echo "[*] Downloading and caching base packages using pacman..."
 
-# Important: Initialize pacman database for custom dbpath
+# Initialize pacman database
 echo "[*] Initializing pacman database in temporary path..."
 sudo pacman -Sy --dbpath $DB --cachedir $REPO --noconfirm
 
-echo "[*] Preparing package list..."
-pkgs=$(jq -r '.packages[]' easy-arch-configuration.json | tr '\n' ' ')
+# Read package list from argument
+if [[ -n "$1" ]]; then
+    pkgs=$(echo "$1" | tr ',' ' ')
+else
+    echo "[✗] No package list passed to the script."
+    exit 1
+fi
 
 echo "[*] Downloading and caching each package individually (auto-resolving dependencies)..."
 

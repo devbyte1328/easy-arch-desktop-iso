@@ -50,17 +50,19 @@ while true; do
                     value_cache_packages="false"
                 fi
                 read -p "Enter packages (e.g., neofetch,rar,obs-studio): " package_list
-                packages_array=$(echo "$package_list" | tr ',' '\n' | jq -R . | jq -s .)
                 echo ""
+
+                if [[ "$value_cache_packages" == "true" ]]; then
+                    echo -e "${YELLOW}[*]Caching packages...${RESET}"
+                    bash easy-arch-packages-cache.sh "$package_list"
+                    packages_array="[]"
+                else
+                    packages_array=$(echo "$package_list" | tr ',' '\n' | jq -R . | jq -s .)
+                fi
             else
                 value_install_packages="false"
                 value_cache_packages="false"
                 packages_array="[]"
-            fi
-            # Echo user prompt based on install_packages and cache_packages
-            if [[ "$value_install_packages" == "true" && "$value_cache_packages" == "true" ]]; then
-                echo -e "${YELLOW}[*]Caching packages...${RESET}"
-                bash easy-arch-packages-cache.sh
             fi
             echo -e "${LIGHT_BLUE}Configuration saved to '$CONFIG_FILE'.${RESET}"
             break
@@ -87,7 +89,6 @@ while true; do
                 # Start Python script in background and capture PID
                 python3 easy-arch-screen-holder.py 2>/dev/null &
                 PYTHON_PID=$!
-                # Trap to send close signal via pipe and kill process
                 trap 'if [[ -f /tmp/overlay_pipe_fd ]]; then PIPE_FD=$(cat /tmp/overlay_pipe_fd 2>/dev/null); echo "close" >&$PIPE_FD; sleep 1; kill $PYTHON_PID 2>/dev/null; rm -f /tmp/overlay_pipe_fd; fi' EXIT
                 konsole -e bash -c "
                     sleep 2;
@@ -142,3 +143,4 @@ config_json="${config_json//__packages__/$packages_array}"
 echo "$config_json" > "$CONFIG_FILE"
 umask 000
 chmod 666 "$CONFIG_FILE"
+
