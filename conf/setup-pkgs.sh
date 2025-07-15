@@ -25,4 +25,4 @@ sudo cp -r /root/Next/. /usr/share/wallpapers/Next/
 sudo chmod +x /home/main/Desktop/easy-arch-iso-installer.sh
 
 # Remove unnecesary packages
-sudo pacman -R --noconfirm discover unnecesary
+sudo pacman -R --noconfirm discover plasma-welcome

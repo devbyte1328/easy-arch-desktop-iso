@@ -125,6 +125,10 @@ chown -R 1000:998 /mnt/home/main
 mkdir -p /mnt/etc/lightdm
 cp /etc/lightdm/lightdm.conf /mnt/etc/lightdm/lightdm.conf
 
+echo "[*] Copying over X11 startup file..."
+mkdir -p /mnt/usr/share/xsessions
+cp /usr/share/xsessions/plasma.desktop /mnt/usr/share/xsessions/plasma.desktop
+
 echo "[*] Copying over yay build files..."
 mkdir -p /mnt/root/yay-build
 cp -r /root/yay-build/. /mnt/root/yay-build/

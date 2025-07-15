@@ -105,6 +105,7 @@ touch /var/log/.locale_set
 mkinitcpio -P
 
 pacman -U --noconfirm /root/aur_pkgs/*.pkg.tar.zst
+pacman -R --noconfirm discover plasma-welcome
 
 grub-install --target=x86_64-efi --bootloader-id=grub_uefi --recheck
 grub-mkconfig -o /boot/grub/grub.cfg
