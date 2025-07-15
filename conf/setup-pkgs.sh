@@ -1,9 +1,11 @@
 #!/bin/bash
 
-# Fix package configs
+# Fix firewall config
 sudo ufw enable
 sudo ufw default reject incoming
 sudo ufw default allow outgoing
+
+# Fix yay permissions
 sudo chmod +x /usr/bin/yay
 
 # Install prebuilt AUR packages
@@ -21,3 +23,6 @@ sudo cp -r /root/Next/. /usr/share/wallpapers/Next/
 
 # Fix easy arch iso installer permissions
 sudo chmod +x /home/main/Desktop/easy-arch-iso-installer.sh
+
+# Remove unnecesary packages
+sudo pacman -R --noconfirm discover unnecesary

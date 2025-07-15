@@ -91,6 +91,10 @@ echo "[*] Adding LightDM config..."
 mkdir -p airootfs/etc/lightdm
 cp $CONFDIR/system/lightdm.conf airootfs/etc/lightdm/lightdm.conf
 
+echo "[*] Configuring X11..."
+mkdir -p airootfs/usr/share/xsessions
+cp $CONFDIR/system/plasma.desktop airootfs/usr/share/xsessions/plasma.desktop
+
 echo "[*] Linking systemd services..."
 mkdir -p airootfs/etc/systemd/system/{multi-user.target.wants,graphical.target.wants}
 ln -sf /usr/lib/systemd/system/lightdm.service airootfs/etc/systemd/system/graphical.target.wants/lightdm.service
