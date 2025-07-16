@@ -131,3 +131,5 @@ chmod 644 /etc/systemd/system/first-boot-setup.service
 systemctl enable first-boot-setup.service
 
 chmod 666 /home/main/.config/plasmashellrc
+
+pacman -Sy
