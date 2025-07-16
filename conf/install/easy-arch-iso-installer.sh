@@ -119,11 +119,11 @@ cp /etc/sudoers.d/00-main /mnt/etc/sudoers.d/00-main
 chmod 440 /mnt/etc/sudoers.d/00-rootpw
 chmod 440 /mnt/etc/sudoers.d/00-main
 
-echo "[*] Adding LightDM config..."
+echo "[*] Adding SDDM config..."
 mkdir -p /mnt/home/main
 chown -R 1000:998 /mnt/home/main
-mkdir -p /mnt/etc/lightdm
-cp /etc/lightdm/lightdm.conf /mnt/etc/lightdm/lightdm.conf
+mkdir -p /mnt/etc
+cp /etc/sddm.conf /mnt/etc/sddm.conf
 
 echo "[*] Copying over X11 startup file..."
 mkdir -p /mnt/usr/share/xsessions

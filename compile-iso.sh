@@ -43,7 +43,7 @@ cp $CONFDIR/system/shadow airootfs/etc/shadow
 cp $CONFDIR/system/gshadow airootfs/etc/gshadow
 cp $CONFDIR/system/group airootfs/etc/group
 
-echo "[*] Creating home directory and configuring permissions to allow LightDM autologin..."
+echo "[*] Creating home directory and configuring permissions to allow SDDM autologin..."
 mkdir -p airootfs/home/main
 chown -R 1000:998 airootfs/home/main
 
@@ -87,9 +87,9 @@ cp $CONFDIR/brave/kwalletrc airootfs/home/main/.config/kwalletrc
 cp $CONFDIR/brave/brave-profile airootfs/home/main/.config/brave-profile
 cp $CONFDIR/brave/brave airootfs/root/brave
 
-echo "[*] Adding LightDM config..."
-mkdir -p airootfs/etc/lightdm
-cp $CONFDIR/system/lightdm.conf airootfs/etc/lightdm/lightdm.conf
+echo "[*] Adding SDDM config..."
+mkdir -p airootfs/etc
+cp $CONFDIR/system/sddm.conf airootfs/etc/sddm.conf
 
 echo "[*] Configuring X11..."
 mkdir -p airootfs/usr/share/xsessions
@@ -97,7 +97,7 @@ cp $CONFDIR/system/plasma.desktop airootfs/usr/share/xsessions/plasma.desktop
 
 echo "[*] Linking systemd services..."
 mkdir -p airootfs/etc/systemd/system/{multi-user.target.wants,graphical.target.wants}
-ln -sf /usr/lib/systemd/system/lightdm.service airootfs/etc/systemd/system/graphical.target.wants/lightdm.service
+ln -sf /usr/lib/systemd/system/sddm.service airootfs/etc/systemd/system/graphical.target.wants/sddm.service
 ln -sf /usr/lib/systemd/system/NetworkManager.service airootfs/etc/systemd/system/multi-user.target.wants/NetworkManager.service
 ln -sf /usr/lib/systemd/system/bluetooth.service airootfs/etc/systemd/system/multi-user.target.wants/bluetooth.service
 ln -sf /usr/lib/systemd/system/org.cups.cupsd.service airootfs/etc/systemd/system/multi-user.target.wants/org.cups.cupsd.service

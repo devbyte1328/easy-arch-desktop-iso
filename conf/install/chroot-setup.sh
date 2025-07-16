@@ -121,7 +121,7 @@ mkdir -p /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/
 cp /root/Footer.qml /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/Footer.qml
 cp /root/main.qml /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/main.qml
 
-systemctl enable lightdm
+systemctl enable sddm
 systemctl enable NetworkManager
 
 mkdir -p /home/main/.config
