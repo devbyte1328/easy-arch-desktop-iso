@@ -4,9 +4,9 @@
 
 🍎🐧 macOS / Linux (Terminal)
 
-Docker:
-sudo docker build -t easyarch .
-sudo docker run --rm -it --privileged easyarch
+Docker:  
+sudo docker build -t easyarch .  
+sudo docker run --rm -it --privileged easyarch  
 
-Native:
-sudo ./compile-iso.sh
+Native:  
+sudo ./compile-iso.sh  
