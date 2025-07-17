@@ -27,6 +27,3 @@ sudo chmod +x /home/main/Desktop/easy-arch-iso-installer.sh
 # Remove unnecesary packages
 sudo pacman -R --noconfirm discover plasma-welcome
 pkill plasma-welcome
-
-# Delete wayland 'plasma.desktop' to force X11 session
-sudo rm /usr/share/wayland-sessions/plasma.desktop

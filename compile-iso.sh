@@ -141,6 +141,9 @@ echo "[*] Copying and setting up first boot configuration script..."
 cp $CONFDIR/install/first-boot-setup.sh airootfs/root/first-boot-setup.sh
 cp $CONFDIR/install/first-boot-setup.service airootfs/root/first-boot-setup.service
 
+echo "[*] Prepare script to that forces x11 session..."
+cp $CONFDIR/system/force-x11-session/pacman.conf $WORKDIR/pacman.conf
+
 echo "[*] Cleaning up temp directory..."
 rm -rfv $WORKDIR/.temp
 
