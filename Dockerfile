@@ -1,15 +1,18 @@
 FROM archlinux:latest
 
-ENV TERM xterm
+RUN pacman -Sy --noconfirm archiso git base-devel go sudo
 
-RUN pacman -Sy --noconfirm archiso git base-devel sudo go
+RUN useradd -m main
 
-RUN useradd -m -G wheel -s /bin/bash builder && \
-    echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers.d/builder && \
-    chmod 0440 /etc/sudoers.d/builder
+RUN echo "main ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/main
 
-USER builder
-WORKDIR /home/builder
+RUN chmod 0440 /etc/sudoers.d/main
 
-ENTRYPOINT ["bash"]
+COPY . /build
 
+WORKDIR /build
+
+# Set env var so scripts that use $SUDO_USER behave normally
+ENV SUDO_USER=main
+
+CMD ./compile-iso.sh
