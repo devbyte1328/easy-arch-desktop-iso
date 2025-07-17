@@ -235,3 +235,5 @@ jq
 tk
 python-pyqt6
 python-xlib
+python-opencv
+gnome-screenshot
