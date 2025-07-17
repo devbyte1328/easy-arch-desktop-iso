@@ -16,6 +16,13 @@ done
 sudo umount -R $AIROOTFS 2>/dev/null || true
 rm -rfv $WORKDIR/out $WORKDIR/work $WORKDIR/.temp $WORKDIR/airootfs $WORKDIR/efiboot $WORKDIR/grub $WORKDIR/syslinux $WORKDIR/bootstrap_packages.x86_64 $WORKDIR/packages.x86_64 $WORKDIR/pacman.conf $WORKDIR/profiledef.sh  
 
+echo "[*] Checking for dependencies..."
+sudo pacman -Sy --noconfirm --needed archiso git base-devel go
+
+echo "[*] Running setup-yay script (handles build and copy)..."
+bash $CONFDIR/system/setup-yay.sh $WORKDIR $SUDO_USER
+cp $WORKDIR/.temp/yay_build/pkg/yay/usr/bin/yay /usr/bin/yay
+
 echo "[*] Copying releng base into working directory..."
 cp -r /usr/share/archiso/configs/releng/* $WORKDIR
 
@@ -26,9 +33,6 @@ cp $CONFDIR/system/archiso_sys-linux.cfg $WORKDIR/syslinux/
 
 echo "[*] Copying custom package list..."
 cp $CONFDIR/packages.x86_64 $WORKDIR/packages.x86_64
-
-echo "[*] Running setup-yay script (handles build and copy)..."
-bash $CONFDIR/system/setup-yay.sh $WORKDIR $SUDO_USER
 
 echo "[*] Running setup-aur-packages.sh (download packages)..."
 bash $CONFDIR/system/setup-aur-packages.sh $WORKDIR $SUDO_USER
