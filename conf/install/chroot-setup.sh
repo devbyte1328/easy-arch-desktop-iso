@@ -133,3 +133,6 @@ systemctl enable first-boot-setup.service
 chmod 666 /home/main/.config/plasmashellrc
 
 pacman -Sy
+
+# Delete wayland 'plasma.desktop' to force X11 session
+rm /usr/share/wayland-sessions/plasma.desktop
