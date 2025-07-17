@@ -6,7 +6,9 @@
 
 Docker:  
 sudo docker build -t easyarch .  
-sudo docker run --rm -it --privileged easyarch  
+sudo docker run --rm -t --privileged -v "$PWD/out:/build/out" easyarch
+{ sudo docker build -t easyarch . && sudo docker run --rm -t --privileged -v "$PWD/out:/build/out" easyarch; } 2>&1 | tee logs.txt
 
 Native:  
 sudo ./compile-iso.sh  
+
