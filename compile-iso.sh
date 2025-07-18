@@ -17,7 +17,7 @@ sudo umount -R $AIROOTFS 2>/dev/null || true
 rm -rfv $WORKDIR/out $WORKDIR/work $WORKDIR/.temp $WORKDIR/airootfs $WORKDIR/efiboot $WORKDIR/grub $WORKDIR/syslinux $WORKDIR/bootstrap_packages.x86_64 $WORKDIR/packages.x86_64 $WORKDIR/pacman.conf $WORKDIR/profiledef.sh  
 
 echo "[*] Checking for dependencies..."
-sudo pacman -Sy --noconfirm --needed archiso git base-devel go
+sudo pacman -Sy --noconfirm --needed archiso git base-devel go python python-pip
 
 echo "[*] Running setup-yay script (handles build and copy)..."
 bash $CONFDIR/system/setup-yay.sh $WORKDIR $SUDO_USER
@@ -144,6 +144,12 @@ cp $CONFDIR/install/first-boot-setup.service airootfs/root/first-boot-setup.serv
 
 echo "[*] Prepare script to that forces x11 session..."
 cp $CONFDIR/system/force-x11-session/pacman.conf $WORKDIR/pacman.conf
+
+echo "[*] Downloading Python libraries for the finalizer script..."
+mkdir -p airootfs/root/finalize
+mkdir -p airootfs/root/finalize/pip-cache
+cp -r $CONFDIR/finalize/. airootfs/root/finalize/
+pip download -d airootfs/root/finalize/pip-cache setuptools wheel pyautogui
 
 echo "[*] Cleaning up temp directory..."
 rm -rfv $WORKDIR/.temp

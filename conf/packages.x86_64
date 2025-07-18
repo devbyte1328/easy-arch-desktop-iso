@@ -232,8 +232,7 @@ unzip
 qbittorrent
 kdialog
 jq
-tk
-python-pyqt6
-python-xlib
-python-opencv
 gnome-screenshot
+python
+python-pip
+tk

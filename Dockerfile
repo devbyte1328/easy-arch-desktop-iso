@@ -1,6 +1,6 @@
 FROM archlinux:latest
 
-RUN pacman -Sy --noconfirm archiso git base-devel go sudo
+RUN pacman -Sy --noconfirm archiso git base-devel go sudo python python-pip
 
 RUN useradd -m main
 

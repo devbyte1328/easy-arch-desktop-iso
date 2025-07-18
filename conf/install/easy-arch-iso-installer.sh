@@ -176,6 +176,10 @@ mkdir -p /mnt/usr/bin
 cp /tmp/yay-build/pkg/yay/usr/bin/yay /mnt/usr/bin/yay
 chmod +x /mnt/usr/bin/yay
 
+echo "[*] Copying over finalizer script..."
+mkdir -p /mnt/home/main/Desktop
+cp -r /root/finalize/. /mnt/home/main/Desktop/
+
 echo "Running chroot setup..."
 arch-chroot /mnt /bin/bash /chroot-setup.sh
 rm /mnt/chroot-setup.sh
