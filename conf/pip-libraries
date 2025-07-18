@@ -1,0 +1,5 @@
+setuptools
+wheel
+pyautogui
+pillow
+opencv-python

@@ -149,7 +149,8 @@ echo "[*] Downloading Python libraries for the finalizer script..."
 mkdir -p airootfs/root/finalize
 mkdir -p airootfs/root/finalize/pip-cache
 cp -r $CONFDIR/finalize/. airootfs/root/finalize/
-pip download -d airootfs/root/finalize/pip-cache setuptools wheel pyautogui
+cp $CONFDIR/pip-libraries airootfs/root/finalize/pip-cache/pip-libraries
+pip download -d airootfs/root/finalize/pip-cache -r $CONFDIR/pip-libraries
 
 echo "[*] Cleaning up temp directory..."
 rm -rfv $WORKDIR/.temp

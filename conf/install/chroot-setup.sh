@@ -134,6 +134,6 @@ chmod 666 /home/main/.config/plasmashellrc
 
 python -m venv /home/main/Desktop/venv
 source /home/main/Desktop/venv/bin/activate
-pip install --no-index --find-links=/home/main/Desktop/pip-cache/. setuptools wheel pyautogui
+pip install --no-index --find-links=/home/main/Desktop/pip-cache/. -r /home/main/Desktop/pip-cache/pip-libraries
 
 pacman -Sy
