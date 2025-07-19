@@ -3,3 +3,4 @@ wheel
 pyautogui
 pillow
 opencv-python
+PyQt6
