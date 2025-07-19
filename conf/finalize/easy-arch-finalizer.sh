@@ -152,69 +152,62 @@ while true; do
                 
                 bash -c "source venv/bin/activate && python easy-arch-screen-holder.py" 2>/dev/null &
 		
-		if [[ "$root_password" != "none" || "$username_password" != "none" ]]; then
-		    konsole -e bash -c "
-			sleep 2;
-			if [[ \"$root_password\" != \"none\" ]]; then
-			    echo -e 'Setting root password...';
-			    echo 'root:$root_password' | chpasswd 2>/dev/null;
-			else
-			    echo -e 'Skipping root password (none).';
-			fi
-			sleep 2;
-			if [[ \"$username_password\" != \"none\" ]]; then
-			    echo -e 'Setting password for username \"main\"...';
-			    echo 'main:$username_password' | chpasswd 2>/dev/null;
-			else
-			    echo -e 'Skipping user password (none).';
-			fi
-			echo -e '${LIGHT_BLUE}Configuration applied. Closing window...${RESET}';
-			sleep 2;
-			exit 0;
-		    " 2>/dev/null
-		fi
+		        if [[ "$root_password" != "none" || "$username_password" != "none" ]]; then
+		            konsole -e bash -c "
+			        sleep 2;
+			        if [[ \"$root_password\" != \"none\" ]]; then
+			            echo -e 'Setting root password...';
+			            echo 'root:$root_password' | chpasswd 2>/dev/null;
+			        else
+			            echo -e 'Skipping root password (none).';
+			        fi
+			        sleep 2;
+			        if [[ \"$username_password\" != \"none\" ]]; then
+			            echo -e 'Setting password for username \"main\"...';
+			            echo 'main:$username_password' | chpasswd 2>/dev/null;
+			        else
+			            echo -e 'Skipping user password (none).';
+			        fi
+			        echo -e '${LIGHT_BLUE}Configuration applied. Closing window...${RESET}';
+			        sleep 2;
+			        exit 0;
+		            " 2>/dev/null
+		        fi
 
-		if [[ "$install_packages" == "true" && "$cache_packages" == "true" ]]; then
-		    konsole -e bash -c "
-			sleep 2;
-			sudo pacman -U --noconfirm easy-arch-packages-cache/*.pkg.tar.zst
-			echo -e '${LIGHT_BLUE}Cached packages installed. Closing window...${RESET}';
-			sleep 2;
-			touch /tmp/easy-arch-screen-holder
-			exit 0;
-		    " 2>/dev/null
-		fi
+		        if [[ "$install_packages" == "true" && "$cache_packages" == "true" ]]; then
+		            konsole -e bash -c "
+			        sleep 2;
+			        sudo pacman -U --noconfirm easy-arch-packages-cache/*.pkg.tar.zst
+			        echo -e '${LIGHT_BLUE}Cached packages installed. Closing window...${RESET}';
+			        sleep 2;
+			        exit 0;
+		            " 2>/dev/null
+		        fi
 
-		if [[ "$install_packages" == "true" && "$cache_packages" == "false" ]]; then
-		    konsole -e bash -c "
-		        echo -e '${LIGHT_BLUE}Installing packages using pacman and yay...${RESET}';
-		        sleep 2;
-		        CONFIG_PATH=\"$PWD/$CONFIG_FILE\"
-		        PACKAGES=\$(jq -r '.packages[]' \"\$CONFIG_PATH\")
-		        for pkg in \$PACKAGES; do
-		            if pacman -Si \$pkg &>/dev/null; then
-		                echo -e '${YELLOW}Installing \$pkg with pacman...${RESET}';
-		                pacman -S --noconfirm \$pkg
-		            else
-		                echo -e '${YELLOW}Package \$pkg not found in pacman, trying yay...${RESET}';
-		                sudo -u main yay -S --noconfirm \$pkg
-		            fi
-		        done
-		        echo -e '${LIGHT_BLUE}Packages downloaded and installed. Closing window...${RESET}';
-		        sleep 2;
-		        touch /tmp/easy-arch-screen-holder
-		        exit 0;
-		    " 2>/dev/null
-		fi
+		        if [[ "$install_packages" == "true" && "$cache_packages" == "false" ]]; then
+		            konsole -e bash -c "
+		                echo -e '${LIGHT_BLUE}Installing packages using pacman and yay...${RESET}';
+		                sleep 2;
+		                CONFIG_PATH=\"$PWD/$CONFIG_FILE\"
+		                PACKAGES=\$(jq -r '.packages[]' \"\$CONFIG_PATH\")
+		                for pkg in \$PACKAGES; do
+		                    if pacman -Si \$pkg &>/dev/null; then
+		                        echo -e '${YELLOW}Installing \$pkg with pacman...${RESET}';
+		                        pacman -S --noconfirm \$pkg
+		                    else
+		                        echo -e '${YELLOW}Package \$pkg not found in pacman, trying yay...${RESET}';
+		                        sudo -u main yay -S --noconfirm \$pkg
+		                    fi
+		                done
+		                echo -e '${LIGHT_BLUE}Packages downloaded and installed. Closing window...${RESET}';
+		                sleep 2;
+		                exit 0;
+		            " 2>/dev/null
+		        fi
 		
-		konsole -e bash -c "
-		    echo -e '${LIGHT_BLUE}Closing python screen holder...${RESET}';
-		    sleep 2;
-		    touch /tmp/easy-arch-screen-holder
-		    exit 0;
-	    	" 2>/dev/null
-
-		echo -e "${LIGHT_BLUE}Configuration applied.${RESET}"
+		        touch /tmp/easy-arch-screen-holder
+		        echo -e "${LIGHT_BLUE}Configuration applied.${RESET}"
+		        
             else
                 echo -e "${RED}Configuration file not found!${RESET}"
             fi
