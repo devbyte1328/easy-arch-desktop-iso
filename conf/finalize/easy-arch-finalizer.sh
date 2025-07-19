@@ -26,7 +26,6 @@ JSON_TEMPLATE='{
     "cache_packages": __cache_packages__,
     "packages": __packages__,
     "system_settings": __system_settings__,
-    "system_settings_mouse_shake": __system_settings_mouse_shake__,
     "system_settings_screen_locking": __system_settings_screen_locking__,
     "system_settings_recent_files": __system_settings_recent_files__,
     "system_settings_power_management": __system_settings_power_management__,
@@ -75,13 +74,6 @@ while true; do
             read -p "Modify system settings? (y/n): " system_settings
             if [[ "$system_settings" == "y" || "$system_settings" == "Y" ]]; then
             	value_system_settings="true"
-            	
-            	read -p "System settings - Mouse Shake? (y/n): " system_settings_mouse_shake
-            	if [[ "$system_settings_mouse_shake" == "y" || "$system_settings_mouse_shake" == "Y" ]]; then
-            		value_system_settings_mouse_shake="true"
-            	else
-            		value_system_settings_mouse_shake="false"
-            	fi
             
             	read -p "System settings - Screen Locking? (y/n): " system_settings_screen_locking
             	if [[ "$system_settings_screen_locking" == "y" || "$system_settings_screen_locking" == "Y" ]]; then
@@ -143,12 +135,16 @@ while true; do
                 install_packages=$(jq -r '.install_packages' "$SELECTED_FILE")
                 cache_packages=$(jq -r '.cache_packages' "$SELECTED_FILE")
                 packages=$(jq -r '.packages | join(", ")' "$SELECTED_FILE")
+                system_settings=$(jq -r '.system_settings' "$SELECTED_FILE")
+                system_settings_screen_locking=$(jq -r '.system_settings_screen_locking' "$SELECTED_FILE")
                 echo -e "${LIGHT_BLUE}Configuration Loaded:${RESET}"
                 echo "Root Password: $root_password"
                 echo "Username Password: $username_password"
                 echo "Install Packages: $install_packages"
                 echo "Cache Packages: $cache_packages"
                 echo "Packages: $packages"
+                echo "System Settings: $system_settings"
+                echo "System Settings Screen Locking: $system_settings_screen_locking"
                 
                 bash -c "source venv/bin/activate && python easy-arch-screen-holder.py" 2>/dev/null &
 		
@@ -204,6 +200,18 @@ while true; do
 		                exit 0;
 		            " 2>/dev/null
 		        fi
+		        
+		        if [[ "$system_settings_screen_locking" == "true" ]]; then
+		            konsole -e bash -c "
+		                echo -e '${LIGHT_BLUE}Running 'ui-auto.py' script to apply screen locking settings...${RESET}';
+		                sleep 2;
+		                source venv/bin/activate
+		                python ui-auto.py
+		                deactivate
+		            " 2>/dev/null
+		        
+		        fi
+		        
 		
 		        touch /tmp/easy-arch-screen-holder
 		        echo -e "${LIGHT_BLUE}Configuration applied.${RESET}"
@@ -225,7 +233,6 @@ done
 [[ -z "$value_install_packages" ]] && value_install_packages="false"
 [[ -z "$value_cache_packages" ]] && value_cache_packages="false"
 [[ -z "$value_system_settings" ]] && value_system_settings_="false"
-[[ -z "$value_system_settings_mouse_shake" ]] && value_system_settings_mouse_shake="false"
 [[ -z "$value_system_settings_screen_locking" ]] && value_system_settings_screen_locking="false"
 [[ -z "$value_system_settings_recent_files" ]] && value_system_settings_recent_files="false"
 [[ -z "$value_system_settings_power_management" ]] && value_system_settings_power_management="false"
@@ -240,7 +247,6 @@ config_json="${config_json//__install_packages__/$value_install_packages}"
 config_json="${config_json//__cache_packages__/$value_cache_packages}"
 config_json="${config_json//__packages__/$packages_array}"
 config_json="${config_json//__system_settings__/$value_system_settings}"
-config_json="${config_json//__system_settings_mouse_shake__/$value_system_settings_mouse_shake}"
 config_json="${config_json//__system_settings_screen_locking__/$value_system_settings_screen_locking}"
 config_json="${config_json//__system_settings_recent_files__/$value_system_settings_recent_files}"
 config_json="${config_json//__system_settings_power_management__/$value_system_settings_power_management}"
