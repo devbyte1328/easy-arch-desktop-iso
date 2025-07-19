@@ -150,7 +150,7 @@ while true; do
                 echo "Cache Packages: $cache_packages"
                 echo "Packages: $packages"
                 
-                python3 easy-arch-screen-holder.py 2>/dev/null &
+                bash -c "source venv/bin/activate && python easy-arch-screen-holder.py" 2>/dev/null &
 		
 		if [[ "$root_password" != "none" || "$username_password" != "none" ]]; then
 		    konsole -e bash -c "
