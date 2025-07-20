@@ -146,7 +146,8 @@ while true; do
                 echo "System Settings: $system_settings"
                 echo "System Settings Screen Locking: $system_settings_screen_locking"
                 
-                bash -c "source venv/bin/activate && python easy-arch-screen-holder.py" 2>/dev/null &
+                bash -c "source venv/bin/activate && python easy-arch-screen-holder-background.py" 2>/dev/null &
+                bash -c "source venv/bin/activate && python easy-arch-screen-holder-text.py" 2>/dev/null &
 		
 		        if [[ "$root_password" != "none" || "$username_password" != "none" ]]; then
 		            konsole -e bash -c "
@@ -212,6 +213,7 @@ while true; do
 		        
 		        fi
 		        
+		        rm /tmp/easy-arch-screen-holder-text
 		        rm /tmp/easy-arch-screen-holder-background
 		        echo -e "${LIGHT_BLUE}Configuration applied.${RESET}"
 		        

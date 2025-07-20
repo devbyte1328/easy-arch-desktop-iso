@@ -7,7 +7,7 @@ from PyQt6.QtCore import Qt, QRect, QTimer
 # Suppress Qt logging warnings
 os.environ["QT_LOGGING_RULES"] = "qt5.widgets.warning=false;qt6.widgets.warning=false"
 
-TRIGGER_FILE = "/tmp/easy-arch-screen-holder-background"
+TRIGGER_FILE = "/tmp/easy-arch-screen-holder-text"
 
 class FullscreenOverlay(QWidget):
     def __init__(self, image_path, screen_geometry):
@@ -20,6 +20,7 @@ class FullscreenOverlay(QWidget):
         if self.pixmap.isNull():
             print(f"Error: Failed to load image '{image_path}'.", file=sys.stderr)
             QApplication.quit()
+
         self.screen_geometry = screen_geometry
         self.setGeometry(self.screen_geometry)
         self.setWindowFlags(
@@ -38,13 +39,18 @@ class FullscreenOverlay(QWidget):
         painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
         painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_Source)
         painter.setOpacity(1.0)
-        center_rect = QRect(
-            (self.width() - self.pixmap.width()) // 2,
-            (self.height() - self.pixmap.height()) // 2,
-            self.pixmap.width(),
-            self.pixmap.height()
+
+        # Scale image to fill the screen (preserve aspect ratio, crop if needed)
+        scaled_pixmap = self.pixmap.scaled(
+            self.size(),
+            Qt.AspectRatioMode.KeepAspectRatioByExpanding,
+            Qt.TransformationMode.SmoothTransformation
         )
-        painter.drawPixmap(center_rect, self.pixmap)
+
+        # Center the scaled image
+        x = (self.width() - scaled_pixmap.width()) // 2
+        y = (self.height() - scaled_pixmap.height()) // 2
+        painter.drawPixmap(x, y, scaled_pixmap)
 
 def check_trigger_file():
     if not os.path.exists(TRIGGER_FILE):
@@ -63,14 +69,14 @@ if __name__ == "__main__":
     overlays = []
     for screen in app.screens():
         geometry = screen.geometry()
-        overlay = FullscreenOverlay("easy-arch-screen-holder-background.png", geometry)
+        overlay = FullscreenOverlay("easy-arch-screen-holder-text.png", geometry)
         overlay.showFullScreen()
         overlays.append(overlay)
 
     # Check for file every second
     file_check_timer = QTimer()
     file_check_timer.timeout.connect(check_trigger_file)
-    file_check_timer.start(1000)  # every 1000 ms
+    file_check_timer.start(1000)
 
     sys.exit(app.exec())
 

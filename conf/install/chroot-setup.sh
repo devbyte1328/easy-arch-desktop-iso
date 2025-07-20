@@ -137,4 +137,10 @@ source /home/main/Desktop/venv/bin/activate
 pip install --no-index --find-links=/home/main/Desktop/pip-cache/. -r /home/main/Desktop/pip-cache/pip-libraries
 deactivate
 
+find /home/main/Desktop -type f -exec chmod 666 {} \;
+find /home/main/Desktop -type d -exec chmod 777 {} \;
+find /home/main/Desktop -type f -exec chmod +x {} \;
+chown -R main:main /home/main/Desktop
+xhost +local:
+
 pacman -Sy

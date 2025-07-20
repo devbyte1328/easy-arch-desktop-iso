@@ -1,7 +1,7 @@
 import pyautogui
 import time
 
-def click(path, confidence=0.8, wait_time=1, max_attempts=3, mouse_button='left'):
+def click(path, confidence=0.8, wait_time=2, max_attempts=5, mouse_button='left'):
     for attempt in range(max_attempts):
         time.sleep(wait_time)
         location = pyautogui.locateCenterOnScreen(path, confidence=confidence)
