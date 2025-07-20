@@ -7,6 +7,8 @@ from PyQt6.QtCore import Qt, QRect, QTimer
 # Suppress Qt logging warnings
 os.environ["QT_LOGGING_RULES"] = "qt5.widgets.warning=false;qt6.widgets.warning=false"
 
+TRIGGER_FILE = "/tmp/easy-arch-screen-holder-background"
+
 class FullscreenOverlay(QWidget):
     def __init__(self, image_path, screen_geometry):
         super().__init__()
@@ -45,17 +47,23 @@ class FullscreenOverlay(QWidget):
         painter.drawPixmap(center_rect, self.pixmap)
 
 def check_trigger_file():
-    trigger_path = "/tmp/easy-arch-screen-holder"
-    if os.path.exists(trigger_path):
-        os.remove(trigger_path)
+    if not os.path.exists(TRIGGER_FILE):
         QApplication.quit()
 
 if __name__ == "__main__":
+    # Create trigger file at startup
+    try:
+        with open(TRIGGER_FILE, "w") as f:
+            f.write("active\n")
+    except Exception as e:
+        print(f"Error: Could not create trigger file: {e}", file=sys.stderr)
+        sys.exit(1)
+
     app = QApplication(sys.argv)
     overlays = []
     for screen in app.screens():
         geometry = screen.geometry()
-        overlay = FullscreenOverlay("easy-arch-screen-holder.png", geometry)
+        overlay = FullscreenOverlay("easy-arch-screen-holder-background.png", geometry)
         overlay.showFullScreen()
         overlays.append(overlay)
 

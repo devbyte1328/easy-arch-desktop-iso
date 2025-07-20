@@ -212,8 +212,7 @@ while true; do
 		        
 		        fi
 		        
-		
-		        touch /tmp/easy-arch-screen-holder
+		        rm /tmp/easy-arch-screen-holder-background
 		        echo -e "${LIGHT_BLUE}Configuration applied.${RESET}"
 		        
             else

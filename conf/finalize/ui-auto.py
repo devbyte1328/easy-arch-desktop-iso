@@ -15,6 +15,7 @@ def write(text, wait_time=1):
     pyautogui.write(text)
     time.sleep(wait_time)
 
+pyautogui.hotkey('win', 'd')
 click('ui-path/system_settings_screen_locking/1_KDE_Menu.png')
 click('ui-path/system_settings_screen_locking/2_App_Search.png')
 write("System Settings")
