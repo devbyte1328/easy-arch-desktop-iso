@@ -14,7 +14,7 @@ for mount in proc sys dev run; do
     fi
 done
 sudo umount -R $AIROOTFS 2>/dev/null || true
-rm -rfv $WORKDIR/out $WORKDIR/work $WORKDIR/.temp $WORKDIR/airootfs $WORKDIR/efiboot $WORKDIR/grub $WORKDIR/syslinux $WORKDIR/bootstrap_packages.x86_64 $WORKDIR/packages.x86_64 $WORKDIR/pacman.conf $WORKDIR/profiledef.sh  
+rm -rfv $WORKDIR/out $WORKDIR/work $WORKDIR/.temp $WORKDIR/airootfs $WORKDIR/efiboot $WORKDIR/grub $WORKDIR/syslinux $WORKDIR/bootstrap_packages.x86_64 $WORKDIR/packages.x86_64 $WORKDIR/pacman.conf $WORKDIR/profiledef.sh $WORKDIR/logs.txt
 
 echo "[*] Checking for dependencies..."
 sudo pacman -Sy --noconfirm --needed archiso git base-devel go python python-pip
