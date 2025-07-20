@@ -19,20 +19,20 @@ echo "1. Create Configuration"
 echo "2. Load Configuration"
 
 CONFIG_FILE="easy-arch-configuration.json"
-JSON_TEMPLATE='{
-    "root_password": "__root_password__",
-    "username_password": "__username_password__",
-    "install_packages": __install_packages__,
-    "cache_packages": __cache_packages__,
-    "packages": __packages__,
-    "system_settings": __system_settings__,
-    "system_settings_screen_locking": __system_settings_screen_locking__,
-    "system_settings_recent_files": __system_settings_recent_files__,
-    "system_settings_power_management": __system_settings_power_management__,
-    "system_settings_clear_clipboard_history": __system_settings_clear_clipboard_history__,
-    "system_settings_brave_plasma_integration": __system_settings_brave_plasma_integration__,
-    "system_settings_display_configuration_scale": __system_settings_display_configuration_scale__
-}'
+ordered_config_defaults=(
+    "root_password=none"
+    "username_password=none"
+    "install_packages=false"
+    "cache_packages=false"
+    "packages=[]"
+    "system_settings=false"
+    "system_settings_screen_locking=false"
+    "system_settings_recent_files=false"
+    "system_settings_power_management=false"
+    "system_settings_clear_clipboard_history=false"
+    "system_settings_brave_plasma_integration=false"
+    "system_settings_display_configuration_scale=false"
+)
 
 while true; do
     read -p "Enter option (1 or 2): " choice
@@ -66,10 +66,12 @@ while true; do
                 else
                     packages_array=$(echo "$package_list" | tr ',' '\n' | jq -R . | jq -s .)
                 fi
+                value_packages="$packages_array"
             else
                 value_install_packages="false"
                 value_cache_packages="false"
                 packages_array="[]"
+                value_packages="$packages_array"
             fi
             read -p "Modify system settings? (y/n): " system_settings
             if [[ "$system_settings" == "y" || "$system_settings" == "Y" ]]; then
@@ -228,30 +230,34 @@ while true; do
     esac
 done
 
-# Apply defaults if values are empty
-[[ -z "$value_root_password" ]] && value_root_password="none"
-[[ -z "$value_username_password" ]] && value_username_password="none"
-[[ -z "$value_install_packages" ]] && value_install_packages="false"
-[[ -z "$value_cache_packages" ]] && value_cache_packages="false"
-[[ -z "$value_system_settings" ]] && value_system_settings_="false"
-[[ -z "$value_system_settings_screen_locking" ]] && value_system_settings_screen_locking="false"
-[[ -z "$value_system_settings_recent_files" ]] && value_system_settings_recent_files="false"
-[[ -z "$value_system_settings_power_management" ]] && value_system_settings_power_management="false"
-[[ -z "$value_system_settings_clear_clipboard_history" ]] && value_system_settings_clear_clipboard_history="false"
-[[ -z "$value_system_settings_brave_plasma_integration" ]] && value_system_settings_brave_plasma_integration="false"
-[[ -z "$value_system_settings_display_configuration_scale" ]] && value_system_settings_display_configuration_scale="false"
 
-# Build final config JSON
-config_json="$JSON_TEMPLATE"
-for var in $(compgen -v | grep '^value_'); do
-    placeholder="__${var#value_}__"
-    value="${!var}"
-    [ -z "$value" ] && value="false"
-    config_json="${config_json//$placeholder/$value}"
+# Apply defaults if not set
+for item in "${ordered_config_defaults[@]}"; do
+    key="${item%%=*}"
+    default="${item#*=}"
+    var_name="value_$key"
+    [[ -z "${!var_name}" ]] && declare "$var_name=$default"
 done
-config_json="${config_json//__packages__/$packages_array}"
 
-# Save to file with safe permissions
-echo "$config_json" > "$CONFIG_FILE"
+# Build JSON with correct formatting
+json_output="{"
+for item in "${ordered_config_defaults[@]}"; do
+    key="${item%%=*}"
+    var_name="value_$key"
+    value="${!var_name}"
+
+    # Quote only if not native JSON or boolean
+    if [[ "$value" == "true" || "$value" == "false" || "$value" == \[* || "$value" == \{* || "$value" =~ ^[0-9]+$ ]]; then
+        json_output+="\n    \"$key\": $value,"
+    else
+        json_output+="\n    \"$key\": \"${value}\","
+    fi
+done
+# Clean up trailing comma and close JSON
+json_output="${json_output%,}"
+json_output+="\n}"
+
+# Save with permissions
+echo -e "$json_output" > "$CONFIG_FILE"
 umask 000
 chmod 666 "$CONFIG_FILE"
