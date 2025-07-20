@@ -1,14 +1,23 @@
 import pyautogui
 import time
+import subprocess
 
-def click(path, confidence=0.8, wait_time=2, max_attempts=5, mouse_button='left'):
+def click(path, confidence=0.8, wait_time=1, max_attempts=5, mouse_button='left'):
+    disable_text = False
     for attempt in range(max_attempts):
-        time.sleep(wait_time)
-        location = pyautogui.locateCenterOnScreen(path, confidence=confidence)
-        if location:
-            pyautogui.click(location, button=mouse_button)
-            return True
-        print(f"Attempt {attempt + 1} of {max_attempts} failed: {path} not found.")
+        try:
+            time.sleep(wait_time)
+            location = pyautogui.locateCenterOnScreen(path, confidence=confidence)
+            if location:
+                pyautogui.click(location, button=mouse_button)
+                if disable_text == True:
+                    subprocess.Popen(['bash', '-c', 'sleep 1.5 && source venv/bin/activate && python easy-arch-screen-holder-text.py'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    disable_text = False
+                return True
+        except Exception as e:
+            subprocess.run(['rm', '/tmp/easy-arch-screen-holder-text'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            disable_text = True
+            print(f"Exception occurred on attempt {attempt + 1}: {e}")
     raise RuntimeError(f"Failed to find image on screen after {max_attempts} attempts: {path}")
 
 def write(text, wait_time=1):

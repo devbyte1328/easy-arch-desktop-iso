@@ -205,14 +205,10 @@ while true; do
 		        fi
 		        
 		        if [[ "$system_settings_screen_locking" == "true" ]]; then
-		            konsole -e bash -c "
-		                echo -e '${LIGHT_BLUE}Running 'ui-auto.py' script to apply screen locking settings...${RESET}';
-		                sleep 2;
-		                source venv/bin/activate
-		                python ui-auto.py
-		                deactivate
-		            " 2>/dev/null
-		        
+	                echo "Running UI script to apply screen locking settings..."
+	                source venv/bin/activate
+	                python ui-auto.py
+	                deactivate
 		        fi
 		        
 		        rm /tmp/easy-arch-screen-holder-text
