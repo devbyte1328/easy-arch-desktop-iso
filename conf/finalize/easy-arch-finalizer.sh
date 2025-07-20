@@ -197,19 +197,26 @@ while true; do
 		        fi
 		        
 		        if [[ "$system_settings_screen_locking" == "true" ]]; then
-	                echo "Running UI script to apply screen locking settings..."
+	                echo "Running UI script to disable screen locking..."
 	                source venv/bin/activate
 	                python ui-auto/system_settings_screen_locking/ui-auto.py
 	                deactivate
 		        fi
 		        
 		        if [[ "$system_settings_power_management" == "true" ]]; then
-	                echo "Running UI script to apply power management settings..."
+	                echo "Running UI script to disable power management..."
 	                source venv/bin/activate
 	                python ui-auto/system_settings_power_management/ui-auto.py
 	                deactivate
 		        fi
-		        
+
+		        if [[ "$system_settings_clear_clipboard_history" == "true" ]]; then
+	                echo "Running UI script to disable 'Ask again' prompt when clearing clipboard histroy..."
+	                source venv/bin/activate
+	                python ui-auto/system_settings_clear_clipboard_history/ui-auto.py
+	                deactivate
+		        fi
+
 		        rm /tmp/easy-arch-screen-holder-text
 		        rm /tmp/easy-arch-screen-holder-background
 		        echo -e "${LIGHT_BLUE}Configuration applied.${RESET}"
