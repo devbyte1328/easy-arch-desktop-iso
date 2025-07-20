@@ -242,18 +242,14 @@ done
 [[ -z "$value_system_settings_display_configuration_scale" ]] && value_system_settings_display_configuration_scale="false"
 
 # Build final config JSON
-config_json="${JSON_TEMPLATE//__root_password__/$value_root_password}"
-config_json="${config_json//__username_password__/$value_username_password}"
-config_json="${config_json//__install_packages__/$value_install_packages}"
-config_json="${config_json//__cache_packages__/$value_cache_packages}"
+config_json="$JSON_TEMPLATE"
+for var in $(compgen -v | grep '^value_'); do
+    placeholder="__${var#value_}__"
+    value="${!var}"
+    [ -z "$value" ] && value="false"
+    config_json="${config_json//$placeholder/$value}"
+done
 config_json="${config_json//__packages__/$packages_array}"
-config_json="${config_json//__system_settings__/$value_system_settings}"
-config_json="${config_json//__system_settings_screen_locking__/$value_system_settings_screen_locking}"
-config_json="${config_json//__system_settings_recent_files__/$value_system_settings_recent_files}"
-config_json="${config_json//__system_settings_power_management__/$value_system_settings_power_management}"
-config_json="${config_json//__system_settings_clear_clipboard_history__/$value_system_settings_clear_clipboard_history}"
-config_json="${config_json//__system_settings_brave_plasma_integration__/$value_system_settings_brave_plasma_integration}"
-config_json="${config_json//__system_settings_display_configuration_scale__/$value_system_settings_display_configuration_scale}"
 
 # Save to file with safe permissions
 echo "$config_json" > "$CONFIG_FILE"
