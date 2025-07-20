@@ -2,7 +2,8 @@ import sys
 import os
 from PyQt6.QtWidgets import QApplication, QWidget
 from PyQt6.QtGui import QPixmap, QPainter
-from PyQt6.QtCore import Qt, QRect, QTimer
+from PyQt6.QtCore import Qt, QTimer
+from Xlib import display, X
 
 # Suppress Qt logging warnings
 os.environ["QT_LOGGING_RULES"] = "qt5.widgets.warning=false;qt6.widgets.warning=false"
@@ -33,6 +34,20 @@ class FullscreenOverlay(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_NoSystemBackground)
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+
+        # Show fullscreen and raise after short delay
+        self.showFullScreen()
+        QTimer.singleShot(200, self.raise_x11_window)
+
+    def raise_x11_window(self):
+        try:
+            win_id = int(self.winId())
+            d = display.Display()
+            w = d.create_resource_object('window', win_id)
+            w.configure(stack_mode=X.Above)
+            d.sync()
+        except Exception as e:
+            print(f"Warning: Failed to raise window: {e}", file=sys.stderr)
 
     def paintEvent(self, event):
         painter = QPainter(self)
@@ -70,7 +85,6 @@ if __name__ == "__main__":
     for screen in app.screens():
         geometry = screen.geometry()
         overlay = FullscreenOverlay("easy-arch-screen-holder-text.png", geometry)
-        overlay.showFullScreen()
         overlays.append(overlay)
 
     # Check for file every second
