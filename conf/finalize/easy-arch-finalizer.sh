@@ -199,7 +199,14 @@ while true; do
 		        if [[ "$system_settings_screen_locking" == "true" ]]; then
 	                echo "Running UI script to apply screen locking settings..."
 	                source venv/bin/activate
-	                python ui-auto.py
+	                python ui-auto/system_settings_screen_locking/ui-auto.py
+	                deactivate
+		        fi
+		        
+		        if [[ "$system_settings_power_management" == "true" ]]; then
+	                echo "Running UI script to apply power management settings..."
+	                source venv/bin/activate
+	                python ui-auto/system_settings_power_management/ui-auto.py
 	                deactivate
 		        fi
 		        
