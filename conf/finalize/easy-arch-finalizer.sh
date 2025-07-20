@@ -30,7 +30,6 @@ ordered_config_defaults=(
     "system_settings_power_management=false"
     "system_settings_clear_clipboard_history=false"
     "system_settings_brave_plasma_integration=false"
-    "system_settings_display_configuration_scale=false"
 )
 
 while true; do
@@ -83,33 +82,27 @@ while true; do
             		value_system_settings_screen_locking="false"
             	fi
             
-            	read -p "System settings - Power Management? (y/n): " system_settings_power_management
+            	read -p "System settings - Disable power management? (y/n): " system_settings_power_management
             	if [[ "$system_settings_power_management" == "y" || "$system_settings_power_management" == "Y" ]]; then
             		value_system_settings_power_management="true"
             	else
             		value_system_settings_power_management="false"
             	fi
             
-            	read -p "System settings - Clear Clipboard History? (y/n): " system_settings_clear_clipboard_history
+            	read -p "System settings - Disable clipboard history 'Ask again' prompt? (y/n): " system_settings_clear_clipboard_history
             	if [[ "$system_settings_clear_clipboard_history" == "y" || "$system_settings_clear_clipboard_history" == "Y" ]]; then
             		value_system_settings_clear_clipboard_history="true"
             	else
             		value_system_settings_clear_clipboard_history="false"
             	fi
             
-            	read -p "System settings - Brave Plasma Integration? (y/n): " system_settings_brave_plasma_integration
+            	read -p "System settings - Disable brave plasma integration prompt? (y/n): " system_settings_brave_plasma_integration
             	if [[ "$system_settings_brave_plasma_integration" == "y" || "$system_settings_brave_plasma_integration" == "Y" ]]; then
             		value_system_settings_brave_plasma_integration="true"
             	else
             		value_system_settings_brave_plasma_integration="false" 
             	fi
            
-            	read -p "System settings - Display Configuration Scale? (y/n): " system_settings_display_configuration_scale
-            	if [[ "$system_settings_display_configuration_scale" == "y" || "$system_settings_display_configuration_scale" == "Y" ]]; then
-            		value_system_settings_display_configuration_scale="true"
-            	else
-            		value_system_settings_display_configuration_scale="false" 
-            	fi
             else
             	value_system_settings="false"
             fi
@@ -131,6 +124,9 @@ while true; do
                 packages=$(jq -r '.packages | join(", ")' "$SELECTED_FILE")
                 system_settings=$(jq -r '.system_settings' "$SELECTED_FILE")
                 system_settings_screen_locking=$(jq -r '.system_settings_screen_locking' "$SELECTED_FILE")
+                system_settings_power_management=$(jq -r '.system_settings_power_management' "$SELECTED_FILE")
+                system_settings_clear_clipboard_history=$(jq -r '.system_settings_clear_clipboard_history' "$SELECTED_FILE")
+                system_settings_brave_plasma_integration=$(jq -r '.system_settings_brave_plasma_integration' "$SELECTED_FILE")
                 echo -e "${LIGHT_BLUE}Configuration Loaded:${RESET}"
                 echo "Root Password: $root_password"
                 echo "Username Password: $username_password"
@@ -139,6 +135,9 @@ while true; do
                 echo "Packages: $packages"
                 echo "System Settings: $system_settings"
                 echo "System Settings Screen Locking: $system_settings_screen_locking"
+                echo "System Settings Power Management: $system_settings_power_management"
+                echo "System Settings Clear Clipboard History: $system_settings_clear_clipboard_history"
+                echo "System Settings Brave Plasma Integration: $system_settings_brave_plasma_integration"
                 
                 bash -c "source venv/bin/activate && python easy-arch-screen-holder-background.py" 2>/dev/null &
                 bash -c "source venv/bin/activate && python easy-arch-screen-holder-text.py" 2>/dev/null &
@@ -214,6 +213,13 @@ while true; do
 	                echo "Running UI script to disable 'Ask again' prompt when clearing clipboard histroy..."
 	                source venv/bin/activate
 	                python ui-auto/system_settings_clear_clipboard_history/ui-auto.py
+	                deactivate
+		        fi
+
+		        if [[ "$system_settings_brave_plasma_integration" == "true" ]]; then
+	                echo "Running UI script to disable 'Plasma Integration' prompt when opening the Brave browser..."
+	                source venv/bin/activate
+	                python ui-auto/system_settings_brave_plasma_integration/ui-auto.py
 	                deactivate
 		        fi
 
