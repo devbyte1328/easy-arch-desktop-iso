@@ -27,7 +27,6 @@ ordered_config_defaults=(
     "packages=[]"
     "system_settings=false"
     "system_settings_screen_locking=false"
-    "system_settings_recent_files=false"
     "system_settings_power_management=false"
     "system_settings_clear_clipboard_history=false"
     "system_settings_brave_plasma_integration=false"
@@ -77,18 +76,11 @@ while true; do
             if [[ "$system_settings" == "y" || "$system_settings" == "Y" ]]; then
             	value_system_settings="true"
             
-            	read -p "System settings - Screen Locking? (y/n): " system_settings_screen_locking
+            	read -p "System settings - Disable screen locking? (y/n): " system_settings_screen_locking
             	if [[ "$system_settings_screen_locking" == "y" || "$system_settings_screen_locking" == "Y" ]]; then
             		value_system_settings_screen_locking="true"
             	else
             		value_system_settings_screen_locking="false"
-            	fi
-            
-            	read -p "System settings - Recent Files? (y/n): " system_settings_recent_files
-            	if [[ "$system_settings_recent_files" == "y" || "$system_settings_recent_files" == "Y" ]]; then
-            		value_system_settings_recent_files="true"
-            	else
-            		value_system_settings_recent_files="false"
             	fi
             
             	read -p "System settings - Power Management? (y/n): " system_settings_power_management
