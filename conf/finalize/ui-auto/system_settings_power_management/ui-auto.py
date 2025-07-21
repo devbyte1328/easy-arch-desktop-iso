@@ -33,7 +33,7 @@ click('ui-auto/system_settings_power_management/ui-path/4_System_Settings_Backgr
 click('ui-auto/system_settings_power_management/ui-path/5_System_Settings_Search.png')
 write("Power Management")
 click('ui-auto/system_settings_power_management/ui-path/6_Power-Management_Settings.png')
-click('ui-auto/system_settings_power_management/ui-path/7_Show_Logout_Screen_Option')
+click('ui-auto/system_settings_power_management/ui-path/7_Show_Logout_Screen_Option.png')
 click('ui-auto/system_settings_power_management/ui-path/8_Show_Logout_Screen_Shutdown_Button.png')
 click('ui-auto/system_settings_power_management/ui-path/9_Turn_Off_Screen_Option.png')
 click('ui-auto/system_settings_power_management/ui-path/10_Turn_Off_Screen_Never_Button.png')
