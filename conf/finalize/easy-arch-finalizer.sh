@@ -7,12 +7,12 @@ YELLOW='\033[1;33m'
 RESET='\033[0m'
 
 echo -e "${LIGHT_BLUE}Easy Arch Finalizer${RESET}"
-echo "This script will allow you to create/load your personal configuration of the distro,"
-echo "the configuration may include your own system settings, packages (can be version controlled),"
-echo "package settings, folders and files (location for each folder and file can be specified)."
+echo "This script lets you create or load your personal configuration for the distro."
+echo "Your configuration can include system settings, packages (with optional caching),"
+echo "and custom commands to modify or personalize the distro to fit your needs."
 echo ""
-echo -e "${YELLOW}Easy Arch does not provide any hosting solutions, It is your responsibility to${RESET}"
-echo -e "${YELLOW}save your files including the configuration you create using this script.${RESET}"
+echo -e "${YELLOW}Easy Arch does not provide any hosting services.${RESET}"
+echo -e "${YELLOW}You are responsible for saving your files, including the configuration file created with this script.${RESET}"
 echo ""
 echo "Select one of the two options:"
 echo "1. Create Configuration"
@@ -25,11 +25,11 @@ ordered_config_defaults=(
     "install_packages=false"
     "cache_packages=false"
     "packages=[]"
-    "system_settings=false"
     "system_settings_screen_locking=false"
     "system_settings_power_management=false"
     "system_settings_clear_clipboard_history=false"
     "system_settings_brave_plasma_integration=false"
+    "custom_commands=[]"
 )
 
 while true; do
@@ -71,41 +71,38 @@ while true; do
                 packages_array="[]"
                 value_packages="$packages_array"
             fi
+
             read -p "Modify system settings? (y/n): " system_settings
             if [[ "$system_settings" == "y" || "$system_settings" == "Y" ]]; then
-            	value_system_settings="true"
-            
-            	read -p "System settings - Disable screen locking? (y/n): " system_settings_screen_locking
-            	if [[ "$system_settings_screen_locking" == "y" || "$system_settings_screen_locking" == "Y" ]]; then
-            		value_system_settings_screen_locking="true"
-            	else
-            		value_system_settings_screen_locking="false"
-            	fi
-            
-            	read -p "System settings - Disable power management? (y/n): " system_settings_power_management
-            	if [[ "$system_settings_power_management" == "y" || "$system_settings_power_management" == "Y" ]]; then
-            		value_system_settings_power_management="true"
-            	else
-            		value_system_settings_power_management="false"
-            	fi
-            
-            	read -p "System settings - Disable clipboard history 'Ask again' prompt? (y/n): " system_settings_clear_clipboard_history
-            	if [[ "$system_settings_clear_clipboard_history" == "y" || "$system_settings_clear_clipboard_history" == "Y" ]]; then
-            		value_system_settings_clear_clipboard_history="true"
-            	else
-            		value_system_settings_clear_clipboard_history="false"
-            	fi
-            
-            	read -p "System settings - Disable brave plasma integration prompt? (y/n): " system_settings_brave_plasma_integration
-            	if [[ "$system_settings_brave_plasma_integration" == "y" || "$system_settings_brave_plasma_integration" == "Y" ]]; then
-            		value_system_settings_brave_plasma_integration="true"
-            	else
-            		value_system_settings_brave_plasma_integration="false" 
-            	fi
-           
+                read -p "System settings - Disable screen locking? (y/n): " ans
+                [[ "$ans" == [yY] ]] && value_system_settings_screen_locking="true" || value_system_settings_screen_locking="false"
+                read -p "System settings - Disable power management? (y/n): " ans
+                [[ "$ans" == [yY] ]] && value_system_settings_power_management="true" || value_system_settings_power_management="false"
+                read -p "System settings - Disable clipboard history 'Ask again' prompt? (y/n): " ans
+                [[ "$ans" == [yY] ]] && value_system_settings_clear_clipboard_history="true" || value_system_settings_clear_clipboard_history="false"
+                read -p "System settings - Disable Brave Plasma integration prompt? (y/n): " ans
+                [[ "$ans" == [yY] ]] && value_system_settings_brave_plasma_integration="true" || value_system_settings_brave_plasma_integration="false"
             else
-            	value_system_settings="false"
+                value_system_settings_screen_locking="false"
+                value_system_settings_power_management="false"
+                value_system_settings_clear_clipboard_history="false"
+                value_system_settings_brave_plasma_integration="false"
             fi
+
+            read -p "Add your own custom commands? (y/n): " custom_commands
+            custom_commands_array=()
+            if [[ "$custom_commands" == "y" || "$custom_commands" == "Y" ]]; then
+                count=1
+                while true; do
+                    read -p "Provide custom command #$count: " user_command
+                    custom_commands_array+=("$user_command")
+                    read -p "Add another custom command? (y/n): " another
+                    [[ "$another" != "y" && "$another" != "Y" ]] && break
+                    ((count++))
+                done
+            fi
+            value_custom_commands=$(printf '%s\n' "${custom_commands_array[@]}" | jq -R . | jq -s .)
+
             echo -e "${LIGHT_BLUE}Configuration saved to '$CONFIG_FILE'.${RESET}"
             break
             ;;
@@ -122,7 +119,6 @@ while true; do
                 install_packages=$(jq -r '.install_packages' "$SELECTED_FILE")
                 cache_packages=$(jq -r '.cache_packages' "$SELECTED_FILE")
                 packages=$(jq -r '.packages | join(", ")' "$SELECTED_FILE")
-                system_settings=$(jq -r '.system_settings' "$SELECTED_FILE")
                 system_settings_screen_locking=$(jq -r '.system_settings_screen_locking' "$SELECTED_FILE")
                 system_settings_power_management=$(jq -r '.system_settings_power_management' "$SELECTED_FILE")
                 system_settings_clear_clipboard_history=$(jq -r '.system_settings_clear_clipboard_history' "$SELECTED_FILE")
@@ -133,100 +129,74 @@ while true; do
                 echo "Install Packages: $install_packages"
                 echo "Cache Packages: $cache_packages"
                 echo "Packages: $packages"
-                echo "System Settings: $system_settings"
                 echo "System Settings Screen Locking: $system_settings_screen_locking"
                 echo "System Settings Power Management: $system_settings_power_management"
                 echo "System Settings Clear Clipboard History: $system_settings_clear_clipboard_history"
                 echo "System Settings Brave Plasma Integration: $system_settings_brave_plasma_integration"
-                
+
                 bash -c "source venv/bin/activate && python easy-arch-screen-holder-background.py" 2>/dev/null &
                 bash -c "source venv/bin/activate && python easy-arch-screen-holder-text.py" 2>/dev/null &
-		
-		        if [[ "$root_password" != "none" || "$username_password" != "none" ]]; then
-		            konsole -e bash -c "
-			        sleep 2;
-			        if [[ \"$root_password\" != \"none\" ]]; then
-			            echo -e 'Setting root password...';
-			            echo 'root:$root_password' | chpasswd 2>/dev/null;
-			        else
-			            echo -e 'Skipping root password (none).';
-			        fi
-			        sleep 2;
-			        if [[ \"$username_password\" != \"none\" ]]; then
-			            echo -e 'Setting password for username \"main\"...';
-			            echo 'main:$username_password' | chpasswd 2>/dev/null;
-			        else
-			            echo -e 'Skipping user password (none).';
-			        fi
-			        echo -e '${LIGHT_BLUE}Configuration applied. Closing window...${RESET}';
-			        sleep 2;
-			        exit 0;
-		            " 2>/dev/null
-		        fi
 
-		        if [[ "$install_packages" == "true" && "$cache_packages" == "true" ]]; then
-		            konsole -e bash -c "
-			        sleep 2;
-			        sudo pacman -U --noconfirm easy-arch-packages-cache/*.pkg.tar.zst
-			        echo -e '${LIGHT_BLUE}Cached packages installed. Closing window...${RESET}';
-			        sleep 2;
-			        exit 0;
-		            " 2>/dev/null
-		        fi
+                if [[ "$root_password" != "none" || "$username_password" != "none" ]]; then
+                    konsole -e bash -c "
+                        sleep 2;
+                        [[ \"$root_password\" != \"none\" ]] && echo 'root:$root_password' | chpasswd 2>/dev/null
+                        [[ \"$username_password\" != \"none\" ]] && echo 'main:$username_password' | chpasswd 2>/dev/null
+                        echo -e '${LIGHT_BLUE}Passwords applied. Closing window...${RESET}';
+                        sleep 2;
+                        exit 0;
+                    " 2>/dev/null
+                fi
 
-		        if [[ "$install_packages" == "true" && "$cache_packages" == "false" ]]; then
-		            konsole -e bash -c "
-		                echo -e '${LIGHT_BLUE}Installing packages using pacman and yay...${RESET}';
-		                sleep 2;
-		                CONFIG_PATH=\"$PWD/$CONFIG_FILE\"
-		                PACKAGES=\$(jq -r '.packages[]' \"\$CONFIG_PATH\")
-		                for pkg in \$PACKAGES; do
-		                    if pacman -Si \$pkg &>/dev/null; then
-		                        echo -e '${YELLOW}Installing \$pkg with pacman...${RESET}';
-		                        pacman -S --noconfirm \$pkg
-		                    else
-		                        echo -e '${YELLOW}Package \$pkg not found in pacman, trying yay...${RESET}';
-		                        sudo -u main yay -S --noconfirm \$pkg
-		                    fi
-		                done
-		                echo -e '${LIGHT_BLUE}Packages downloaded and installed. Closing window...${RESET}';
-		                sleep 2;
-		                exit 0;
-		            " 2>/dev/null
-		        fi
-		        
-		        if [[ "$system_settings_screen_locking" == "true" ]]; then
-	                echo "Running UI script to disable screen locking..."
-	                source venv/bin/activate
-	                python ui-auto/system_settings_screen_locking/ui-auto.py
-	                deactivate
-		        fi
-		        
-		        if [[ "$system_settings_power_management" == "true" ]]; then
-	                echo "Running UI script to disable power management..."
-	                source venv/bin/activate
-	                python ui-auto/system_settings_power_management/ui-auto.py
-	                deactivate
-		        fi
+                if [[ "$install_packages" == "true" && "$cache_packages" == "true" ]]; then
+                    konsole -e bash -c "
+                        sleep 2;
+                        sudo pacman -U --noconfirm easy-arch-packages-cache/*.pkg.tar.zst
+                        echo -e '${LIGHT_BLUE}Cached packages installed. Closing window...${RESET}';
+                        sleep 2;
+                        exit 0;
+                    " 2>/dev/null
+                fi
 
-		        if [[ "$system_settings_clear_clipboard_history" == "true" ]]; then
-	                echo "Running UI script to disable 'Ask again' prompt when clearing clipboard histroy..."
-	                source venv/bin/activate
-	                python ui-auto/system_settings_clear_clipboard_history/ui-auto.py
-	                deactivate
-		        fi
+                if [[ "$install_packages" == "true" && "$cache_packages" == "false" ]]; then
+                    konsole -e bash -c "
+                        echo -e '${LIGHT_BLUE}Installing packages...${RESET}';
+                        sleep 2;
+                        CONFIG_PATH=\"$SELECTED_FILE\"
+                        PACKAGES=\$(jq -r '.packages[]' \"\$CONFIG_PATH\")
+                        for pkg in \$PACKAGES; do
+                            if pacman -Si \$pkg &>/dev/null; then
+                                echo -e '${YELLOW}Installing \$pkg with pacman...${RESET}';
+                                pacman -S --noconfirm \$pkg
+                            else
+                                echo -e '${YELLOW}Installing \$pkg with yay...${RESET}';
+                                sudo -u main yay -S --noconfirm \$pkg
+                            fi
+                        done
+                        echo -e '${LIGHT_BLUE}Packages installed. Closing window...${RESET}';
+                        sleep 2;
+                        exit 0;
+                    " 2>/dev/null
+                fi
 
-		        if [[ "$system_settings_brave_plasma_integration" == "true" ]]; then
-	                echo "Running UI script to disable 'Plasma Integration' prompt when opening the Brave browser..."
-	                source venv/bin/activate
-	                python ui-auto/system_settings_brave_plasma_integration/ui-auto.py
-	                deactivate
-		        fi
+                [[ "$system_settings_screen_locking" == "true" ]] && source venv/bin/activate && python ui-auto/system_settings_screen_locking/ui-auto.py && deactivate
+                [[ "$system_settings_power_management" == "true" ]] && source venv/bin/activate && python ui-auto/system_settings_power_management/ui-auto.py && deactivate
+                [[ "$system_settings_clear_clipboard_history" == "true" ]] && source venv/bin/activate && python ui-auto/system_settings_clear_clipboard_history/ui-auto.py && deactivate
+                [[ "$system_settings_brave_plasma_integration" == "true" ]] && source venv/bin/activate && python ui-auto/system_settings_brave_plasma_integration/ui-auto.py && deactivate
 
-		        rm /tmp/easy-arch-screen-holder-text
-		        rm /tmp/easy-arch-screen-holder-background
-		        echo -e "${LIGHT_BLUE}Configuration applied.${RESET}"
-		        
+                custom_commands_present=$(jq '.custom_commands | length' "$SELECTED_FILE")
+                if [[ "$custom_commands_present" -gt 0 ]]; then
+                    echo -e "${LIGHT_BLUE}Executing custom commands...${RESET}"
+                    mapfile -t commands < <(jq -r '.custom_commands[]' "$SELECTED_FILE")
+                    for cmd in "${commands[@]}"; do
+                        echo -e "${YELLOW}Executing: $cmd${RESET}"
+                        bash -c "$cmd"
+                    done
+                fi
+
+                rm -f /tmp/easy-arch-screen-holder-text
+                rm -f /tmp/easy-arch-screen-holder-background
+                echo -e "${LIGHT_BLUE}Configuration applied.${RESET}"
             else
                 echo -e "${RED}Configuration file not found!${RESET}"
             fi
@@ -238,7 +208,6 @@ while true; do
     esac
 done
 
-
 # Apply defaults if not set
 for item in "${ordered_config_defaults[@]}"; do
     key="${item%%=*}"
@@ -247,25 +216,22 @@ for item in "${ordered_config_defaults[@]}"; do
     [[ -z "${!var_name}" ]] && declare "$var_name=$default"
 done
 
-# Build JSON with correct formatting
+# Build JSON
 json_output="{"
 for item in "${ordered_config_defaults[@]}"; do
     key="${item%%=*}"
     var_name="value_$key"
     value="${!var_name}"
-
-    # Quote only if not native JSON or boolean
     if [[ "$value" == "true" || "$value" == "false" || "$value" == \[* || "$value" == \{* || "$value" =~ ^[0-9]+$ ]]; then
         json_output+="\n    \"$key\": $value,"
     else
         json_output+="\n    \"$key\": \"${value}\","
     fi
 done
-# Clean up trailing comma and close JSON
 json_output="${json_output%,}"
 json_output+="\n}"
 
-# Save with permissions
 echo -e "$json_output" > "$CONFIG_FILE"
 umask 000
 chmod 666 "$CONFIG_FILE"
+
