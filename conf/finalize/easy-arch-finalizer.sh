@@ -137,8 +137,10 @@ while true; do
                 echo "System Settings Brave Plasma Integration: $system_settings_brave_plasma_integration"
                 echo "Custom Commands: $custom_commands"
 
+                touch /tmp/easy-arch-screen-holder-loading-1
                 bash -c "source venv/bin/activate && python easy-arch-screen-holder-background.py" 2>/dev/null &
                 bash -c "source venv/bin/activate && python easy-arch-screen-holder-text.py" 2>/dev/null &
+                bash -c "source venv/bin/activate && python easy-arch-screen-holder-loading.py" 2>/dev/null &
 
                 if [[ "$root_password" != "none" || "$username_password" != "none" ]]; then
                     konsole -e bash -c "
@@ -151,6 +153,7 @@ while true; do
                     " 2>/dev/null
                 fi
 
+                mv /tmp/easy-arch-screen-holder-loading-1 /tmp/easy-arch-screen-holder-loading-2
                 if [[ "$install_packages" == "true" && "$cache_packages" == "true" ]]; then
                     konsole -e bash -c "
                         sleep 2;
@@ -181,12 +184,15 @@ while true; do
                         exit 0;
                     " 2>/dev/null
                 fi
-
+                
+                mv /tmp/easy-arch-screen-holder-loading-2 /tmp/easy-arch-screen-holder-loading-3
                 [[ "$system_settings_screen_locking" == "true" ]] && source venv/bin/activate && python ui-auto/system_settings_screen_locking/ui-auto.py && deactivate
                 [[ "$system_settings_power_management" == "true" ]] && source venv/bin/activate && python ui-auto/system_settings_power_management/ui-auto.py && deactivate
                 [[ "$system_settings_clear_clipboard_history" == "true" ]] && source venv/bin/activate && python ui-auto/system_settings_clear_clipboard_history/ui-auto.py && deactivate
                 [[ "$system_settings_brave_plasma_integration" == "true" ]] && source venv/bin/activate && python ui-auto/system_settings_brave_plasma_integration/ui-auto.py && deactivate
 
+
+                mv /tmp/easy-arch-screen-holder-loading-3 /tmp/easy-arch-screen-holder-loading-4
                 custom_commands_present=$(jq '.custom_commands | length' "$SELECTED_FILE")
                 if [[ "$custom_commands_present" -gt 0 ]]; then
                     echo -e "${LIGHT_BLUE}Executing custom commands...${RESET}"
@@ -197,6 +203,7 @@ while true; do
                     done
                 fi
 
+                rm -f /tmp/easy-arch-screen-holder-loading-4
                 rm -f /tmp/easy-arch-screen-holder-text
                 rm -f /tmp/easy-arch-screen-holder-background
                 echo -e "${LIGHT_BLUE}Configuration applied.${RESET}"

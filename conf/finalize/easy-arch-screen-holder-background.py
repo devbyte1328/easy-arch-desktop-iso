@@ -76,7 +76,7 @@ if __name__ == "__main__":
     # Check for file every second
     file_check_timer = QTimer()
     file_check_timer.timeout.connect(check_trigger_file)
-    file_check_timer.start(1000)
+    file_check_timer.start(500)
 
     sys.exit(app.exec())
 

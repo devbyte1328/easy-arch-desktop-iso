@@ -1,5 +1,6 @@
 import sys
 import os
+import re
 from PyQt6.QtWidgets import QApplication, QWidget
 from PyQt6.QtGui import QPixmap, QPainter
 from PyQt6.QtCore import Qt, QTimer
@@ -8,12 +9,13 @@ from Xlib import display, X
 # Suppress Qt logging warnings
 os.environ["QT_LOGGING_RULES"] = "qt5.widgets.warning=false;qt6.widgets.warning=false"
 
-TRIGGER_FILE = "/tmp/easy-arch-screen-holder-text"
+TRIGGER_DIR = "/tmp"
+TRIGGER_PREFIX = "easy-arch-screen-holder-loading-"
+TRIGGER_PATTERN = re.compile(rf"^{TRIGGER_PREFIX}(\d+)$")
 
 class FullscreenOverlay(QWidget):
     def __init__(self, image_path, screen_geometry):
         super().__init__()
-        # Validate image file
         if not os.path.exists(image_path):
             print(f"Error: Image file '{image_path}' not found.", file=sys.stderr)
             QApplication.quit()
@@ -35,7 +37,6 @@ class FullscreenOverlay(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
 
-        # Show fullscreen and raise after short delay
         self.showFullScreen()
         QTimer.singleShot(200, self.raise_x11_window)
 
@@ -55,42 +56,69 @@ class FullscreenOverlay(QWidget):
         painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_Source)
         painter.setOpacity(1.0)
 
-        # Scale image to fill the screen (preserve aspect ratio, crop if needed)
         scaled_pixmap = self.pixmap.scaled(
             self.size(),
             Qt.AspectRatioMode.KeepAspectRatioByExpanding,
             Qt.TransformationMode.SmoothTransformation
         )
-
-        # Center the scaled image
         x = (self.width() - scaled_pixmap.width()) // 2
         y = (self.height() - scaled_pixmap.height()) // 2
         painter.drawPixmap(x, y, scaled_pixmap)
 
-def check_trigger_file():
-    if not os.path.exists(TRIGGER_FILE):
-        QApplication.quit()
+def find_trigger_file():
+    for name in os.listdir(TRIGGER_DIR):
+        match = TRIGGER_PATTERN.match(name)
+        if match:
+            return int(match.group(1))
+    return None
+
+class OverlayManager:
+    def __init__(self, app):
+        self.app = app
+        self.overlays = []
+        self.current_number = None
+
+    def update_overlays(self):
+        number = find_trigger_file()
+        if number is None:
+            self.cleanup_and_exit()
+            return
+
+        if number != self.current_number:
+            self.current_number = number
+            self.reload_overlays(number)
+
+    def reload_overlays(self, number):
+        for overlay in self.overlays:
+            overlay.close()
+        self.overlays.clear()
+
+        image_path = f"easy-arch-screen-holder-loading-{number}.png"
+        for screen in self.app.screens():
+            geometry = screen.geometry()
+            overlay = FullscreenOverlay(image_path, geometry)
+            self.overlays.append(overlay)
+
+    def cleanup_and_exit(self):
+        for overlay in self.overlays:
+            overlay.close()
+        self.app.quit()
 
 if __name__ == "__main__":
-    # Create trigger file at startup
-    try:
-        with open(TRIGGER_FILE, "w") as f:
-            f.write("active\n")
-    except Exception as e:
-        print(f"Error: Could not create trigger file: {e}", file=sys.stderr)
-        sys.exit(1)
-
     app = QApplication(sys.argv)
-    overlays = []
-    for screen in app.screens():
-        geometry = screen.geometry()
-        overlay = FullscreenOverlay("easy-arch-screen-holder-text.png", geometry)
-        overlays.append(overlay)
+    manager = OverlayManager(app)
 
-    # Check for file every second
-    file_check_timer = QTimer()
-    file_check_timer.timeout.connect(check_trigger_file)
-    file_check_timer.start(500)
+    # Initial check
+    if find_trigger_file() is None:
+        print("No trigger file found. Exiting.")
+        sys.exit(0)
+
+    manager.update_overlays()
+
+    # Check for updates every 500ms
+    timer = QTimer()
+    timer.timeout.connect(manager.update_overlays)
+    timer.start(500)
 
     sys.exit(app.exec())
 
