@@ -123,6 +123,8 @@ while true; do
                 system_settings_power_management=$(jq -r '.system_settings_power_management' "$SELECTED_FILE")
                 system_settings_clear_clipboard_history=$(jq -r '.system_settings_clear_clipboard_history' "$SELECTED_FILE")
                 system_settings_brave_plasma_integration=$(jq -r '.system_settings_brave_plasma_integration' "$SELECTED_FILE")
+                custom_commands=$(jq -r '.custom_commands | join(" && ")' "$SELECTED_FILE")
+
                 echo -e "${LIGHT_BLUE}Configuration Loaded:${RESET}"
                 echo "Root Password: $root_password"
                 echo "Username Password: $username_password"
@@ -133,6 +135,7 @@ while true; do
                 echo "System Settings Power Management: $system_settings_power_management"
                 echo "System Settings Clear Clipboard History: $system_settings_clear_clipboard_history"
                 echo "System Settings Brave Plasma Integration: $system_settings_brave_plasma_integration"
+                echo "Custom Commands: $custom_commands"
 
                 bash -c "source venv/bin/activate && python easy-arch-screen-holder-background.py" 2>/dev/null &
                 bash -c "source venv/bin/activate && python easy-arch-screen-holder-text.py" 2>/dev/null &
