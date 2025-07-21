@@ -32,6 +32,6 @@ click('ui-auto/system_settings_brave_plasma_integration/ui-path/3_Brave_Browser_
 time.sleep(20)
 click('ui-auto/system_settings_brave_plasma_integration/ui-path/4_Brave_Plasma_Integration_Icon.png', mouse_button='right')
 click('ui-auto/system_settings_brave_plasma_integration/ui-path/5_Brave_Plasma_Integration_Do_Not_Show_Button.png')
-click('ui-auto/system_settings_brave_plasma_integration/ui-path/6_Brave_Browser_Task.png')
+click('ui-auto/system_settings_brave_plasma_integration/ui-path/6_Brave_Browser_Task.png', mouse_button='right')
 click('ui-auto/system_settings_brave_plasma_integration/ui-path/7_Brave_Browser_Close_Button.png')
 

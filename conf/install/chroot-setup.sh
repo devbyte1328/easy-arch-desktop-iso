@@ -141,6 +141,7 @@ find /home/main/Desktop -type f -exec chmod 666 {} \;
 find /home/main/Desktop -type d -exec chmod 777 {} \;
 find /home/main/Desktop -type f -exec chmod +x {} \;
 chown -R main:main /home/main/Desktop
-xhost +local:
 
 pacman -Sy
+
+echo -e "\e[94mEasy Arch disk installation complete, you can reboot now.\e[0m"
