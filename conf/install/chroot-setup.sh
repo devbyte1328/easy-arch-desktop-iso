@@ -132,15 +132,17 @@ systemctl enable first-boot-setup.service
 
 chmod 666 /home/main/.config/plasmashellrc
 
-python -m venv /home/main/Desktop/venv
-source /home/main/Desktop/venv/bin/activate
-pip install --no-index --find-links=/home/main/Desktop/pip-cache/. -r /home/main/Desktop/pip-cache/pip-libraries
+python -m venv /home/main/.config/easy-arch-finalizer/venv
+source /home/main/.config/easy-arch-finalizer/venv/bin/activate
+pip install --no-index --find-links=/home/main/.config/easy-arch-finalizer/pip-cache/. -r /home/main/.config/easy-arch-finalizer/pip-cache/pip-libraries
 deactivate
+rm -rf /home/main/.config/easy-arch-finalizer/pip-cache
 
-find /home/main/Desktop -type f -exec chmod 666 {} \;
-find /home/main/Desktop -type d -exec chmod 777 {} \;
-find /home/main/Desktop -type f -exec chmod +x {} \;
-chown -R main:main /home/main/Desktop
+find /home/main -type f -exec chmod 666 {} \;
+find /home/main -type d -exec chmod 777 {} \;
+find /home/main -type f -exec chmod +x {} \;
+chown -R main:main /home/main
+chown -R main:main /home/main
 
 pacman -Sy
 

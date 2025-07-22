@@ -179,7 +179,13 @@ chmod +x /mnt/usr/bin/yay
 
 echo "[*] Copying over finalizer script..."
 mkdir -p /mnt/home/main/Desktop
-cp -r /root/Easy-Arch/finalize/. /mnt/home/main/Desktop/
+mkdir -p /mnt/home/main/.config/easy-arch-finalizer
+mkdir -p /mnt/home/main/.config/easy-arch-finalizer/easy-arch-screen-holder
+mkdir -p /mnt/home/main/.config/easy-arch-finalizer/tmp
+cp /root/Easy-Arch/finalize/easy-arch-finalizer.sh /mnt/home/main/Desktop/easy-arch-finalizer.sh
+rm /root/Easy-Arch/finalize/easy-arch-finalizer.sh
+cp -r /root/Easy-Arch/finalize/. /mnt/home/main/.config/easy-arch-finalizer/
+mv /mnt/home/main/.config/easy-arch-finalizer/*.png /mnt/home/main/.config/easy-arch-finalizer/easy-arch-screen-holder/
 
 echo "Running chroot setup..."
 arch-chroot /mnt /bin/bash /chroot-setup.sh

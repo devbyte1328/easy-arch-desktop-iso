@@ -7,7 +7,7 @@ from PyQt6.QtCore import Qt, QRect, QTimer
 # Suppress Qt logging warnings
 os.environ["QT_LOGGING_RULES"] = "qt5.widgets.warning=false;qt6.widgets.warning=false"
 
-TRIGGER_FILE = "/tmp/easy-arch-screen-holder-background"
+TRIGGER_FILE = "/home/main/.config/easy-arch-finalizer/tmp/easy-arch-screen-holder-background"
 
 class FullscreenOverlay(QWidget):
     def __init__(self, image_path, screen_geometry):
@@ -69,7 +69,7 @@ if __name__ == "__main__":
     overlays = []
     for screen in app.screens():
         geometry = screen.geometry()
-        overlay = FullscreenOverlay("easy-arch-screen-holder-background.png", geometry)
+        overlay = FullscreenOverlay("/home/main/.config/easy-arch-finalizer/easy-arch-screen-holder/easy-arch-screen-holder-background.png", geometry)
         overlay.showFullScreen()
         overlays.append(overlay)
 

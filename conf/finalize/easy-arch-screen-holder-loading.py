@@ -9,7 +9,7 @@ from Xlib import display, X
 # Suppress Qt logging warnings
 os.environ["QT_LOGGING_RULES"] = "qt5.widgets.warning=false;qt6.widgets.warning=false"
 
-TRIGGER_DIR = "/tmp"
+TRIGGER_DIR = "/home/main/.config/easy-arch-finalizer/tmp"
 TRIGGER_PREFIX = "easy-arch-screen-holder-loading-"
 TRIGGER_PATTERN = re.compile(rf"^{TRIGGER_PREFIX}(\d+)$")
 
@@ -93,7 +93,7 @@ class OverlayManager:
             overlay.close()
         self.overlays.clear()
 
-        image_path = f"easy-arch-screen-holder-loading-{number}.png"
+        image_path = f"/home/main/.config/easy-arch-finalizer/easy-arch-screen-holder/easy-arch-screen-holder-loading-{number}.png"
         for screen in self.app.screens():
             geometry = screen.geometry()
             overlay = FullscreenOverlay(image_path, geometry)

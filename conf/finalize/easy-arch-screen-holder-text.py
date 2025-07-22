@@ -8,7 +8,7 @@ from Xlib import display, X
 # Suppress Qt logging warnings
 os.environ["QT_LOGGING_RULES"] = "qt5.widgets.warning=false;qt6.widgets.warning=false"
 
-TRIGGER_FILE = "/tmp/easy-arch-screen-holder-text"
+TRIGGER_FILE = "/home/main/.config/easy-arch-finalizer//tmp/easy-arch-screen-holder-text"
 
 class FullscreenOverlay(QWidget):
     def __init__(self, image_path, screen_geometry):
@@ -84,7 +84,7 @@ if __name__ == "__main__":
     overlays = []
     for screen in app.screens():
         geometry = screen.geometry()
-        overlay = FullscreenOverlay("easy-arch-screen-holder-text.png", geometry)
+        overlay = FullscreenOverlay("/home/main/.config/easy-arch-finalizer/easy-arch-screen-holder/easy-arch-screen-holder-text.png", geometry)
         overlays.append(overlay)
 
     # Check for file every second
