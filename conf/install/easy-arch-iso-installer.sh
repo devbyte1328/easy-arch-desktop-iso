@@ -94,6 +94,7 @@ mkdir -p /mnt/pacstrap-easyarch-repo
 mkdir -p /tmp/pacstrap-easyarch-db
 cp -r /root/Easy-Arch/pacstrap-easyarch-repo/. /mnt/pacstrap-easyarch-repo/
 cp -r /root/Easy-Arch/pacstrap-easyarch-db/. /tmp/pacstrap-easyarch-db/
+cp /etc/pacman.conf /etc/pacman.bak
 cp /root/Easy-Arch/pacstrap-easyarch-conf/pacman.conf /etc/pacman.conf
 
 echo "Running pacstrap..."
@@ -183,5 +184,7 @@ cp -r /root/Easy-Arch/finalize/. /mnt/home/main/Desktop/
 echo "Running chroot setup..."
 arch-chroot /mnt /bin/bash /chroot-setup.sh
 rm /mnt/chroot-setup.sh
+
+mv /etc/pacman.bak /etc/pacman.conf
 
 umount -R /mnt
