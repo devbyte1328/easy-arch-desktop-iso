@@ -126,19 +126,19 @@ chown -R 1000:998 /mnt/home/main
 mkdir -p /mnt/etc
 cp /etc/sddm.conf /mnt/etc/sddm.conf
 
-echo "[*] Copying over X11 startup file..."
+echo "[*] Copying X11 startup file..."
 mkdir -p /mnt/usr/share/xsessions
 cp /usr/share/xsessions/plasma.desktop /mnt/usr/share/xsessions/plasma.desktop
 
-echo "[*] Copying over yay build files..."
+echo "[*] Copying yay build files..."
 mkdir -p /mnt/root/Easy-Arch/yay-build
 cp -r /root/Easy-Arch/yay-build/. /mnt/root/Easy-Arch/yay-build/
 
-echo "[*] Copying over aur pkg build files..."
+echo "[*] Copying aur pkg build files..."
 mkdir -p /mnt/root/Easy-Arch/aur_pkgs
 cp -r /root/Easy-Arch/aur_pkgs/. /mnt/root/Easy-Arch/aur_pkgs/
 
-echo "[*] Copying over KDE minimal theme files..."
+echo "[*] Copying KDE minimal theme files..."
 mkdir -p /mnt/home/main/.config/menus
 mkdir -p /mnt/root/Easy-Arch/kde
 mkdir -p /mnt/usr/share/wallpapers/Next
@@ -151,14 +151,14 @@ cp /root/Easy-Arch/kde/applications-kmenuedit.menu /mnt/home/main/.config/menus/
 cp /root/Easy-Arch/kde/kdeglobals /mnt/home/main/.config/kdeglobals
 cp -r /root/Easy-Arch/kde/Next/. /mnt/usr/share/wallpapers/Next
 
-echo "[*] Copying over first boot configuration files..."
+echo "[*] Copying first boot configuration files..."
 mkdir -p /mnt/home/main/.config
 mkdir -p /mnt/etc/systemd/system
 mkdir -p /mnt/etc/profile.d
 cp /root/Easy-Arch/first-boot-setup.sh /mnt/home/main/.config/first-boot-setup.sh
 cp /root/Easy-Arch/first-boot-setup.service /mnt/etc/systemd/system/first-boot-setup.service
 
-echo "[*] Copying over Brave browser profile..."
+echo "[*] Copying Brave browser profile..."
 mkdir -p /mnt/root/Easy-Arch/BraveSoftware_Profile
 mkdir -p /mnt/root/Easy-Arch/BraveSoftware_Config
 cp -r /home/main/.config/BraveSoftware_Profile/. /mnt/root/Easy-Arch/BraveSoftware_Profile/
@@ -166,7 +166,7 @@ cp /home/main/.config/kwalletrc /mnt/root/Easy-Arch/BraveSoftware_Config/kwallet
 cp /home/main/.config/brave-profile /mnt/root/Easy-Arch/BraveSoftware_Config/brave-profile
 cp /root/Easy-Arch/brave /mnt/root/Easy-Arch/BraveSoftware_Config/brave
 
-echo "[*] Building yay and copying over bin file..."
+echo "[*] Building yay and copying bin file..."
 mkdir -p /tmp/yay-build
 chmod 777 /tmp/yay-build
 cp -r /root/Easy-Arch/yay-build/* /tmp/yay-build/.
@@ -177,7 +177,7 @@ mkdir -p /mnt/usr/bin
 cp /tmp/yay-build/pkg/yay/usr/bin/yay /mnt/usr/bin/yay
 chmod +x /mnt/usr/bin/yay
 
-echo "[*] Copying over finalizer script..."
+echo "[*] Copying finalizer script..."
 mkdir -p /mnt/home/main/Desktop
 mkdir -p /mnt/home/main/.config/easy-arch-finalizer
 mkdir -p /mnt/home/main/.config/easy-arch-finalizer/easy-arch-screen-holder
@@ -186,6 +186,10 @@ cp /root/Easy-Arch/finalize/easy-arch-finalizer.sh /mnt/home/main/Desktop/easy-a
 rm /root/Easy-Arch/finalize/easy-arch-finalizer.sh
 cp -r /root/Easy-Arch/finalize/. /mnt/home/main/.config/easy-arch-finalizer/
 mv /mnt/home/main/.config/easy-arch-finalizer/*.png /mnt/home/main/.config/easy-arch-finalizer/easy-arch-screen-holder/
+
+echo "[*] Copying pacman config..."
+mkdir -p /mnt/etc
+cp /etc/pacman.conf /mnt/etc/pacman.conf
 
 echo "Running chroot setup..."
 arch-chroot /mnt /bin/bash /chroot-setup.sh
