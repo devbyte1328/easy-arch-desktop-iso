@@ -20,8 +20,8 @@ cp $YAY_BUILD_DIR/pkg/yay/usr/bin/yay $WORKDIR/airootfs/usr/bin/yay
 chmod +x $WORKDIR/airootfs/usr/bin/yay
 
 echo "[*] Copying yay build files into airootfs in preparation for the local disk install..."
-mkdir -p $WORKDIR/airootfs/root/yay-build
-cp -r $YAY_BUILD_DIR/. $WORKDIR/airootfs/root/yay-build/
+mkdir -p $WORKDIR/airootfs/root/Easy-Arch/yay-build
+cp -r $YAY_BUILD_DIR/. $WORKDIR/airootfs/root/Easy-Arch/yay-build/
 
 echo "[✓] yay setup complete."
 

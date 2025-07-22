@@ -104,22 +104,22 @@ touch /var/log/.locale_set
 # Generate initramfs
 mkinitcpio -P
 
-pacman -U --noconfirm /root/aur_pkgs/*.pkg.tar.zst
+pacman -U --noconfirm /root/Easy-Arch/aur_pkgs/*.pkg.tar.zst
 pacman -R --noconfirm discover plasma-welcome
 
 grub-install --target=x86_64-efi --bootloader-id=grub_uefi --recheck
 grub-mkconfig -o /boot/grub/grub.cfg
 
 mkdir -p /home/main/.config/BraveSoftware_Profile
-cp -r /root/BraveSoftware_Profile/. /home/main/.config/BraveSoftware_Profile/
-cp /root/BraveSoftware_Config/kwalletrc /home/main/.config/kwalletrc
-cp /root/BraveSoftware_Config/brave-profile /home/main/.config/brave-profile
-cp /root/BraveSoftware_Config/brave /usr/bin/brave
+cp -r /root/Easy-Arch/BraveSoftware_Profile/. /home/main/.config/BraveSoftware_Profile/
+cp /root/Easy-Arch/BraveSoftware_Config/kwalletrc /home/main/.config/kwalletrc
+cp /root/Easy-Arch/BraveSoftware_Config/brave-profile /home/main/.config/brave-profile
+cp /root/Easy-Arch/BraveSoftware_Config/brave /usr/bin/brave
 chmod +x /usr/bin/brave
 
 mkdir -p /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/
-cp /root/Footer.qml /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/Footer.qml
-cp /root/main.qml /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/main.qml
+cp /root/Easy-Arch/Footer.qml /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/Footer.qml
+cp /root/Easy-Arch/main.qml /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/main.qml
 
 systemctl enable sddm
 systemctl enable NetworkManager

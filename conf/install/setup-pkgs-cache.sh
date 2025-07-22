@@ -13,8 +13,8 @@ TMPDB=/tmp/pacstrap-easyarch-db
 MNTREPO=/mnt/pacstrap-easyarch-repo
 
 # Set final destination (relative to current dir)
-FINALDB=airootfs/root/pacstrap-easyarch-db
-FINALCACHE=airootfs/root/pacstrap-easyarch-repo
+FINALDB=airootfs/root/Easy-Arch/pacstrap-easyarch-db
+FINALCACHE=airootfs/root/Easy-Arch/pacstrap-easyarch-repo
 
 # Create safe temp dirs
 mkdir -p $TMPDB/sync

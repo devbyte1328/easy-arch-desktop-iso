@@ -49,9 +49,9 @@ mkdir -p airootfs/home/main
 chown -R 1000:998 airootfs/home/main
 
 echo "[*] Adding setup-locale script..."
-mkdir -p airootfs/root
-cp $CONFDIR/system/setup-locale.sh airootfs/root/setup-locale.sh
-chmod +x airootfs/root/setup-locale.sh
+mkdir -p airootfs/root/Easy-Arch
+cp $CONFDIR/system/setup-locale.sh airootfs/root/Easy-Arch/setup-locale.sh
+chmod +x airootfs/root/Easy-Arch/setup-locale.sh
 
 echo "[*] Adding locale systemd service..."
 mkdir -p airootfs/etc/systemd/system
@@ -59,24 +59,24 @@ cp $CONFDIR/system/locale-setup.service airootfs/etc/systemd/system/locale-setup
 
 echo "[*] Apply KDE minimal theme..."
 mkdir -p airootfs/home/main/.config/menus
-mkdir -p airootfs/root/Next
-mkdir -p airootfs/root/kde
-cp $CONFDIR/kde/Footer.qml airootfs/root/Footer.qml
-cp $CONFDIR/kde/main.qml airootfs/root/main.qml
+mkdir -p airootfs/root/Easy-Arch/Next
+mkdir -p airootfs/root/Easy-Arch/kde
+cp $CONFDIR/kde/Footer.qml airootfs/root/Easy-Arch/Footer.qml
+cp $CONFDIR/kde/main.qml airootfs/root/Easy-Arch/main.qml
 cp $CONFDIR/kde/plasmashellrc airootfs/home/main/.config/plasmashellrc
 cp $CONFDIR/kde/kwinrc airootfs/home/main/.config/kwinrc
 cp $CONFDIR/kde/plasma-org.kde.plasma.desktop-appletsrc airootfs/home/main/.config/plasma-org.kde.plasma.desktop-appletsrc
 cp $CONFDIR/kde/applications-kmenuedit.menu airootfs/home/main/.config/menus/applications-kmenuedit.menu
 cp $CONFDIR/kde/kdeglobals airootfs/home/main/.config/kdeglobals
-cp -r $CONFDIR/kde/Next/. airootfs/root/Next/
-cp -r $CONFDIR/kde/. airootfs/root/kde/
+cp -r $CONFDIR/kde/Next/. airootfs/root/Easy-Arch/Next/
+cp -r $CONFDIR/kde/. airootfs/root/Easy-Arch/kde/
 
 echo "[*] Configure pacman..."
 cp $CONFDIR/system/pacman.conf airootfs/etc/pacman.conf
 
 echo "[*] Adding setup-pkgs script..."
-cp $CONFDIR/setup-pkgs.sh airootfs/root/setup-pkgs.sh
-chmod +x airootfs/root/setup-pkgs.sh
+cp $CONFDIR/setup-pkgs.sh airootfs/root/Easy-Arch/setup-pkgs.sh
+chmod +x airootfs/root/Easy-Arch/setup-pkgs.sh
 
 echo "[*] Adding pkgs systemd service..."
 cp $CONFDIR/system/pkgs-setup.service airootfs/etc/systemd/system/pkgs-setup.service
@@ -86,7 +86,7 @@ mkdir -p airootfs/home/main/.config/BraveSoftware_Profile/
 cp -r $CONFDIR/brave/BraveSoftware_Profile/. airootfs/home/main/.config/BraveSoftware_Profile/
 cp $CONFDIR/brave/kwalletrc airootfs/home/main/.config/kwalletrc
 cp $CONFDIR/brave/brave-profile airootfs/home/main/.config/brave-profile
-cp $CONFDIR/brave/brave airootfs/root/brave
+cp $CONFDIR/brave/brave airootfs/root/Easy-Arch/brave
 
 echo "[*] Adding SDDM config..."
 mkdir -p airootfs/etc
@@ -127,30 +127,30 @@ if ! bash $CONFDIR/install/setup-pkgs-cache.sh; then
     exit 1
 fi
 # Verify the directory exists and is not empty
-if [ ! -d "airootfs/root/pacstrap-easyarch-repo" ] || [ -z "$(ls -A airootfs/root/pacstrap-easyarch-repo)" ]; then
+if [ ! -d "airootfs/root/Easy-Arch/pacstrap-easyarch-repo" ] || [ -z "$(ls -A airootfs/root/Easy-Arch/pacstrap-easyarch-repo)" ]; then
     echo "[✗] Package cache directory does not exist or is empty."
     exit 1
 fi
-mkdir -p airootfs/root/pacman-base-conf
-mkdir -p airootfs/root/pacstrap-easyarch-conf
-cp $CONFDIR/packages.x86_64 airootfs/root/packages.x86_64
-cp $CONFDIR/system/pacman.conf airootfs/root/pacman-base-conf/pacman.conf
-cp $CONFDIR/install/pacstrap-easyarch-conf/pacman.conf airootfs/root/pacstrap-easyarch-conf/pacman.conf
-cp $CONFDIR/install/chroot-setup.sh airootfs/root/chroot-setup.sh
+mkdir -p airootfs/root/Easy-Arch/pacman-base-conf
+mkdir -p airootfs/root/Easy-Arch/pacstrap-easyarch-conf
+cp $CONFDIR/packages.x86_64 airootfs/root/Easy-Arch/packages.x86_64
+cp $CONFDIR/system/pacman.conf airootfs/root/Easy-Arch/pacman-base-conf/pacman.conf
+cp $CONFDIR/install/pacstrap-easyarch-conf/pacman.conf airootfs/root/Easy-Arch/pacstrap-easyarch-conf/pacman.conf
+cp $CONFDIR/install/chroot-setup.sh airootfs/root/Easy-Arch/chroot-setup.sh
 
 echo "[*] Copying and setting up first boot configuration script..."
-cp $CONFDIR/install/first-boot-setup.sh airootfs/root/first-boot-setup.sh
-cp $CONFDIR/install/first-boot-setup.service airootfs/root/first-boot-setup.service
+cp $CONFDIR/install/first-boot-setup.sh airootfs/root/Easy-Arch/first-boot-setup.sh
+cp $CONFDIR/install/first-boot-setup.service airootfs/root/Easy-Arch/first-boot-setup.service
 
 echo "[*] Prepare script to that forces x11 session..."
 cp $CONFDIR/system/force-x11-session/pacman.conf $WORKDIR/pacman.conf
 
 echo "[*] Downloading Python libraries for the finalizer script..."
-mkdir -p airootfs/root/finalize
-mkdir -p airootfs/root/finalize/pip-cache
-cp -r $CONFDIR/finalize/. airootfs/root/finalize/
-cp $CONFDIR/pip-libraries airootfs/root/finalize/pip-cache/pip-libraries
-pip download -d airootfs/root/finalize/pip-cache -r $CONFDIR/pip-libraries
+mkdir -p airootfs/root/Easy-Arch/finalize
+mkdir -p airootfs/root/Easy-Arch/finalize/pip-cache
+cp -r $CONFDIR/finalize/. airootfs/root/Easy-Arch/finalize/
+cp $CONFDIR/pip-libraries airootfs/root/Easy-Arch/finalize/pip-cache/pip-libraries
+pip download -d airootfs/root/Easy-Arch/finalize/pip-cache -r $CONFDIR/pip-libraries
 
 echo "[*] Cleaning up temp directory..."
 rm -rfv $WORKDIR/.temp

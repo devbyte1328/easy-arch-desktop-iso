@@ -92,19 +92,19 @@ mount "$part1" /mnt/boot/EFI
 echo "Setting up local repository..."
 mkdir -p /mnt/pacstrap-easyarch-repo
 mkdir -p /tmp/pacstrap-easyarch-db
-cp -r /root/pacstrap-easyarch-repo/. /mnt/pacstrap-easyarch-repo/
-cp -r /root/pacstrap-easyarch-db/. /tmp/pacstrap-easyarch-db/
-cp /root/pacstrap-easyarch-conf/pacman.conf /etc/pacman.conf
+cp -r /root/Easy-Arch/pacstrap-easyarch-repo/. /mnt/pacstrap-easyarch-repo/
+cp -r /root/Easy-Arch/pacstrap-easyarch-db/. /tmp/pacstrap-easyarch-db/
+cp /root/Easy-Arch/pacstrap-easyarch-conf/pacman.conf /etc/pacman.conf
 
 echo "Running pacstrap..."
-pacstrap /mnt $(tr '\n' ' ' < /root/packages.x86_64)
+pacstrap /mnt $(tr '\n' ' ' < /root/Easy-Arch/packages.x86_64)
 
 echo "Generating fstab..."
 genfstab -U /mnt >> /mnt/etc/fstab
 
 echo "Copying chroot setup..."
-mkdir -p /mnt/root
-cp /root/chroot-setup.sh /mnt/chroot-setup.sh
+mkdir -p /mnt
+cp /root/Easy-Arch/chroot-setup.sh /mnt/chroot-setup.sh
 chmod +x /mnt/chroot-setup.sh
 
 echo "Setting up users and sudo config..."
@@ -130,55 +130,55 @@ mkdir -p /mnt/usr/share/xsessions
 cp /usr/share/xsessions/plasma.desktop /mnt/usr/share/xsessions/plasma.desktop
 
 echo "[*] Copying over yay build files..."
-mkdir -p /mnt/root/yay-build
-cp -r /root/yay-build/. /mnt/root/yay-build/
+mkdir -p /mnt/root/Easy-Arch/yay-build
+cp -r /root/Easy-Arch/yay-build/. /mnt/root/Easy-Arch/yay-build/
 
 echo "[*] Copying over aur pkg build files..."
-mkdir -p /mnt/root/aur_pkgs
-cp -r /root/aur_pkgs/. /mnt/root/aur_pkgs/
+mkdir -p /mnt/root/Easy-Arch/aur_pkgs
+cp -r /root/Easy-Arch/aur_pkgs/. /mnt/root/Easy-Arch/aur_pkgs/
 
 echo "[*] Copying over KDE minimal theme files..."
 mkdir -p /mnt/home/main/.config/menus
-mkdir -p /mnt/root/kde
+mkdir -p /mnt/root/Easy-Arch/kde
 mkdir -p /mnt/usr/share/wallpapers/Next
-cp /root/kde/Footer.qml /mnt/root/Footer.qml
-cp /root/kde/main.qml /mnt/root/main.qml
-cp /root/kde/plasmashellrc /mnt/home/main/.config/plasmashellrc
-cp /root/kde/kwinrc /mnt/home/main/.config/kwinrc
-cp /root/kde/plasma-org.kde.plasma.desktop-appletsrc /mnt/home/main/.config/plasma-org.kde.plasma.desktop-appletsrc
-cp /root/kde/applications-kmenuedit.menu /mnt/home/main/.config/menus/applications-kmenuedit.menu
-cp /root/kde/kdeglobals /mnt/home/main/.config/kdeglobals
-cp -r /root/kde/Next/. /mnt/usr/share/wallpapers/Next
+cp /root/Easy-Arch/kde/Footer.qml /mnt/root/Easy-Arch/Footer.qml
+cp /root/Easy-Arch/kde/main.qml /mnt/root/Easy-Arch/main.qml
+cp /root/Easy-Arch/kde/plasmashellrc /mnt/home/main/.config/plasmashellrc
+cp /root/Easy-Arch/kde/kwinrc /mnt/home/main/.config/kwinrc
+cp /root/Easy-Arch/kde/plasma-org.kde.plasma.desktop-appletsrc /mnt/home/main/.config/plasma-org.kde.plasma.desktop-appletsrc
+cp /root/Easy-Arch/kde/applications-kmenuedit.menu /mnt/home/main/.config/menus/applications-kmenuedit.menu
+cp /root/Easy-Arch/kde/kdeglobals /mnt/home/main/.config/kdeglobals
+cp -r /root/Easy-Arch/kde/Next/. /mnt/usr/share/wallpapers/Next
 
 echo "[*] Copying over first boot configuration files..."
 mkdir -p /mnt/home/main/.config
 mkdir -p /mnt/etc/systemd/system
 mkdir -p /mnt/etc/profile.d
-cp /root/first-boot-setup.sh /mnt/home/main/.config/first-boot-setup.sh
-cp /root/first-boot-setup.service /mnt/etc/systemd/system/first-boot-setup.service
+cp /root/Easy-Arch/first-boot-setup.sh /mnt/home/main/.config/first-boot-setup.sh
+cp /root/Easy-Arch/first-boot-setup.service /mnt/etc/systemd/system/first-boot-setup.service
 
 echo "[*] Copying over Brave browser profile..."
-mkdir -p /mnt/root/BraveSoftware_Profile
-mkdir -p /mnt/root/BraveSoftware_Config
-cp -r /home/main/.config/BraveSoftware_Profile/. /mnt/root/BraveSoftware_Profile/
-cp /home/main/.config/kwalletrc /mnt/root/BraveSoftware_Config/kwalletrc
-cp /home/main/.config/brave-profile /mnt/root/BraveSoftware_Config/brave-profile
-cp /root/brave /mnt/root/BraveSoftware_Config/brave
+mkdir -p /mnt/root/Easy-Arch/BraveSoftware_Profile
+mkdir -p /mnt/root/Easy-Arch/BraveSoftware_Config
+cp -r /home/main/.config/BraveSoftware_Profile/. /mnt/root/Easy-Arch/BraveSoftware_Profile/
+cp /home/main/.config/kwalletrc /mnt/root/Easy-Arch/BraveSoftware_Config/kwalletrc
+cp /home/main/.config/brave-profile /mnt/root/Easy-Arch/BraveSoftware_Config/brave-profile
+cp /root/Easy-Arch/brave /mnt/root/Easy-Arch/BraveSoftware_Config/brave
 
 echo "[*] Building yay and copying over bin file..."
 mkdir -p /tmp/yay-build
 chmod 777 /tmp/yay-build
-cp -r /root/yay-build/* /tmp/yay-build/.
+cp -r /root/Easy-Arch/yay-build/* /tmp/yay-build/.
 cd /tmp/yay-build
 sudo -u main makepkg -s --noconfirm --skippgpcheck
-cd /root
+cd /root/Easy-Arch
 mkdir -p /mnt/usr/bin
 cp /tmp/yay-build/pkg/yay/usr/bin/yay /mnt/usr/bin/yay
 chmod +x /mnt/usr/bin/yay
 
 echo "[*] Copying over finalizer script..."
 mkdir -p /mnt/home/main/Desktop
-cp -r /root/finalize/. /mnt/home/main/Desktop/
+cp -r /root/Easy-Arch/finalize/. /mnt/home/main/Desktop/
 
 echo "Running chroot setup..."
 arch-chroot /mnt /bin/bash /chroot-setup.sh

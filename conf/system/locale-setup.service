@@ -5,7 +5,7 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=/root/setup-locale.sh
+ExecStart=/root/Easy-Arch/setup-locale.sh
 StandardOutput=journal
 RemainAfterExit=yes
 

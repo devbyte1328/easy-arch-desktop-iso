@@ -4,7 +4,7 @@ WORKDIR=$1
 BUILD_USER=$2
 SCRIPT_DIR=$(cd $(dirname ${BASH_SOURCE[0]}) && pwd)
 AUR_PKG_DIR=$WORKDIR/.temp/aur_pkg_builds
-AIROOTFS_PKG_DIR=$WORKDIR/airootfs/root/aur_pkgs
+AIROOTFS_PKG_DIR=$WORKDIR/airootfs/root/Easy-Arch/aur_pkgs
 PKG_LIST_FILE=$SCRIPT_DIR/../aur-packages.x86_64
 
 mkdir -p $AUR_PKG_DIR $AIROOTFS_PKG_DIR

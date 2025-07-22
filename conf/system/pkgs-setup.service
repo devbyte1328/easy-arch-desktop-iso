@@ -1,11 +1,11 @@
 [Unit]
 Description=Configure Packages
 After=network.target
-ConditionPathExists=/root/setup-pkgs.sh
+ConditionPathExists=/root/Easy-Arch/setup-pkgs.sh
 
 [Service]
 Type=oneshot
-ExecStart=/root/setup-pkgs.sh
+ExecStart=/root/Easy-Arch/setup-pkgs.sh
 RemainAfterExit=true
 
 [Install]
