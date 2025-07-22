@@ -1,5 +1,7 @@
 #!/bin/bash
 
+xhost +local:
+
 mkdir -p /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/
 cp /root/Easy-Arch/Footer.qml /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/Footer.qml
 cp /root/Easy-Arch/main.qml /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/main.qml
