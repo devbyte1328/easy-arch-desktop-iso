@@ -1,3 +1,5 @@
+![Screenshot](screenshot.png)
+
 # Easy Arch Linux
 
 Easy Arch Linux is a lightweight, Arch-based distribution that stays close to upstream. It's built to help developers quickly set up and reproduce their development environments. It starts off stable, with the option to easily update to a rolling release using `sudo pacman -Syu`.
