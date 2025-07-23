@@ -23,30 +23,35 @@ get_first_run_flag() {
 
 FIRST_RUN=$(get_first_run_flag)
 
-if [[ "$FIRST_RUN" == "TRUE" ]]; then
-  # Launch Brave in background (invisible)
+apply_profile() {
   /opt/brave-bin/brave --no-startup-window "${FLAG_LIST[@]}" "${@}" &
   BRAVE_PID=$!
 
-  # Start monitoring loop for up to 10 seconds
+  # Wait for Brave to populate profile
   for i in {1..10}; do
     if [[ -d "/home/main/.config/BraveSoftware" ]]; then
       FILE_COUNT=$(find "/home/main/.config/BraveSoftware" -type f | wc -l)
       if (( FILE_COUNT > 50 )); then
-        sed -i 's/^First_Run=.*/First_Run=FALSE/' "$PROFILE_CONFIG"
         pkill -f /opt/brave-bin/brave
         cp -r /home/main/.config/BraveSoftware_Profile/. /home/main/.config/BraveSoftware/
-        exec /opt/brave-bin/brave "${FLAG_LIST[@]}" "${@}"
-        break
+        wait $BRAVE_PID 2>/dev/null
+        return 0
       fi
     fi
     sleep 1
   done
 
-  # Timeout: cleanup
+  # Timeout: kill if still running
   if kill -0 $BRAVE_PID 2>/dev/null; then
     kill $BRAVE_PID
   fi
+}
+
+if [[ "$FIRST_RUN" == "TRUE" ]]; then
+  apply_profile "$@"
+  apply_profile "$@"
+  sed -i 's/^First_Run=.*/First_Run=FALSE/' "$PROFILE_CONFIG"
+  exec /opt/brave-bin/brave "${FLAG_LIST[@]}" "${@}"
 else
   exec /opt/brave-bin/brave "${FLAG_LIST[@]}" "${@}"
 fi

@@ -16,11 +16,6 @@ echo "1. Automatically detect largest disk (excludes USB drives) and install Eas
 echo "2. Manually select disk to erase and install Easy Arch"
 read -p "Enter option (1 or 2): " choice
 
-if [ "$choice" = "2" ]; then
-    echo "Manual selection not implemented!"
-    exit 0
-fi
-
 # Convert size strings to bytes
 convert_to_bytes() {
     local size=$1
@@ -36,34 +31,54 @@ convert_to_bytes() {
     esac
 }
 
-echo "Searching for largest storage device..."
-
-# Identify largest disk
-largest_size=0
-largest_disk=""
-
-while read -r disk hotplug size; do
-    if [[ "$hotplug" -eq 1 || "$disk" == loop* ]]; then
-        continue
+if [ "$choice" = "2" ]; then
+    echo "Available disks:"
+    echo "----------------"
+    lsblk -d -e7,11 -o NAME,SIZE,MODEL | while read -r line; do
+        echo "$line"
+    done
+    echo "----------------"
+    read -p "Enter the device name (e.g., sda or nvme0n1): " manual_disk
+    if [ ! -b "/dev/$manual_disk" ]; then
+        echo "Invalid disk selected!"
+        exit 1
     fi
-    if lsblk -d -o NAME,MOUNTPOINTS -n "/dev/$disk" | grep -q "[[:space:]]\+/"; then
-        echo "Skipping $disk (contains mounted partitions)"
-        continue
-    fi
-    size_bytes=$(convert_to_bytes "$size")
-    if [ "$size_bytes" -gt "$largest_size" ]; then
-        largest_size=$size_bytes
-        largest_disk="/dev/$disk"
-    fi
-done < <(lsblk -d -o NAME,HOTPLUG,SIZE -n)
 
-if [ -z "$largest_disk" ]; then
-    echo "No suitable disk found!"
-    exit 1
+    if mount | grep -q "/dev/$manual_disk"; then
+        echo "Selected disk is mounted. Aborting."
+        exit 1
+    fi
+
+    largest_disk="/dev/$manual_disk"
+else
+    echo "Searching for largest storage device..."
+
+    largest_size=0
+    largest_disk=""
+
+    while read -r disk hotplug size; do
+        if [[ "$hotplug" -eq 1 || "$disk" == loop* ]]; then
+            continue
+        fi
+        if lsblk -d -o NAME,MOUNTPOINTS -n "/dev/$disk" | grep -q "[[:space:]]\+/"; then
+            echo "Skipping $disk (contains mounted partitions)"
+            continue
+        fi
+        size_bytes=$(convert_to_bytes "$size")
+        if [ "$size_bytes" -gt "$largest_size" ]; then
+            largest_size=$size_bytes
+            largest_disk="/dev/$disk"
+        fi
+    done < <(lsblk -d -o NAME,HOTPLUG,SIZE -n)
+
+    if [ -z "$largest_disk" ]; then
+        echo "No suitable disk found!"
+        exit 1
+    fi
+
+    human_size=$(lsblk -d -o SIZE -n "$largest_disk")
+    echo "Largest disk detected: $largest_disk ($human_size)"
 fi
-
-human_size=$(lsblk -d -o SIZE -n "$largest_disk")
-echo "Largest disk detected: $largest_disk ($human_size)"
 
 echo "Erasing $largest_disk with 'wipefs -a'..."
 wipefs -a "$largest_disk"
