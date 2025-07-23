@@ -4,7 +4,7 @@ After=local-fs.target
 
 [Service]
 Type=oneshot
-ExecStart=/home/main/.config/first-boot-setup.sh
+ExecStart=/home/main/.config/first-boot/first-boot-setup.sh
 RemainAfterExit=yes
 
 [Install]

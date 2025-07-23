@@ -2,7 +2,7 @@
 
 XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-"${HOME}/.config"}"
 CONF_FILE="${XDG_CONFIG_HOME}/brave-flags.conf"
-PROFILE_CONFIG="${XDG_CONFIG_HOME}/brave-profile"
+PROFILE_CONFIG="${XDG_CONFIG_HOME}/brave-profile.conf"
 
 if test -f "${CONF_FILE}"; then
   mapfile -t CONF_LIST < "${CONF_FILE}"

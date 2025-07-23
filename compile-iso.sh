@@ -85,7 +85,8 @@ echo "[*] Copying Brave-Browser profile..."
 mkdir -p airootfs/home/main/.config/BraveSoftware_Profile/
 cp -r $CONFDIR/brave/BraveSoftware_Profile/. airootfs/home/main/.config/BraveSoftware_Profile/
 cp $CONFDIR/brave/kwalletrc airootfs/home/main/.config/kwalletrc
-cp $CONFDIR/brave/brave-profile airootfs/home/main/.config/brave-profile
+cp $CONFDIR/brave/brave-profile.conf airootfs/home/main/.config/brave-profile.conf
+cp $CONFDIR/brave/brave-profile.conf airootfs/root/Easy-Arch/brave-profile.conf
 cp $CONFDIR/brave/brave airootfs/root/Easy-Arch/brave
 
 echo "[*] Adding SDDM config..."
@@ -139,8 +140,9 @@ cp $CONFDIR/install/pacstrap-easyarch-conf/pacman.conf airootfs/root/Easy-Arch/p
 cp $CONFDIR/install/chroot-setup.sh airootfs/root/Easy-Arch/chroot-setup.sh
 
 echo "[*] Copying and setting up first boot configuration script..."
-cp $CONFDIR/install/first-boot-setup.sh airootfs/root/Easy-Arch/first-boot-setup.sh
-cp $CONFDIR/install/first-boot-setup.service airootfs/root/Easy-Arch/first-boot-setup.service
+cp $CONFDIR/install/first-boot/first-boot-setup.sh airootfs/root/Easy-Arch/first-boot-setup.sh
+cp $CONFDIR/install/first-boot/first-boot-setup.service airootfs/root/Easy-Arch/first-boot-setup.service
+cp $CONFDIR/install/first-boot/first-boot-setup.conf airootfs/root/Easy-Arch/first-boot-setup.conf
 
 echo "[*] Prepare script to that forces x11 session..."
 cp $CONFDIR/system/force-x11-session/pacman.conf $WORKDIR/pacman.conf

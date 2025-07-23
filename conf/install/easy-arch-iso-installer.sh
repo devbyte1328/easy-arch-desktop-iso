@@ -152,18 +152,19 @@ cp /root/Easy-Arch/kde/kdeglobals /mnt/home/main/.config/kdeglobals
 cp -r /root/Easy-Arch/kde/Next/. /mnt/usr/share/wallpapers/Next
 
 echo "[*] Copying first boot configuration files..."
-mkdir -p /mnt/home/main/.config
+mkdir -p /mnt/home/main/.config/first-boot
 mkdir -p /mnt/etc/systemd/system
 mkdir -p /mnt/etc/profile.d
-cp /root/Easy-Arch/first-boot-setup.sh /mnt/home/main/.config/first-boot-setup.sh
+cp /root/Easy-Arch/first-boot-setup.sh /mnt/home/main/.config/first-boot/first-boot-setup.sh
 cp /root/Easy-Arch/first-boot-setup.service /mnt/etc/systemd/system/first-boot-setup.service
+cp /root/Easy-Arch/first-boot-setup.conf /mnt/home/main/.config/first-boot/first-boot-setup.conf
 
 echo "[*] Copying Brave browser profile..."
 mkdir -p /mnt/root/Easy-Arch/BraveSoftware_Profile
 mkdir -p /mnt/root/Easy-Arch/BraveSoftware_Config
 cp -r /home/main/.config/BraveSoftware_Profile/. /mnt/root/Easy-Arch/BraveSoftware_Profile/
 cp /home/main/.config/kwalletrc /mnt/root/Easy-Arch/BraveSoftware_Config/kwalletrc
-cp /home/main/.config/brave-profile /mnt/root/Easy-Arch/BraveSoftware_Config/brave-profile
+cp /root/Easy-Arch/brave-profile.conf /mnt/root/Easy-Arch/BraveSoftware_Config/brave-profile.conf
 cp /root/Easy-Arch/brave /mnt/root/Easy-Arch/BraveSoftware_Config/brave
 
 echo "[*] Building yay and copying bin file..."

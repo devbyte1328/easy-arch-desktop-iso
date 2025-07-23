@@ -113,7 +113,7 @@ grub-mkconfig -o /boot/grub/grub.cfg
 mkdir -p /home/main/.config/BraveSoftware_Profile
 cp -r /root/Easy-Arch/BraveSoftware_Profile/. /home/main/.config/BraveSoftware_Profile/
 cp /root/Easy-Arch/BraveSoftware_Config/kwalletrc /home/main/.config/kwalletrc
-cp /root/Easy-Arch/BraveSoftware_Config/brave-profile /home/main/.config/brave-profile
+cp /root/Easy-Arch/BraveSoftware_Config/brave-profile.conf /home/main/.config/brave-profile.conf
 cp /root/Easy-Arch/BraveSoftware_Config/brave /usr/bin/brave
 chmod +x /usr/bin/brave
 
@@ -126,8 +126,9 @@ systemctl enable NetworkManager
 
 mkdir -p /home/main/.config
 chown 1000:998 /home/main/.config
-chmod 755 /home/main/.config/first-boot-setup.sh
+chmod 755 /home/main/.config/first-boot/first-boot-setup.sh
 chmod 644 /etc/systemd/system/first-boot-setup.service
+chmod 666 /home/main/.config/first-boot/first-boot-setup.conf
 systemctl enable first-boot-setup.service
 
 chmod 666 /home/main/.config/plasmashellrc
