@@ -11,7 +11,7 @@ It comes with only the essential packages needed for any system. No bloat, no di
 ## 🚀 How to Install Easy Arch Linux
 
 1. **📥 Download the ISO**  
-   The ISO is hosted on **Google Drive** (GitHub does not allow files larger than 4 GB).
+   The ISO is hosted on **Google Drive** (GitHub does not allow files larger than 2 GB).
    
    Link: [https://drive.google.com/file/d/1A3aE3QxgtwFJVKL_CuJTzovQlmjY7CYj/view?usp=sharing](https://drive.google.com/file/d/1A3aE3QxgtwFJVKL_CuJTzovQlmjY7CYj/view?usp=sharing)
 
