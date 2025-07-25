@@ -107,7 +107,15 @@ mkinitcpio -P
 pacman -U --noconfirm /root/Easy-Arch/aur_pkgs/*.pkg.tar.zst
 pacman -R --noconfirm discover plasma-welcome
 
-grub-install --target=x86_64-efi --bootloader-id=grub_uefi --recheck
+is_uefi=$(cat /etc/install_info/is_uefi)
+disk=$(cat /etc/install_info/disk)
+
+if [ $is_uefi -eq 1 ]; then
+  grub-install --target=x86_64-efi --bootloader-id=grub_uefi --recheck --efi-directory=/boot/EFI
+else
+  grub-install --target=i386-pc "$disk"
+fi
+
 grub-mkconfig -o /boot/grub/grub.cfg
 
 mkdir -p /home/main/.config/BraveSoftware_Profile

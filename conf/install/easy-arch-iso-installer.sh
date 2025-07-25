@@ -80,11 +80,21 @@ else
     echo "Largest disk detected: $largest_disk ($human_size)"
 fi
 
+is_uefi=0
+if [ -d "/sys/firmware/efi" ]; then
+  is_uefi=1
+fi
+
 echo "Erasing $largest_disk with 'wipefs -a'..."
 wipefs -a "$largest_disk"
 
-echo "Partitioning $largest_disk..."
-echo -e "g\nn\n\n\n+1G\nn\n\n\n\nw" | fdisk "$largest_disk"
+if [ $is_uefi -eq 1 ]; then
+  echo "Partitioning $largest_disk for UEFI..."
+  echo -e "g\nn\n\n\n+1G\nt\n1\nn\n\n\n\nw" | fdisk "$largest_disk"
+else
+  echo "Partitioning $largest_disk for BIOS..."
+  echo -e "g\nn\n\n\n+1M\nt\n4\nn\n\n\n\nw" | fdisk "$largest_disk"
+fi
 
 if [[ $largest_disk =~ ^/dev/nvme ]]; then
     part1="${largest_disk}p1"
@@ -95,14 +105,22 @@ else
 fi
 
 echo "Formatting partitions..."
-mkfs.fat -F32 "$part1"
+if [ $is_uefi -eq 1 ]; then
+  mkfs.fat -F32 "$part1"
+fi
 mkfs.ext4 "$part2"
 
 echo "Mounting partitions..."
 mkdir -p /mnt
 mount "$part2" /mnt
-mkdir -p /mnt/boot/EFI
-mount "$part1" /mnt/boot/EFI
+if [ $is_uefi -eq 1 ]; then
+  mkdir -p /mnt/boot/EFI
+  mount "$part1" /mnt/boot/EFI
+fi
+
+mkdir -p /mnt/etc/install_info
+echo "$largest_disk" > /mnt/etc/install_info/disk
+echo "$is_uefi" > /mnt/etc/install_info/is_uefi
 
 echo "Setting up local repository..."
 mkdir -p /mnt/pacstrap-easyarch-repo
