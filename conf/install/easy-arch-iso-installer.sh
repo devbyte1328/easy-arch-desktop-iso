@@ -133,6 +133,8 @@ cp /root/Easy-Arch/pacstrap-easyarch-conf/pacman.conf /etc/pacman.conf
 echo "Running pacstrap..."
 pacstrap /mnt $(tr '\n' ' ' < /root/Easy-Arch/packages.x86_64)
 
+mv /etc/pacman.bak /etc/pacman.conf
+
 echo "Generating fstab..."
 genfstab -U /mnt >> /mnt/etc/fstab
 
@@ -223,12 +225,10 @@ mv /mnt/home/main/.config/easy-arch-finalizer/*.png /mnt/home/main/.config/easy-
 
 echo "[*] Copying pacman config..."
 mkdir -p /mnt/etc
-cp /etc/pacman.conf /mnt/etc/pacman.conf
+cp /root/Easy-Arch/pacman-base-conf/pacman.conf /mnt/etc/pacman.conf
 
 echo "Running chroot setup..."
 arch-chroot /mnt /bin/bash /chroot-setup.sh
 rm /mnt/chroot-setup.sh
-
-mv /etc/pacman.bak /etc/pacman.conf
 
 umount -R /mnt
