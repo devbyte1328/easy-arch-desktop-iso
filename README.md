@@ -13,7 +13,7 @@ It comes with only the essential packages needed for any system. The desktop env
 1. **Download the ISO**  
    The ISO is hosted on **Google Drive** (GitHub does not allow files larger than 2 GB).
    
-   **📥Link: [https://drive.google.com/file/d/1A3aE3QxgtwFJVKL_CuJTzovQlmjY7CYj/view?usp=sharing](https://drive.google.com/file/d/1A3aE3QxgtwFJVKL_CuJTzovQlmjY7CYj/view?usp=sharing)**
+   **📥Link: [https://drive.google.com/file/d/1yQT1FWZHKKB7OYjGMrz_L0Bep72KJpws/view?usp=sharing](https://drive.google.com/file/d/1yQT1FWZHKKB7OYjGMrz_L0Bep72KJpws/view?usp=sharing)**
 
 3. **Create a Bootable USB**  
    Use one of the following tools to write the ISO to a USB drive:
@@ -21,7 +21,7 @@ It comes with only the essential packages needed for any system. The desktop env
    - **[Rufus](https://rufus.ie/en/)** (Windows only)
    - Or use the `dd` command (Linux/macOS):
      ```bash
-     sudo dd if=easy-arch.iso of=/dev/sdX bs=4M status=progress && sync
+     sudo dd if=easy_archlinux-2025.07.27-x86_64.iso of=/dev/sdX bs=4M status=progress && sync
      ```
      ⚠️ Replace `/dev/sdX` with your actual USB device (this will erase the disk).
 
