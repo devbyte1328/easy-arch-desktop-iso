@@ -6,9 +6,6 @@ CONFIG_FILE="/home/main/.config/first-boot/first-boot-setup.conf"
 if grep -q '^First_Boot=TRUE' "$CONFIG_FILE"; then
     echo "First boot setup enabled. Running setup..."
 
-    # Allow local X connections
-    xhost +local:
-
     # Create plasmoid directory and copy files
     mkdir -p /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/
     cp /root/Easy-Arch/Footer.qml /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/Footer.qml

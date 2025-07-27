@@ -180,6 +180,8 @@ while true; do
                 fi
                 
                 mv /home/main/.config/easy-arch-finalizer/tmp/easy-arch-screen-holder-loading-2 /home/main/.config/easy-arch-finalizer/tmp/easy-arch-screen-holder-loading-3
+                # Allow local X connections
+                xhost +local:
                 [[ "$system_settings_screen_locking" == "true" ]] && source /home/main/.config/easy-arch-finalizer/venv/bin/activate && python /home/main/.config/easy-arch-finalizer/ui-auto/system_settings_screen_locking/ui-auto.py && deactivate
                 [[ "$system_settings_power_management" == "true" ]] && source /home/main/.config/easy-arch-finalizer/venv/bin/activate && python /home/main/.config/easy-arch-finalizer/ui-auto/system_settings_power_management/ui-auto.py && deactivate
                 [[ "$system_settings_clear_clipboard_history" == "true" ]] && source /home/main/.config/easy-arch-finalizer/venv/bin/activate && python /home/main/.config/easy-arch-finalizer/ui-auto/system_settings_clear_clipboard_history/ui-auto.py && deactivate
