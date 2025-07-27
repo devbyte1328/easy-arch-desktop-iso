@@ -28,7 +28,6 @@ ordered_config_defaults=(
     "system_settings_screen_locking=false"
     "system_settings_power_management=false"
     "system_settings_clear_clipboard_history=false"
-    "system_settings_brave_plasma_integration=false"
     "custom_commands=[]"
 )
 
@@ -80,13 +79,10 @@ while true; do
                 [[ "$ans" == [yY] ]] && value_system_settings_power_management="true" || value_system_settings_power_management="false"
                 read -p "System settings - Disable clipboard history 'Ask again' prompt? (y/n): " ans
                 [[ "$ans" == [yY] ]] && value_system_settings_clear_clipboard_history="true" || value_system_settings_clear_clipboard_history="false"
-                read -p "System settings - Disable Brave Plasma integration prompt? (y/n): " ans
-                [[ "$ans" == [yY] ]] && value_system_settings_brave_plasma_integration="true" || value_system_settings_brave_plasma_integration="false"
             else
                 value_system_settings_screen_locking="false"
                 value_system_settings_power_management="false"
                 value_system_settings_clear_clipboard_history="false"
-                value_system_settings_brave_plasma_integration="false"
             fi
 
             read -p "Add your own custom commands? (y/n): " custom_commands
@@ -122,7 +118,6 @@ while true; do
                 system_settings_screen_locking=$(jq -r '.system_settings_screen_locking' "$SELECTED_FILE")
                 system_settings_power_management=$(jq -r '.system_settings_power_management' "$SELECTED_FILE")
                 system_settings_clear_clipboard_history=$(jq -r '.system_settings_clear_clipboard_history' "$SELECTED_FILE")
-                system_settings_brave_plasma_integration=$(jq -r '.system_settings_brave_plasma_integration' "$SELECTED_FILE")
                 custom_commands=$(jq -r '.custom_commands | join(" && ")' "$SELECTED_FILE")
 
                 echo -e "${LIGHT_BLUE}Configuration Loaded:${RESET}"
@@ -134,7 +129,6 @@ while true; do
                 echo "System Settings Screen Locking: $system_settings_screen_locking"
                 echo "System Settings Power Management: $system_settings_power_management"
                 echo "System Settings Clear Clipboard History: $system_settings_clear_clipboard_history"
-                echo "System Settings Brave Plasma Integration: $system_settings_brave_plasma_integration"
                 echo "Custom Commands: $custom_commands"
 
                 touch /home/main/.config/easy-arch-finalizer/tmp/easy-arch-screen-holder-loading-1
@@ -189,8 +183,6 @@ while true; do
                 [[ "$system_settings_screen_locking" == "true" ]] && source /home/main/.config/easy-arch-finalizer/venv/bin/activate && python /home/main/.config/easy-arch-finalizer/ui-auto/system_settings_screen_locking/ui-auto.py && deactivate
                 [[ "$system_settings_power_management" == "true" ]] && source /home/main/.config/easy-arch-finalizer/venv/bin/activate && python /home/main/.config/easy-arch-finalizer/ui-auto/system_settings_power_management/ui-auto.py && deactivate
                 [[ "$system_settings_clear_clipboard_history" == "true" ]] && source /home/main/.config/easy-arch-finalizer/venv/bin/activate && python /home/main/.config/easy-arch-finalizer/ui-auto/system_settings_clear_clipboard_history/ui-auto.py && deactivate
-                [[ "$system_settings_brave_plasma_integration" == "true" ]] && source /home/main/.config/easy-arch-finalizer/venv/bin/activate && python /home/main/.config/easy-arch-finalizer/ui-auto/system_settings_brave_plasma_integration/ui-auto.py && deactivate
-
 
                 mv /home/main/.config/easy-arch-finalizer/tmp/easy-arch-screen-holder-loading-3 /home/main/.config/easy-arch-finalizer/tmp/easy-arch-screen-holder-loading-4
                 custom_commands_present=$(jq '.custom_commands | length' "$SELECTED_FILE")

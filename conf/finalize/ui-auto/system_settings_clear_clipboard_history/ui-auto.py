@@ -2,6 +2,8 @@ import pyautogui
 import time
 import subprocess
 
+pyautogui.FAILSAFE = False
+
 def click(path, confidence=0.8, wait_time=1, max_attempts=5, mouse_button='left'):
     disable_text = False
     for attempt in range(max_attempts):
