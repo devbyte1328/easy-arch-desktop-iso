@@ -57,6 +57,10 @@ echo "[*] Moving cached data to: $FINAL_OUTPUT_DIR"
 mkdir -p $FINAL_OUTPUT_DIR
 cp -r $REPO/* $FINAL_OUTPUT_DIR/ || fail "copying cache"
 
+# Fix permissions
+chown -R main:main "$FINAL_OUTPUT_DIR"
+chmod -R u+rw "$FINAL_OUTPUT_DIR"
+
 echo "[*] Cleaning up temporary files..."
 rm -rf $DB $REPO $AUR_TEMP_DIR
 

@@ -59,10 +59,9 @@ while true; do
                 if [[ "$value_cache_packages" == "true" ]]; then
                     echo -e "${YELLOW}[*]Caching packages...${RESET}"
                     bash /home/main/.config/easy-arch-finalizer/easy-arch-packages-cache.sh "$package_list"
-                    packages_array="[]"
-                else
-                    packages_array=$(echo "$package_list" | tr ',' '\n' | jq -R . | jq -s .)
+                    packages_array="[]" 
                 fi
+                packages_array=$(echo "$package_list" | tr ',' '\n' | jq -R . | jq -s .)
                 value_packages="$packages_array"
             else
                 value_install_packages="false"
