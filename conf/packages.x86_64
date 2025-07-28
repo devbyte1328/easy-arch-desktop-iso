@@ -235,3 +235,9 @@ gnome-screenshot
 python
 python-pip
 tk
+vlc
+vlc-plugin-ffmpeg
+vlc-plugin-x264
+vlc-plugin-x265
+vlc-plugin-upnp
+xf86-video-vesa
