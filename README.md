@@ -1,12 +1,13 @@
-![Screenshot](screenshot.png)
-
 # Easy Arch Linux
+
+# This project is a work in progress. this README is currently for development purposes:
 
 Easy Arch Linux is a lightweight, Arch-based distribution that stays close to upstream. It's built for ease of installation, allowing users to quickly set up and reproduce their development environment. It starts off stable, with the option to easily update to a rolling release using `sudo pacman -Syu`.
 
 It comes with only the essential packages needed for any system. The desktop environment is a stripped-down, minimal version of KDE Plasma, designed to stay out of your way and let you get straight to work.  
 **No bloat. No distractions.**
 
+![Screenshot](screenshot.png)
 
 ## 💽 How to Install Easy Arch Linux
 
