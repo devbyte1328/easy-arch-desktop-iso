@@ -133,10 +133,10 @@ Use Docker unless you know what you're doing.
 
 2. **Run the build script**
    ```
-   sudo ./compile-iso.sh
+   sudo ./compile.sh
    ```
 
 3. **(Optional) For debugging**
    ```
-   sudo ./compile-iso.sh 2>&1 | tee logs.txt
+   sudo ./compile.sh 2>&1 | tee logs.txt
    ```

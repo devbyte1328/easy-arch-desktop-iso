@@ -165,10 +165,6 @@ echo "[*] Copying X11 startup file..."
 mkdir -p /mnt/usr/share/xsessions
 cp /usr/share/xsessions/plasma.desktop /mnt/usr/share/xsessions/plasma.desktop
 
-echo "[*] Copying yay build files..."
-mkdir -p /mnt/root/Easy-Arch/yay-build
-cp -r /root/Easy-Arch/yay-build/. /mnt/root/Easy-Arch/yay-build/
-
 echo "[*] Copying aur pkg build files..."
 mkdir -p /mnt/root/Easy-Arch/aur_pkgs
 cp -r /root/Easy-Arch/aur_pkgs/. /mnt/root/Easy-Arch/aur_pkgs/
@@ -201,17 +197,6 @@ cp -r /home/main/.config/BraveSoftware_Profile/. /mnt/root/Easy-Arch/BraveSoftwa
 cp /home/main/.config/kwalletrc /mnt/root/Easy-Arch/BraveSoftware_Config/kwalletrc
 cp /root/Easy-Arch/brave-profile.conf /mnt/root/Easy-Arch/BraveSoftware_Config/brave-profile.conf
 cp /root/Easy-Arch/brave /mnt/root/Easy-Arch/BraveSoftware_Config/brave
-
-echo "[*] Building yay and copying bin file..."
-mkdir -p /tmp/yay-build
-chmod 777 /tmp/yay-build
-cp -r /root/Easy-Arch/yay-build/* /tmp/yay-build/.
-cd /tmp/yay-build
-sudo -u main makepkg -s --noconfirm --skippgpcheck
-cd /root/Easy-Arch
-mkdir -p /mnt/usr/bin
-cp /tmp/yay-build/pkg/yay/usr/bin/yay /mnt/usr/bin/yay
-chmod +x /mnt/usr/bin/yay
 
 echo "[*] Copying finalizer script..."
 mkdir -p /mnt/home/main/Desktop

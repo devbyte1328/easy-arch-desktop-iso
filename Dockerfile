@@ -15,4 +15,4 @@ WORKDIR /build
 # Set env var so scripts that use $SUDO_USER behave normally
 ENV SUDO_USER=main
 
-CMD ./compile-iso.sh
+CMD ./compile.sh

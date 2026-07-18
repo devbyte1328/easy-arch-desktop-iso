@@ -4,6 +4,19 @@ set -o pipefail
 
 WORKDIR=$(pwd)
 CONFDIR=$WORKDIR/conf
+CACHEDIR=$WORKDIR/cache
+
+# Persistent download cache.
+#   - cache/ present and populated -> reuse it, no network.
+#   - cache/ deleted or empty      -> hit the servers and refill it.
+# To force a fresh pull of everything: rm -rf cache/
+mkdir -p "$CACHEDIR"
+
+# cached <subdir> -> returns 0 (true) if cache/<subdir> exists and is non-empty.
+cached() {
+    local d=$CACHEDIR/$1
+    [ -d "$d" ] && [ -n "$(ls -A "$d" 2>/dev/null)" ]
+}
 
 echo "[*] Cleaning up previous build directories..."
 AIROOTFS=$WORKDIR/work/x86_64/airootfs
@@ -16,12 +29,17 @@ done
 sudo umount -R $AIROOTFS 2>/dev/null || true
 rm -rfv $WORKDIR/out $WORKDIR/work $WORKDIR/.temp $WORKDIR/airootfs $WORKDIR/efiboot $WORKDIR/grub $WORKDIR/syslinux $WORKDIR/bootstrap_packages.x86_64 $WORKDIR/packages.x86_64 $WORKDIR/pacman.conf $WORKDIR/profiledef.sh $WORKDIR/logs.txt
 
-echo "[*] Checking for dependencies..."
-sudo pacman -Sy --noconfirm --needed archiso git base-devel go python python-pip
-
-echo "[*] Running setup-yay script (handles build and copy)..."
-bash $CONFDIR/system/setup-yay.sh $WORKDIR $SUDO_USER
-cp $WORKDIR/.temp/yay_build/pkg/yay/usr/bin/yay /usr/bin/yay
+echo "[*] Checking for build-host dependencies..."
+HOST_PKGS="archiso git base-devel go python python-pip"
+# These are the tools the build itself runs on (mkarchiso, makepkg, pip, ...),
+# not ISO content. If they're already installed we stay fully offline; only a
+# missing tool triggers a sync. (Docker also layer-caches these via the Dockerfile.)
+if pacman -Qq $HOST_PKGS >/dev/null 2>&1; then
+    echo "[*] Build-host dependencies already present, skipping sync (offline)."
+else
+    echo "[*] Installing missing build-host dependencies..."
+    sudo pacman -Sy --noconfirm --needed $HOST_PKGS
+fi
 
 echo "[*] Copying releng base into working directory..."
 cp -r /usr/share/archiso/configs/releng/* $WORKDIR
@@ -34,8 +52,17 @@ cp $CONFDIR/system/archiso_sys-linux.cfg $WORKDIR/syslinux/
 echo "[*] Copying custom package list..."
 cp $CONFDIR/packages.x86_64 $WORKDIR/packages.x86_64
 
-echo "[*] Running setup-aur-packages.sh (download packages)..."
-bash $CONFDIR/system/setup-aur-packages.sh $WORKDIR $SUDO_USER
+echo "[*] Setting up AUR packages..."
+mkdir -p airootfs/root/Easy-Arch/aur_pkgs
+if cached aur; then
+    echo "[*] Reusing built AUR packages from cache/aur (offline)..."
+    cp $CACHEDIR/aur/*.pkg.tar.zst airootfs/root/Easy-Arch/aur_pkgs/
+else
+    echo "[*] Building AUR packages and caching them..."
+    bash $CONFDIR/system/setup-aur-packages.sh $WORKDIR $SUDO_USER
+    mkdir -p "$CACHEDIR/aur"
+    cp airootfs/root/Easy-Arch/aur_pkgs/*.pkg.tar.zst "$CACHEDIR/aur/"
+fi
 
 echo "[*] Setting up users..."
 mkdir -p airootfs/etc
@@ -122,10 +149,22 @@ mkdir -p airootfs/home/main/Desktop
 cp $CONFDIR/install/easy-arch-iso-installer.sh airootfs/home/main/Desktop/easy-arch-iso-installer.sh
 cp "$CONFDIR/install/easy-arch-iso-install.desktop" airootfs/home/main/.config/autostart/easy-arch-iso-install.desktop
 
-echo "[*] Downloading and caching packages for harddrive installation..."
-if ! bash $CONFDIR/install/setup-pkgs-cache.sh; then
-    echo "[✗] Downloading packages failed..."
-    exit 1
+echo "[*] Setting up packages for harddrive installation..."
+mkdir -p airootfs/root/Easy-Arch/pacstrap-easyarch-repo
+mkdir -p airootfs/root/Easy-Arch/pacstrap-easyarch-db
+if cached pkgs/pacstrap-easyarch-repo; then
+    echo "[*] Reusing downloaded packages from cache/pkgs (offline)..."
+    cp -r $CACHEDIR/pkgs/pacstrap-easyarch-repo/. airootfs/root/Easy-Arch/pacstrap-easyarch-repo/
+    cp -r $CACHEDIR/pkgs/pacstrap-easyarch-db/.   airootfs/root/Easy-Arch/pacstrap-easyarch-db/
+else
+    echo "[*] Downloading and caching packages for harddrive installation..."
+    if ! bash $CONFDIR/install/setup-pkgs-cache.sh; then
+        echo "[✗] Downloading packages failed..."
+        exit 1
+    fi
+    mkdir -p "$CACHEDIR/pkgs/pacstrap-easyarch-repo" "$CACHEDIR/pkgs/pacstrap-easyarch-db"
+    cp -r airootfs/root/Easy-Arch/pacstrap-easyarch-repo/. "$CACHEDIR/pkgs/pacstrap-easyarch-repo/"
+    cp -r airootfs/root/Easy-Arch/pacstrap-easyarch-db/.   "$CACHEDIR/pkgs/pacstrap-easyarch-db/"
 fi
 # Verify the directory exists and is not empty
 if [ ! -d "airootfs/root/Easy-Arch/pacstrap-easyarch-repo" ] || [ -z "$(ls -A airootfs/root/Easy-Arch/pacstrap-easyarch-repo)" ]; then
@@ -147,12 +186,21 @@ cp $CONFDIR/install/first-boot/first-boot-setup.conf airootfs/root/Easy-Arch/fir
 echo "[*] Prepare script to that forces x11 session..."
 cp $CONFDIR/system/force-x11-session/pacman.conf $WORKDIR/pacman.conf
 
-echo "[*] Downloading Python libraries for the finalizer script..."
+echo "[*] Setting up Python libraries for the finalizer script..."
 mkdir -p airootfs/root/Easy-Arch/finalize
 mkdir -p airootfs/root/Easy-Arch/finalize/pip-cache
 cp -r $CONFDIR/finalize/. airootfs/root/Easy-Arch/finalize/
 cp $CONFDIR/pip-libraries airootfs/root/Easy-Arch/finalize/pip-cache/pip-libraries
-pip download -d airootfs/root/Easy-Arch/finalize/pip-cache -r $CONFDIR/pip-libraries
+if cached pip; then
+    echo "[*] Reusing Python wheels from cache/pip (offline)..."
+    cp $CACHEDIR/pip/* airootfs/root/Easy-Arch/finalize/pip-cache/
+else
+    echo "[*] Downloading Python wheels and caching them..."
+    pip download -d airootfs/root/Easy-Arch/finalize/pip-cache -r $CONFDIR/pip-libraries
+    mkdir -p "$CACHEDIR/pip"
+    # Cache only the downloaded artifacts, not the pip-libraries manifest.
+    find airootfs/root/Easy-Arch/finalize/pip-cache -maxdepth 1 -type f ! -name pip-libraries -exec cp -n {} "$CACHEDIR/pip/" \;
+fi
 
 echo "[*] Cleaning up temp directory..."
 rm -rfv $WORKDIR/.temp

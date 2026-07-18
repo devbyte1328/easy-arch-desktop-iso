@@ -5,9 +5,6 @@ sudo ufw enable
 sudo ufw default reject incoming
 sudo ufw default allow outgoing
 
-# Fix yay permissions
-sudo chmod +x /usr/bin/yay
-
 # Install prebuilt AUR packages
 pacman -U --noconfirm /root/Easy-Arch/aur_pkgs/*.pkg.tar.zst
 
