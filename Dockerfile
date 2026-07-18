@@ -8,7 +8,15 @@
 # container provides that regardless of the machine you run it on.
 #
 # Build:  docker build -t easyarch .
-# Run:    docker run --rm -it --privileged -v "$PWD/out:/build/output/out" easyarch
+# Run:    docker run --rm -it --privileged \
+#           -v "$PWD/cache:/build/cache" \
+#           -v "$PWD/output:/build/output" \
+#           -v "$PWD/logs:/build/logs" \
+#           easyarch
+#         These three mounts mirror compile.sh's own directory scheme so the
+#         host keeps the persistent download cache (cache/), the build output
+#         incl. the finished ISO under output/out/ (output/), and both build
+#         logs (logs/). No stray host-side out/ dir is created.
 #         (--privileged is required: mkarchiso mounts proc/sys/dev and uses
 #          loop devices + squashfs inside the airootfs.)
 
@@ -32,14 +40,28 @@ RUN pacman -Sy --needed --noconfirm archlinux-keyring \
         sudo \
     && pacman -Scc --noconfirm
 
+# Initialize pacman's trust database. Installing archlinux-keyring above only
+# lays the key FILES on disk; it does NOT create the GnuPG trust store pacman
+# checks at install time. Without this, `SigLevel = Required` (set by the ISO's
+# pacman.conf) makes pacman reject every signed package: explicitly-requested
+# targets then surface as the misleading "error: target not found: <pkg>", and
+# pacstrap dies with "There is no secret key available to sign with." mkarchiso
+# runs pacstrap internally, so the keyring must be live in this image.
+#   --init     generates the local signing key and empty trust db
+#   --populate imports and locally-signs the official Arch developer keys
+RUN pacman-key --init \
+    && pacman-key --populate archlinux
+
 # The build runs as root inside the container (sudo calls in compile.sh become
 # no-ops). Provide a passwordless sudo entry anyway so any tooling that shells
 # out through sudo keeps working.
 RUN echo "root ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/00-root \
     && chmod 0440 /etc/sudoers.d/00-root
 
-# Project lives here. The finished ISO is written to /build/output/out, which
-# you bind-mount to the host with -v "$PWD/out:/build/output/out".
+# Project lives here. compile.sh writes everything under three dirs at the build
+# root: cache/ (persistent downloads), output/ (build tree + the finished ISO in
+# output/out/) and logs/. Bind-mount those to the host to persist them:
+#   -v "$PWD/cache:/build/cache" -v "$PWD/output:/build/output" -v "$PWD/logs:/build/logs"
 # compile.sh re-execs itself on a PTY (via util-linux `script`) and draws a
 # pinned progress bar with tput. Inside a bare container there is no TERM, so
 # tput has no terminfo entry and hangs/errors, freezing the build. Give it a

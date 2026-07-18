@@ -190,9 +190,13 @@ for mount in proc sys dev run; do
     fi
 done
 sudo umount -R $AIROOTFS 2>/dev/null || true
-# Wipe the entire build dir and start fresh (cache/ lives outside it, untouched).
-sudo rm -rf "$BUILDDIR"
+# Wipe the build dir contents and start fresh (cache/ lives outside it, untouched).
+# We delete the CONTENTS rather than $BUILDDIR itself: the ISO output dir
+# (output/out) is a bind mount from the host, and `rm -rf $BUILDDIR` would recurse
+# into that live mount and hang. `find ... -mount` stays on the build dir's own
+# filesystem and never descends into any bind-mounted subdir.
 mkdir -p "$BUILDDIR"
+sudo find "$BUILDDIR" -mindepth 1 -maxdepth 1 -mount -exec rm -rf {} +
 # Everything below operates inside the build dir; bare-relative paths (airootfs/...)
 # resolve here instead of polluting the project root.
 cd "$BUILDDIR"
