@@ -10,11 +10,9 @@ fail() {
 
 DB=/tmp/pacman-easyarch-db
 REPO=/tmp/pacman-easyarch-repo
-AUR_TEMP_DIR=/tmp/aur_builds
 FINAL_OUTPUT_DIR=$PWD/easy-arch-packages-cache
 
-mkdir -p $DB/sync $REPO $AUR_TEMP_DIR
-chown -R main:main $AUR_TEMP_DIR
+mkdir -p $DB/sync $REPO
 
 echo "[*] Downloading and caching packages using pacman..."
 echo "[*] Initializing pacman database in temporary path..."
@@ -27,29 +25,14 @@ else
     fail "No package list passed to the script."
 fi
 
-echo "[*] Attempting to download packages (fallback to AUR if needed)..."
+echo "[*] Downloading packages from the official repositories..."
 
 for pkg in $pkgs; do
-    echo "    [+] Attempting pacman download: $pkg"
+    echo "    [+] Downloading: $pkg"
     if sudo pacman -Sw --noconfirm --cachedir $REPO --dbpath $DB $pkg; then
-        echo "        [✓] Downloaded via pacman: $pkg"
+        echo "        [✓] Downloaded: $pkg"
     else
-        echo "        [!] Not found in pacman, falling back to AUR: $pkg"
-        cd $AUR_TEMP_DIR
-        sudo -u main rm -rf $pkg
-        if sudo -u main git clone --depth=1 https://aur.archlinux.org/${pkg}.git; then
-            cd $pkg
-            if sudo -u main makepkg -sfc --noconfirm; then
-                cp ./*.pkg.tar.zst $REPO || fail "Failed to copy AUR package: $pkg"
-                echo "        [✓] Built and cached from AUR: $pkg"
-            else
-                fail "makepkg failed for: $pkg"
-            fi
-            cd $AUR_TEMP_DIR
-            sudo -u main rm -rf $pkg
-        else
-            fail "AUR clone failed: $pkg"
-        fi
+        fail "Package not found in official repositories: $pkg"
     fi
 done
 
@@ -62,7 +45,7 @@ chown -R main:main "$FINAL_OUTPUT_DIR"
 chmod -R u+rw "$FINAL_OUTPUT_DIR"
 
 echo "[*] Cleaning up temporary files..."
-rm -rf $DB $REPO $AUR_TEMP_DIR
+rm -rf $DB $REPO
 
 echo "[✓] All packages downloaded and cached successfully in 'easy-arch-packages-cache/'."
 

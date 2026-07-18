@@ -10,23 +10,113 @@ CACHEDIR=$REPODIR/cache
 BUILDDIR=$REPODIR/output
 WORKDIR=$BUILDDIR
 
-# Persistent download cache (repo root, survives cleanup).
-#   - cache/ present and populated -> reuse it, no network.
-#   - cache/ deleted or empty      -> hit the servers and refill it.
-# To force a fresh pull of everything: rm -rf cache/
+# Persistent download cache (repo root, survives cleanup). Downloads land here
+# directly, so caching is incremental and resumable:
+#   - present & complete -> pacman/pip skip it, no network hit.
+#   - partial (e.g. prior Ctrl-C) -> only the missing files are fetched.
+#   - deleted -> everything is re-fetched. To force that: rm -rf cache/
 mkdir -p "$CACHEDIR"
 
-# cached <subdir> -> returns 0 (true) if cache/<subdir> exists and is non-empty.
-cached() {
-    local d=$CACHEDIR/$1
-    [ -d "$d" ] && [ -n "$(ls -A "$d" 2>/dev/null)" ]
+# --- Persistent progress bar ----------------------------------------------
+# A status bar is pinned to the BOTTOM row of the terminal and repainted on
+# every step, while all build output scrolls in the region above it. It shows
+# "current/total", a filled bar, and the name of the running step, so there is
+# always a single line that follows you through the whole build.
+#
+# TOTAL_STEPS is the number of step() calls below; bump it if you add/remove one.
+# Sub-actions inside a step use plain "    [+] ..." lines and DON'T advance the
+# counter, so only real milestones move the bar.
+#
+# Implementation: a DECSTBM scroll region reserves the last row. If stdout is
+# not a TTY (piped to a file / Docker logs) we fall back to plain lines so no
+# escape codes leak into the log.
+TOTAL_STEPS=25
+CURRENT_STEP=0
+BAR_LABEL=""
+
+if [ -t 1 ]; then
+    PROGRESS_TTY=1
+else
+    PROGRESS_TTY=0
+fi
+
+# Redraw the pinned bottom bar. Saves cursor, jumps to the last row, paints the
+# bar, then restores the cursor back into the scroll region.
+draw_bar() {
+    [ "$PROGRESS_TTY" -eq 1 ] || return 0
+    local rows cols pct barw filled i bar="" label
+    rows=$(tput lines); cols=$(tput cols)
+    pct=$(( CURRENT_STEP * 100 / TOTAL_STEPS ))
+
+    # Layout:  " 20/25  ████████████░░░░░░  80%  Building ISO "
+    # Reserve room for the counter, percent, and a padded label; the rest is bar.
+    local prefix pctstr
+    printf -v prefix ' %2d/%d ' "$CURRENT_STEP" "$TOTAL_STEPS"
+    printf -v pctstr ' %3d%% ' "$pct"
+    barw=$(( cols - ${#prefix} - ${#pctstr} - 26 )); [ "$barw" -lt 8 ] && barw=8
+    filled=$(( CURRENT_STEP * barw / TOTAL_STEPS ))
+    for ((i=0; i<filled;      i++)); do bar+="█"; done
+    for ((i=filled; i<barw;   i++)); do bar+="░"; done
+
+    # Truncate the label so the bar never wraps to a second line.
+    label=$BAR_LABEL
+    (( ${#label} > 22 )) && label="${label:0:21}…"
+
+    tput sc                                  # save cursor
+    tput cup $((rows - 1)) 0                 # go to bottom row
+    tput el                                  # clear the line
+    # dim counter · cyan bar · bold percent · plain label
+    printf '\033[2m%s\033[0m\033[36m%s\033[0m\033[1m%s\033[0m %s' \
+        "$prefix" "$bar" "$pctstr" "$label"
+    tput rc                                  # restore cursor
 }
 
-echo "[*] Cleaning up previous build directory..."
+# (Re-)reserve the bottom row: scroll region = rows 1..(N-1). Subprocesses like
+# pacman and mkarchiso reset the terminal's scroll region for their own progress
+# bars, which unpins ours; calling this again before each redraw re-arms it so
+# the bar never gets scrolled away or frozen mid-build.
+arm_region() {
+    [ "$PROGRESS_TTY" -eq 1 ] || return 0
+    local rows; rows=$(tput lines)
+    tput csr 0 $((rows - 2))                 # reserve last row for the bar
+}
+
+# First-time setup: clear the screen so the reserved region starts clean, then
+# arm the region and paint the initial (empty) bar.
+progress_init() {
+    [ "$PROGRESS_TTY" -eq 1 ] || return 0
+    arm_region
+    tput cup 0 0
+    draw_bar
+}
+
+# Restore the full scroll region and cursor. Runs on any exit (success, error,
+# Ctrl-C) so the terminal is never left in a broken state.
+progress_cleanup() {
+    [ "$PROGRESS_TTY" -eq 1 ] || return 0
+    local rows; rows=$(tput lines)
+    tput csr 0 $((rows - 1))                 # restore full scroll region
+    tput cup $((rows - 1)) 0
+    tput el
+    tput cnorm                               # ensure cursor visible
+}
+trap progress_cleanup EXIT INT TERM
+
+step() {
+    CURRENT_STEP=$((CURRENT_STEP + 1))
+    BAR_LABEL="$1"
+    arm_region                               # re-pin in case pacman/mkarchiso reset it
+    printf '\n[ %2d/%d ] %s\n' "$CURRENT_STEP" "$TOTAL_STEPS" "$1"
+    draw_bar
+}
+
+progress_init
+
+step "Cleaning up previous build directory..."
 AIROOTFS=$BUILDDIR/work/x86_64/airootfs
 for mount in proc sys dev run; do
     if mountpoint -q $AIROOTFS/$mount; then
-        echo "[*] Unmounting $AIROOTFS/$mount..."
+        echo "    [+] Unmounting $AIROOTFS/$mount..."
         sudo umount -lf $AIROOTFS/$mount
     fi
 done
@@ -38,50 +128,50 @@ mkdir -p "$BUILDDIR"
 # resolve here instead of polluting the project root.
 cd "$BUILDDIR"
 
-echo "[*] Checking for build-host dependencies..."
+step "Checking for build-host dependencies..."
 HOST_PKGS="archiso git base-devel go python python-pip"
 # These are the tools the build itself runs on (mkarchiso, makepkg, pip, ...),
 # not ISO content. If they're already installed we stay fully offline; only a
 # missing tool triggers a sync. (Docker also layer-caches these via the Dockerfile.)
 if pacman -Qq $HOST_PKGS >/dev/null 2>&1; then
-    echo "[*] Build-host dependencies already present, skipping sync (offline)."
+    echo "    [+] Build-host dependencies already present, skipping sync (offline)."
 else
-    echo "[*] Installing missing build-host dependencies..."
+    echo "    [+] Installing missing build-host dependencies..."
     sudo pacman -Sy --noconfirm --needed $HOST_PKGS
 fi
 
-echo "[*] Copying releng base into working directory..."
+step "Copying releng base into working directory..."
 cp -r /usr/share/archiso/configs/releng/* $WORKDIR
 
-echo "[*] Adding custom bootloader entries and config files..."
+step "Adding custom bootloader entries and config files..."
 cp $CONFDIR/system/01-archiso-x86_64-linux.conf $WORKDIR/efiboot/loader/entries/
 cp $CONFDIR/system/02-archiso-x86_64-speech-linux.conf $WORKDIR/efiboot/loader/entries/
 cp $CONFDIR/system/archiso_sys-linux.cfg $WORKDIR/syslinux/
 
-echo "[*] Copying custom package list..."
+step "Copying custom package list..."
 cp $CONFDIR/packages.x86_64 $WORKDIR/packages.x86_64
 
-echo "[*] Setting up users..."
+step "Setting up users..."
 mkdir -p airootfs/etc
 cp $CONFDIR/system/passwd airootfs/etc/passwd
 cp $CONFDIR/system/shadow airootfs/etc/shadow
 cp $CONFDIR/system/gshadow airootfs/etc/gshadow
 cp $CONFDIR/system/group airootfs/etc/group
 
-echo "[*] Creating home directory and configuring permissions to allow SDDM autologin..."
+step "Creating home directory and configuring permissions to allow SDDM autologin..."
 mkdir -p airootfs/home/main
 chown -R 1000:998 airootfs/home/main
 
-echo "[*] Adding setup-locale script..."
+step "Adding setup-locale script..."
 mkdir -p airootfs/root/Easy-Arch
 cp $CONFDIR/system/setup-locale.sh airootfs/root/Easy-Arch/setup-locale.sh
 chmod +x airootfs/root/Easy-Arch/setup-locale.sh
 
-echo "[*] Adding locale systemd service..."
+step "Adding locale systemd service..."
 mkdir -p airootfs/etc/systemd/system
 cp $CONFDIR/system/locale-setup.service airootfs/etc/systemd/system/locale-setup.service
 
-echo "[*] Apply KDE minimal theme..."
+step "Apply KDE minimal theme..."
 mkdir -p airootfs/home/main/.config/menus
 mkdir -p airootfs/root/Easy-Arch/Next
 mkdir -p airootfs/root/Easy-Arch/kde
@@ -95,25 +185,25 @@ cp $CONFDIR/kde/kdeglobals airootfs/home/main/.config/kdeglobals
 cp -r $CONFDIR/kde/Next/. airootfs/root/Easy-Arch/Next/
 cp -r $CONFDIR/kde/. airootfs/root/Easy-Arch/kde/
 
-echo "[*] Configure pacman..."
+step "Configure pacman..."
 cp $CONFDIR/system/pacman.conf airootfs/etc/pacman.conf
 
-echo "[*] Adding setup-pkgs script..."
+step "Adding setup-pkgs script..."
 cp $CONFDIR/setup-pkgs.sh airootfs/root/Easy-Arch/setup-pkgs.sh
 chmod +x airootfs/root/Easy-Arch/setup-pkgs.sh
 
-echo "[*] Adding pkgs systemd service..."
+step "Adding pkgs systemd service..."
 cp $CONFDIR/system/pkgs-setup.service airootfs/etc/systemd/system/pkgs-setup.service
 
-echo "[*] Adding SDDM config..."
+step "Adding SDDM config..."
 mkdir -p airootfs/etc
 cp $CONFDIR/system/sddm.conf airootfs/etc/sddm.conf
 
-echo "[*] Configuring X11..."
+step "Configuring X11..."
 mkdir -p airootfs/usr/share/xsessions
 cp $CONFDIR/system/plasma.desktop airootfs/usr/share/xsessions/plasma.desktop
 
-echo "[*] Linking systemd services..."
+step "Linking systemd services..."
 mkdir -p airootfs/etc/systemd/system/{multi-user.target.wants,graphical.target.wants}
 ln -sf /usr/lib/systemd/system/sddm.service airootfs/etc/systemd/system/graphical.target.wants/sddm.service
 ln -sf /usr/lib/systemd/system/NetworkManager.service airootfs/etc/systemd/system/multi-user.target.wants/NetworkManager.service
@@ -122,44 +212,31 @@ ln -sf /usr/lib/systemd/system/org.cups.cupsd.service airootfs/etc/systemd/syste
 ln -sf /etc/systemd/system/locale-setup.service airootfs/etc/systemd/system/multi-user.target.wants/locale-setup.service
 ln -sf /etc/systemd/system/pkgs-setup.service airootfs/etc/systemd/system/multi-user.target.wants/pkgs-setup.service
 
-echo "[*] Setting up sudoers..."
+step "Setting up sudoers..."
 mkdir -p airootfs/etc/sudoers.d
 cp $CONFDIR/system/00-rootpw airootfs/etc/sudoers.d/00-rootpw
 cp $CONFDIR/system/00-main airootfs/etc/sudoers.d/00-main
 chmod 440 airootfs/etc/sudoers.d/00-rootpw
 chmod 440 airootfs/etc/sudoers.d/00-main
 
-echo "[*] Copying profile definition..."
+step "Copying profile definition..."
 cp $CONFDIR/system/profiledef.sh $WORKDIR/profiledef.sh
 
-echo "[*] Setting up Easy Arch ISO Installer script that runs on startup..."
+step "Setting up Easy Arch ISO Installer script that runs on startup..."
 mkdir -p airootfs/home/main/.config/autostart
 mkdir -p airootfs/home/main/Desktop
 cp $CONFDIR/install/easy-arch-iso-installer.sh airootfs/home/main/Desktop/easy-arch-iso-installer.sh
 cp "$CONFDIR/install/easy-arch-iso-install.desktop" airootfs/home/main/.config/autostart/easy-arch-iso-install.desktop
 
-echo "[*] Setting up packages for harddrive installation..."
-mkdir -p airootfs/root/Easy-Arch/pacstrap-easyarch-repo
-mkdir -p airootfs/root/Easy-Arch/pacstrap-easyarch-db
-if cached pkgs/pacstrap-easyarch-repo; then
-    echo "[*] Reusing downloaded packages from cache/pkgs (offline)..."
-    cp -r $CACHEDIR/pkgs/pacstrap-easyarch-repo/. airootfs/root/Easy-Arch/pacstrap-easyarch-repo/
-    cp -r $CACHEDIR/pkgs/pacstrap-easyarch-db/.   airootfs/root/Easy-Arch/pacstrap-easyarch-db/
-else
-    echo "[*] Downloading and caching packages for harddrive installation..."
-    if ! bash $CONFDIR/install/setup-pkgs-cache.sh "$BUILDDIR"; then
-        echo "[✗] Downloading packages failed..."
-        exit 1
-    fi
-    mkdir -p "$CACHEDIR/pkgs/pacstrap-easyarch-repo" "$CACHEDIR/pkgs/pacstrap-easyarch-db"
-    cp -r airootfs/root/Easy-Arch/pacstrap-easyarch-repo/. "$CACHEDIR/pkgs/pacstrap-easyarch-repo/"
-    cp -r airootfs/root/Easy-Arch/pacstrap-easyarch-db/.   "$CACHEDIR/pkgs/pacstrap-easyarch-db/"
-fi
-# Verify the directory exists and is not empty
-if [ ! -d "airootfs/root/Easy-Arch/pacstrap-easyarch-repo" ] || [ -z "$(ls -A airootfs/root/Easy-Arch/pacstrap-easyarch-repo)" ]; then
-    echo "[✗] Package cache directory does not exist or is empty."
+step "Setting up packages for harddrive installation..."
+# The cache script downloads straight into cache/pkgs (persistent), so it is
+# incremental and resumable: only missing packages are fetched, and a prior
+# Ctrl-C leaves finished ones cached. It then stages the cache into the airootfs.
+if ! bash $CONFDIR/install/setup-pkgs-cache.sh "$BUILDDIR" "$CACHEDIR"; then
+    echo "[✗] Package caching/staging failed..."
     exit 1
 fi
+arm_region; draw_bar                         # pacman reset the region; re-pin the bar
 mkdir -p airootfs/root/Easy-Arch/pacman-base-conf
 mkdir -p airootfs/root/Easy-Arch/pacstrap-easyarch-conf
 cp $CONFDIR/packages.x86_64 airootfs/root/Easy-Arch/packages.x86_64
@@ -167,41 +244,54 @@ cp $CONFDIR/system/pacman.conf airootfs/root/Easy-Arch/pacman-base-conf/pacman.c
 cp $CONFDIR/install/pacstrap-easyarch-conf/pacman.conf airootfs/root/Easy-Arch/pacstrap-easyarch-conf/pacman.conf
 cp $CONFDIR/install/chroot-setup.sh airootfs/root/Easy-Arch/chroot-setup.sh
 
-echo "[*] Copying and setting up first boot configuration script..."
+step "Copying and setting up first boot configuration script..."
 cp $CONFDIR/install/first-boot/first-boot-setup.sh airootfs/root/Easy-Arch/first-boot-setup.sh
 cp $CONFDIR/install/first-boot/first-boot-setup.service airootfs/root/Easy-Arch/first-boot-setup.service
 cp $CONFDIR/install/first-boot/first-boot-setup.conf airootfs/root/Easy-Arch/first-boot-setup.conf
 
-echo "[*] Prepare script to that forces x11 session..."
+step "Prepare script that forces x11 session..."
 cp $CONFDIR/system/force-x11-session/pacman.conf $WORKDIR/pacman.conf
 
-echo "[*] Setting up Python libraries for the finalizer script..."
+step "Setting up Python libraries for the finalizer script..."
 mkdir -p airootfs/root/Easy-Arch/finalize
 mkdir -p airootfs/root/Easy-Arch/finalize/pip-cache
 cp -r $CONFDIR/finalize/. airootfs/root/Easy-Arch/finalize/
 cp $CONFDIR/pip-libraries airootfs/root/Easy-Arch/finalize/pip-cache/pip-libraries
-if cached pip; then
-    echo "[*] Reusing Python wheels from cache/pip (offline)..."
-    cp $CACHEDIR/pip/* airootfs/root/Easy-Arch/finalize/pip-cache/
+# Download wheels straight into the PERSISTENT cache/pip. pip reuses wheels
+# already present there and fetches only the missing ones, so this is real-time
+# and resumable: a prior Ctrl-C leaves finished wheels cached, and a re-run only
+# grabs what's left. Staging into the airootfs then happens from the cache.
+mkdir -p "$CACHEDIR/pip"
+echo "    [+] Downloading missing Python wheels into the persistent cache (resumable)..."
+if pip download -d "$CACHEDIR/pip" -r $CONFDIR/pip-libraries; then
+    :
+elif [ -n "$(ls -A "$CACHEDIR/pip" 2>/dev/null)" ]; then
+    echo "    [+] Wheel download failed but cache/pip is populated — using it offline."
 else
-    echo "[*] Downloading Python wheels and caching them..."
-    pip download -d airootfs/root/Easy-Arch/finalize/pip-cache -r $CONFDIR/pip-libraries
-    mkdir -p "$CACHEDIR/pip"
-    # Cache only the downloaded artifacts, not the pip-libraries manifest.
-    find airootfs/root/Easy-Arch/finalize/pip-cache -maxdepth 1 -type f ! -name pip-libraries -exec cp -n {} "$CACHEDIR/pip/" \;
+    echo "[✗] Downloading Python wheels failed and cache/pip is empty."
+    exit 1
+fi
+arm_region; draw_bar                         # pip may reset the region; re-pin
+# Stage cached wheels into the ISO working tree (always runs; local, offline).
+cp "$CACHEDIR/pip"/* airootfs/root/Easy-Arch/finalize/pip-cache/ || true
+if [ -z "$(ls -A "$CACHEDIR/pip" 2>/dev/null)" ]; then
+    echo "[✗] Python wheel cache (cache/pip) is empty after download."
+    exit 1
 fi
 
-echo "[*] Cleaning up temp directory..."
+step "Cleaning up temp directory..."
 rm -rfv $WORKDIR/.temp
 
-echo "[*] Building ISO..."
+step "Building ISO..."
 ### This line fixes an odd bug that appeared out of nowhere
 ### """FATAL ERROR: xz uncompress failed with error code 9""" 
 export MKSQUASHFS_OPTIONS="-processors 4"
 ###
 sudo mkarchiso -v $WORKDIR
+arm_region; draw_bar                         # mkarchiso reset the region; re-pin at 25/25
 if [ -d "$WORKDIR/out" ] && [ -n "$(find "$WORKDIR/out" -maxdepth 1 -type f -name '*.iso')" ]; then
-    echo "[✓] ISO built successfully in output/out/ directory"
+    printf '\n[ %d/%d ] [✓] ISO built successfully in output/out/\n' "$TOTAL_STEPS" "$TOTAL_STEPS"
 else
-    echo "[✗] ISO build failed, output/out/ directory or ISO file not found"
+    printf '\n[ %d/%d ] [✗] ISO build failed: output/out/ or ISO file not found\n' "$TOTAL_STEPS" "$TOTAL_STEPS"
+    exit 1
 fi

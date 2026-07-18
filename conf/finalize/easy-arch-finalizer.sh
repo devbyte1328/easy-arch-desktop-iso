@@ -168,8 +168,7 @@ while true; do
                                 echo -e '${YELLOW}Installing \$pkg with pacman...${RESET}';
                                 pacman -S --noconfirm \$pkg
                             else
-                                echo -e '${YELLOW}Installing \$pkg with yay...${RESET}';
-                                sudo -u main yay -S --noconfirm \$pkg
+                                echo -e '${RED}Skipping \$pkg: not found in official repositories.${RESET}';
                             fi
                         done
                         echo -e '${LIGHT_BLUE}Packages installed. Closing window...${RESET}';
