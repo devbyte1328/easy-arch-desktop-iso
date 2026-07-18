@@ -1,0 +1,7 @@
+output/
+cache/
+logs/
+build.log
+logs.txt
+.git/
+*.iso

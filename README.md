@@ -50,106 +50,106 @@ It comes with only the essential packages needed for any system. The desktop env
 
 ## 🧰 How to Compile Easy Arch Linux
 
-You can clone this repository and compile the ISO yourself. This requires an internet connection to download all the components needed to build the ISO.
+You can clone this repository and compile the ISO yourself. This needs an
+internet connection to download every component that goes into the ISO.
 
-Packages will be the latest version so there is a possibility for bugs/issues to appear unlike the provided ISO which was briefly examined before being uploaded.
+Packages are pulled at their latest version, so the ISO you build may contain
+bugs the pre-built download does not (that one was briefly examined before being
+uploaded).
 
-There are two ways to compile the ISO:
+**Build with Docker.** The ISO is assembled with `mkarchiso`, which resolves the
+ISO's package list against the build host's Arch Linux repositories. That means
+the build only works on a genuine Arch userland with the real Arch `core`,
+`extra`, and `multilib` repos. On anything else — Manjaro, EndeavourOS, Ubuntu,
+Fedora, macOS, Windows — those repos are wrong or missing and the build fails
+with errors like `target not found: archinstall` or endless kernel-provider
+prompts.
 
-## 🐋 Option 1: Compile Using Docker (Highly Recommended)
+Docker sidesteps all of that: the image is `archlinux:latest`, so the build runs
+inside real Arch no matter what machine you are on. **Follow the steps for your
+OS to install Docker, then the shared build steps are identical everywhere.**
+
+### 🐧 Linux
+
+1. **Install Docker and Git** using your distro's package manager, for example:
+   - Arch-based: `sudo pacman -S --needed docker git`
+   - Debian/Ubuntu: `sudo apt update && sudo apt install docker.io git`
+   - Fedora: `sudo dnf install docker git`
+2. **Start the Docker service**
+   ```
+   sudo systemctl enable --now docker
+   ```
+3. Continue with **[Build the ISO](#-build-the-iso-all-platforms)** below.
+
+### 🍎 macOS
+
+1. **Install [Docker Desktop for Mac](https://www.docker.com/products/docker-desktop/)** and launch it (wait until the whale icon says Docker is running).
+2. **Install Git** if you don't have it — it ships with the Xcode command line tools:
+   ```
+   xcode-select --install
+   ```
+3. Continue with **[Build the ISO](#-build-the-iso-all-platforms)** below.
+   (On macOS you can drop the `sudo` in front of the `docker` commands.)
 
 ### 🪟 Windows
-1. **Open CMD/Powershell as administrator and install WSL**
+
+1. **Open PowerShell as Administrator and install WSL2**
    ```
    wsl --install
    ```
-2. **Install [Docker](https://www.docker.com/)**
-
-3. **Open the Microsoft Store app, then search for and install Ubuntu**
-
-4. **Open Ubuntu, then confirm Docker is working**
+   Reboot if prompted.
+2. **Install [Docker Desktop for Windows](https://www.docker.com/products/docker-desktop/)**, then in its settings enable **"Use the WSL 2 based engine"**.
+3. **Open your WSL distro** (e.g. Ubuntu from the Start menu) and confirm Docker works:
    ```
    docker --version
    ```
+4. **Install Git inside WSL**
+   ```
+   sudo apt update && sudo apt install git
+   ```
+5. Continue with **[Build the ISO](#-build-the-iso-all-platforms)** below, running the commands **inside your WSL terminal**. (With Docker Desktop you can usually drop the `sudo`.)
 
-5. **Updates package index and install git**
-   ```
-   sudo apt update
-   sudo apt install git
-   ```
+### 🐋 Build the ISO (all platforms)
 
-6. **Clone repository and enter directory**
-   ```
-   git clone https://github.com/devbyte1328/easy-arch-desktop-iso.git
-   cd easy-arch-desktop-iso
-   ```
-   
-6. **Build the Docker image**
-   ```
-   sudo docker build -t easyarch .
-   ```
-   
-7. **Compile the ISO**
-   ```
-   sudo docker run --rm -t --privileged -v "$PWD/out:/build/out" easyarch
-   ```
-   
-8. **(Optional) For debugging**
-   ```
-   { sudo docker build -t easyarch . && sudo docker run --rm -t --privileged -v "$PWD/out:/build/out" easyarch; } 2>&1 | tee logs.txt
-   ```
+Once Docker is installed and running, the steps are the same everywhere.
 
-9. **After compiling the ISO, navigate to File Explorer and retrieve the ISO**
-   ```
-   \\wsl$\Ubuntu\home\<your-username>\easy-arch-desktop-iso\out
-   ```
-   
-### 🍎🐧 Linux/macOS
-    
-1. **Install [Docker](https://www.docker.com/)**
-
-2. **Clone repository and enter directory**
+1. **Clone the repository and enter it**
    ```
    git clone https://github.com/devbyte1328/easy-arch-desktop-iso.git
    cd easy-arch-desktop-iso
    ```
 
-3. **Build the Docker image**
+2. **Build the Docker image** (creates the Arch build environment)
    ```
    sudo docker build -t easyarch .
    ```
 
-4. **Run the Docker container to compile the ISO**
+3. **Compile the ISO.** `--privileged` is required — `mkarchiso` mounts
+   `proc`/`sys`/`dev` and uses loop devices. The finished ISO is written to an
+   `out/` folder in the current directory, and downloaded packages are kept in a
+   `cache/` folder so re-runs don't re-download several GB every time.
    ```
-   sudo docker run --rm -t --privileged -v "$PWD/out:/build/out" easyarch
-   ```
-
-5. **(Optional) For debugging**
-   ```
-   { sudo docker build -t easyarch . && sudo docker run --rm -t --privileged -v "$PWD/out:/build/out" easyarch; } 2>&1 | tee logs.txt
-   ```
-
-## 🖥️ Option 2: Compile Natively on Arch Linux or an Arch-based Distro (Not Recommended)
-
-> ⚠️This method is not recommended because the script:
-> - Installs packages directly to your system
-> - Creates temporary build files
-> - Leaves dependencies behind
-
-Use Docker unless you know what you're doing.
-
-1. **Clone repository and enter directory**
-   ```
-   git clone https://github.com/devbyte1328/easy-arch-desktop-iso.git
-   cd easy-arch-desktop-iso
+   sudo docker run --rm -it --privileged \
+     -v "$PWD/out:/build/output/out" \
+     -v "$PWD/cache:/build/cache" \
+     easyarch
    ```
 
-2. **Run the build script**
+4. **Collect the ISO.** After the build finishes, the ISO is in `out/`:
    ```
-   sudo ./compile.sh
+   ls out/
+   ```
+   - **Windows (WSL):** the same folder is reachable from File Explorer at
+     `\\wsl$\<distro>\home\<your-username>\easy-arch-desktop-iso\out`.
+
+5. **(Optional) Save a full build log** for debugging:
+   ```
+   sudo docker run --rm -t --privileged \
+     -v "$PWD/out:/build/output/out" \
+     -v "$PWD/cache:/build/cache" \
+     easyarch 2>&1 | tee build.log
    ```
 
-3. **(Optional) For debugging**
-   ```
-   sudo ./compile.sh 2>&1 | tee logs.txt
-   ```
+> 💡 The build downloads several GB of packages. The `-v "$PWD/cache:/build/cache"`
+> mount keeps those downloads on your machine between runs, so a rebuild only
+> fetches what changed instead of everything again.
