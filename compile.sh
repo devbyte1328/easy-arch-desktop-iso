@@ -677,23 +677,26 @@ handback_ownership() {
     return 0
 }
 
-# Chown cache/ output/ logs/ back to $1 (uid:gid), as root. This is the ONE
-# operation that must never be skipped -- if it doesn't run, cache/build/ is left
-# root-owned and locked. It runs directly (no background helper, no FIFO, no signal
-# indirection): on a normal/error/Ctrl-C exit the build was root only moments ago,
-# so a plain `sudo -n chown` still has a valid timestamp; if it somehow doesn't,
-# reclaim_at_startup on the NEXT run reclaims it unconditionally. Idempotent.
+# Hand cache/ output/ logs/ back to $1 (uid:gid) so the user is never locked out.
+# This is the ONE operation that must never be skipped. It restores BOTH:
+#   * ownership (chown) -- mkarchiso/pacstrap create files as root; and
+#   * owner WRITE permission (chmod -R u+w) -- pacstrap builds a real rootfs, so some
+#     dirs (airootfs, /usr subdirs, etc.) are mode r-x with NO write bit. chown alone
+#     leaves those un-deletable even once you own them (you couldn't rm cache/build/):
+#     the missing write bit is a second, independent lock. u+w on dirs restores the
+#     ability to modify/delete the tree; it never removes any existing access.
+# Runs directly (no helper/FIFO/signal indirection). Idempotent.
 reclaim_trees() {
-    local owner=$1 d
+    local owner=$1 d chown_cmd chmod_cmd
+    if [ "$(id -u)" -eq 0 ]; then
+        chown_cmd=(chown); chmod_cmd=(chmod)                 # already root
+    else
+        chown_cmd=($SUDO -n chown); chmod_cmd=($SUDO -n chmod)  # keepalive keeps ts warm
+    fi
     for d in "$CACHEDIR" "$BUILDDIR" "$LOGDIR"; do
         [ -d "$d" ] || continue
-        if [ "$(id -u)" -eq 0 ]; then
-            chown -R --preserve-root "$owner" "$d" 2>/dev/null || true
-        else
-            # Try non-interactive (fast path, valid mid-build); the up-front prime and
-            # the just-finished root build keep the timestamp warm here.
-            $SUDO -n chown -R --preserve-root "$owner" "$d" 2>/dev/null || true
-        fi
+        "${chown_cmd[@]}" -R --preserve-root "$owner" "$d" 2>/dev/null || true
+        "${chmod_cmd[@]}" -R u+w "$d" 2>/dev/null || true
     done
 }
 
