@@ -333,13 +333,29 @@ kill_children() {
         wait "$SUB_PID" 2>/dev/null
         SUB_PID=0
     fi
-    # Signal the whole process group so pacman/mkarchiso (and their pacstrap
-    # mounts) die. sudo keeps its child in THIS group (no use_pty in sudoers), so
-    # a group kill reaches even root children. Look up the real PGID defensively
-    # and fall back to $$ if the lookup fails; ignore "no such process".
+    # Signal the whole process group so pacman/mkarchiso and their pacstrap chroot
+    # children die together. On a native run this shell is unprivileged while those
+    # children are root, so an unprivileged kill(2) is rejected with EPERM and does
+    # nothing -- which is why the build used to drag on and every extra Ctrl-C just
+    # reprinted. We escalate through $SUDO to reach the root PIDs. Ignore INT/TERM
+    # in this shell first so the group signal doesn't take us down before the trap
+    # finishes its unmount + ownership handback.
+    trap '' INT TERM
     local pgid
     pgid=$(ps -o pgid= -p "$$" 2>/dev/null | tr -d ' ')
-    kill -TERM -"${pgid:-$$}" 2>/dev/null || true
+    kill_group "${pgid:-$$}"
+}
+
+# Send TERM then KILL to a process group, escalating through $SUDO for root
+# children. `sudo -n` keeps it non-interactive: this runs inside the signal trap,
+# so it must never block on a password prompt (the build's timestamp is fresh; if
+# it expired we skip rather than hang). $SUDO is empty on a root run.
+kill_group() {
+    local pgid=$1 s
+    for s in TERM KILL; do
+        kill -"$s" -"$pgid" 2>/dev/null || true
+        [ -n "$SUDO" ] && $SUDO -n kill -"$s" -"$pgid" 2>/dev/null || true
+    done
 }
 
 # --- Live sub-progress readers ----------------------------------------------
@@ -481,23 +497,47 @@ unmount_worktree() {
     return 0
 }
 
-# Hand the three host bind-mount trees back to the invoking host user so nothing
-# is left root-owned/locked on the host. Best-effort, idempotent, never hangs,
-# never aborts the exit. No-op when HOST_UID is unresolved (see resolve_host_owner).
+# Hand the three build trees back to the invoking user so nothing is left
+# root-owned/locked. Best-effort, idempotent, never hangs, never aborts the exit.
+# Two distinct paths create root-owned files, and BOTH must be handed back or
+# cache/build/ ends up locked:
+#   * Docker: the WHOLE script runs as root inside the container; the host bind
+#     mounts land root:root. We chown to HOST_UID/HOST_GID (passed via -e), and
+#     can chown directly because we ARE root.
+#   * Native: the script runs as the user with $SUDO=sudo, so only mkarchiso &
+#     pacstrap run as root -- but THEY create cache/build/** as root. We chown
+#     back to the current (non-root) user, escalating via $SUDO since the files
+#     are root-owned. This is the case the old code skipped (it returned early
+#     whenever id!=0), which is exactly why native Ctrl-C left the tree locked.
 _HANDED_BACK=0
 handback_ownership() {
     [ "$_HANDED_BACK" -eq 1 ] && return 0
     _HANDED_BACK=1
-    [ -n "$HOST_UID" ] && [ -n "$HOST_GID" ] || return 0   # unresolved -> skip
-    [ "$(id -u)" -eq 0 ] || return 0                        # only root created the root-owned files
-    local d
+    local owner d
+    local -a chowner
+    if [ "$(id -u)" -eq 0 ]; then
+        # Root (Docker path): hand back to the host user, but only if resolved.
+        [ -n "$HOST_UID" ] && [ -n "$HOST_GID" ] || return 0   # unresolved -> skip
+        owner="$HOST_UID:$HOST_GID"
+        chowner=(chown)                       # already root, no escalation needed
+    else
+        # Non-root (native path): the root-owned files are ours to reclaim. Hand
+        # back to the invoking user, escalating through $SUDO. If there is no
+        # sudo wrapper (shouldn't happen when id!=0) skip rather than fail.
+        [ -n "$SUDO" ] || return 0
+        owner="$(id -u):$(id -g)"
+        # -n (non-interactive): this runs in the exit/signal trap, so it must
+        # never block on a password prompt. The timestamp is fresh from the just-
+        # -run build; if it expired we skip rather than hang. See kill_children.
+        chowner=("$SUDO" -n chown)
+    fi
     for d in "$CACHEDIR" "$BUILDDIR" "$LOGDIR"; do
         [ -d "$d" ] || continue
         # -R walks the tree; --preserve-root guards a pathological empty $d. A live
         # procfs under work/ can't be chowned but errors per-file WITHOUT hanging;
         # we swallow it. unmount_worktree (run first in the trap) removes those
         # mounts in the common case anyway. cache/build/ is disposable regardless.
-        chown -R --preserve-root "$HOST_UID:$HOST_GID" "$d" 2>/dev/null || true
+        "${chowner[@]}" -R --preserve-root "$owner" "$d" 2>/dev/null || true
     done
     return 0
 }
