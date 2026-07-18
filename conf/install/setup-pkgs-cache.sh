@@ -53,6 +53,12 @@ GPGDIR=$BUILDDIR/.pkgs-gnupg
 mkdir -p "$PKGREPO" "$PKGDB/sync"
 rm -rf "$GPGDIR"; mkdir -p "$GPGDIR"
 
+# Clear a stale lock left by a pacman that was Ctrl-C'd or hard-killed on a prior
+# run. This --dbpath is private to the build and single-threaded, so a lingering
+# db.lck is never a live lock — it only ever blocks the resume it is meant to
+# enable. Needs sudo because a crashed root pacman leaves a root-owned lock.
+sudo rm -f "$PKGDB/db.lck"
+
 echo "[*] Syncing package databases..."
 # Refresh the sync DB into the PERSISTENT db path. If the network is down but the
 # cache is already complete we still want to proceed offline, so a failed -Sy is
