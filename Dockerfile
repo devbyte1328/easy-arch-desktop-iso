@@ -70,6 +70,19 @@ RUN echo "root ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/00-root \
 # valid terminal type (xterm terminfo ships with the base ncurses package).
 ENV TERM=xterm
 
+# Host ownership handback. Everything the (root) build writes under the bind
+# mounts cache/ output/ logs/ would otherwise be root-owned on the host and thus
+# "locked" for the invoking user. compile.sh chowns those trees back to the host
+# user on every exit path -- but the host uid/gid CANNOT be detected inside the
+# container (COPY and the auto-created bind mounts are all root-owned), so they
+# MUST be passed at run time:
+#   docker run -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" ...
+# Left empty here on purpose: an empty value is treated as "unset" (compile.sh
+# then warns and skips), whereas a default of 0 would silently chown to root and
+# leave everything locked. Do NOT default these to a number.
+ENV HOST_UID="" \
+    HOST_GID=""
+
 WORKDIR /build
 COPY . /build
 

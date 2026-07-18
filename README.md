@@ -130,6 +130,7 @@ Once Docker is installed and running, the steps are the same everywhere.
    don't re-download several GB every time, and build logs land in `logs/`.
    ```
    sudo docker run --rm -it --init --privileged \
+     -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" \
      -v "$PWD/cache:/build/cache" \
      -v "$PWD/output:/build/output" \
      -v "$PWD/logs:/build/logs" \
@@ -141,6 +142,15 @@ Once Docker is installed and running, the steps are the same everywhere.
    the download/build still running. With tini forwarding signals and reaping
    orphans, Ctrl-C tears the whole build down promptly.
 
+   The `-e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)"` flags hand the finished
+   `output/` (incl. the `.iso`), the `cache/`, and `logs/` back to **your** user
+   when the build exits — on success, on failure, or on Ctrl-C — so nothing is
+   left `root:root` and you can read/delete it without `sudo`. These flags are
+   **required** for the handback: the host user id cannot be detected from inside
+   the container. If you omit them the build still produces the ISO but prints a
+   warning and leaves `output/ cache/ logs/` root-owned (you'd then need `sudo` to
+   delete them).
+
 4. **Collect the ISO.** After the build finishes, the ISO is in `output/`:
    ```
    ls output/*.iso
@@ -151,6 +161,7 @@ Once Docker is installed and running, the steps are the same everywhere.
 5. **(Optional) Save a full build log** for debugging:
    ```
    sudo docker run --rm -t --init --privileged \
+     -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" \
      -v "$PWD/cache:/build/cache" \
      -v "$PWD/output:/build/output" \
      -v "$PWD/logs:/build/logs" \

@@ -89,10 +89,15 @@ echo "[*] Downloading missing packages into the persistent cache (resumable)..."
 $SUDO pacman -Sw --config "$DLCONF" --gpgdir "$GPGDIR" --noconfirm \
     --cachedir "$PKGREPO" --dbpath "$PKGDB" $pkgs || fail "package download"
 
-# pacman ran as root, so newly downloaded files are root-owned. Hand the cache
-# back to the invoking user so later unprivileged steps (repo-add, the staging
-# copy, mkarchiso) can read it and so the user can `rm -rf cache/` freely.
-$SUDO chown -R "$(id -u):$(id -g)" "$PKGREPO" "$PKGDB"
+# pacman ran as root, so newly downloaded files are root-owned. Hand this cache
+# subtree back so the later UNPRIVILEGED steps in THIS script (repo-add, staging
+# cp) can read it, and so the host user isn't locked out mid-build. Prefer the
+# host uid/gid exported by compile.sh (correct across the Docker bind mount);
+# fall back to the current user for a native/standalone run. compile.sh's final
+# sweep chowns cache/ again on exit anyway, so this is belt-and-braces.
+_OWN_UID=${HOST_UID:-$(id -u)}
+_OWN_GID=${HOST_GID:-$(id -g)}
+$SUDO chown -R "$_OWN_UID:$_OWN_GID" "$PKGREPO" "$PKGDB" 2>/dev/null || true
 
 echo "[*] Building local repository index from the cache..."
 # Idempotent: refreshes the .db from whatever .pkg.tar.zst files are present.

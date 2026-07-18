@@ -71,6 +71,45 @@ WORKDIR=$BUILDDIR/build
 # privileged steps still work.
 if [ "$(id -u)" -eq 0 ]; then SUDO=""; else SUDO="sudo"; fi
 
+# --- Host ownership handback ------------------------------------------------
+# Everything under cache/ output/ logs/ is created by ROOT inside the container,
+# so on the host bind mounts it lands root:root and the invoking user cannot
+# rm/edit it without sudo. We chown all three trees back to the host user on
+# every exit path. The host uid/gid CANNOT be discovered inside the container:
+#   * the bind-mount source dirs are auto-created by the Docker daemon as root
+#     (host output/ is 0:0), so stat'ing them yields root;
+#   * /build and the COPY'd files are ALSO root:root inside the container even
+#     when the host build context is owned by the user, because `COPY` without
+#     --chown sets uid 0.
+# Therefore the ONLY reliable source is the HOST_UID/HOST_GID env vars passed by
+#   docker run -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" ...
+# If they are absent (or resolve to 0) we DO NOT guess -- we disable the handback
+# and print a one-line hint, because a silent chown-to-root would leave the files
+# locked (the exact bug we are fixing) with no signal to the user.
+resolve_host_owner() {
+    HOST_UID=${HOST_UID:-}
+    HOST_GID=${HOST_GID:-}
+    # Reject anything non-numeric / empty / partial.
+    case "$HOST_UID:$HOST_GID" in
+        *[!0-9:]*|:*|*:|'') HOST_UID=''; HOST_GID='' ;;
+    esac
+    # Reject uid 0: it means "unresolved" for our purposes -- chowning to root is a
+    # no-op that leaves everything locked. (Also covers running docker as literal
+    # root with -e HOST_UID=0.)
+    if [ "${HOST_UID:-0}" = "0" ] || [ "${HOST_GID:-0}" = "0" ]; then
+        HOST_UID=''; HOST_GID=''
+    fi
+    export HOST_UID HOST_GID
+    # If we're root in a container with no valid host ids, warn ONCE now (not at
+    # exit) so the user can re-run with the -e flags. Only warn when we're clearly
+    # in a container as root (the problem is real) to stay quiet on native runs.
+    if [ -z "$HOST_UID" ] && [ "$(id -u)" -eq 0 ] && [ -f /.dockerenv ]; then
+        echo "[!] HOST_UID/HOST_GID not set: output/ cache/ logs/ will stay root-owned" >&2
+        echo "[!] on the host. Re-run with:  -e HOST_UID=\$(id -u) -e HOST_GID=\$(id -g)" >&2
+    fi
+}
+resolve_host_owner
+
 # Persistent download cache (repo root, survives cleanup). Downloads land here
 # directly, so caching is incremental and resumable:
 #   - present & complete -> pacman/pip skip it, no network hit.
@@ -95,6 +134,37 @@ TOTAL_STEPS=25
 CURRENT_STEP=0
 BAR_LABEL=""
 
+# --- Weighted progress model ------------------------------------------------
+# The old bar used pct = CURRENT_STEP*100/TOTAL_STEPS, giving every step 1/25 of
+# the bar. But two steps (20 = pacman -Sw + repo-add, 25 = mkarchiso) are ~99% of
+# wall-clock, so the bar rocketed to 19/25 in seconds then froze for the whole
+# build. We now weight each step and, inside the two giant steps, drive a live
+# sub-fraction from the build's own log output. Weights are integers (arbitrary
+# units; only ratios matter). Trivial file-copy steps = 1 unit each. The two
+# giants are sized from the measured log line-spans of a real run.
+STEP_WEIGHTS=(
+  0     # index 0 unused (steps are 1-indexed to match CURRENT_STEP)
+  1 1 1 1 1 1 1 1 1 1     #  1..10  file copies / mkdir / chown -- all near-instant
+  1 1 1 1 1 1 1 1 1       # 11..19  file copies -- all near-instant
+  250   # 20 Setting up packages : pacman -Sw (~110u) + repo-add (~140u)  GIANT
+  1     # 21 First-boot config    : 3x cp
+  1     # 22 force-x11 pacman.conf : 1x cp
+  20    # 23 Python wheels        : pip download, moderate (~95 log lines)
+  1     # 24 Cleaning temp dir     : rm -rf
+  270   # 25 Building ISO         : mkarchiso pacstrap(~230u)+squashfs(~20u)+iso(~20u) GIANT
+)
+# Prefix sums: CUM_WEIGHT[N] = total weight completed at the END of step N.
+CUM_WEIGHT=(0); _acc=0
+for ((i=1; i<=TOTAL_STEPS; i++)); do
+    _acc=$(( _acc + ${STEP_WEIGHTS[i]} )); CUM_WEIGHT[i]=$_acc
+done
+TOTAL_WEIGHT=$_acc      # = 19*1 + 250 + 1 + 1 + 20 + 1 + 270 = 562
+
+DONE_WEIGHT=0     # sum of weights of fully-completed steps  (= CUM_WEIGHT[CURRENT_STEP-1])
+CUR_WEIGHT=0      # weight of the step currently running     (= STEP_WEIGHTS[CURRENT_STEP])
+SUBFRAC=0         # 0..1000 permille progress WITHIN the current step
+SUB_PID=0         # pid of the running background sub-progress reader (0 = none)
+
 # Where the pinned bar's escape codes go (fd 3). It MUST be the same terminal the
 # scrolling build output goes to, or the reserved scroll region won't line up.
 #   - On the PTY (script): that's stdout, which is a real TTY -> draw to stdout.
@@ -115,9 +185,14 @@ fi
 # bar, then restores the cursor back into the scroll region.
 draw_bar() {
     [ "$PROGRESS_TTY" -eq 1 ] || return 0
-    local rows cols pct barw filled i bar="" label
+    local rows cols pct barw filled i bar="" label eff sf
     rows=$(tput lines <&3); cols=$(tput cols <&3)
-    pct=$(( CURRENT_STEP * 100 / TOTAL_STEPS ))
+    # Effective completed weight (permille units) = fully-done steps + the partial
+    # of the current step. Clamp SUBFRAC to [0,1000] so a bad parse can never push
+    # this step past its own slice.
+    sf=$SUBFRAC; (( sf < 0 )) && sf=0; (( sf > 1000 )) && sf=1000
+    eff=$(( DONE_WEIGHT * 1000 + CUR_WEIGHT * sf ))
+    pct=$(( eff / 10 / TOTAL_WEIGHT )); (( pct > 100 )) && pct=100
 
     # Layout:  " 20/25  ████████████░░░░░░  80%  Building ISO "
     # Reserve room for the counter, percent, and a padded label; the rest is bar.
@@ -125,7 +200,7 @@ draw_bar() {
     printf -v prefix ' %2d/%d ' "$CURRENT_STEP" "$TOTAL_STEPS"
     printf -v pctstr ' %3d%% ' "$pct"
     barw=$(( cols - ${#prefix} - ${#pctstr} - 26 )); [ "$barw" -lt 8 ] && barw=8
-    filled=$(( CURRENT_STEP * barw / TOTAL_STEPS ))
+    filled=$(( eff * barw / (1000 * TOTAL_WEIGHT) )); (( filled > barw )) && filled=barw
     for ((i=0; i<filled;      i++)); do bar+="█"; done
     for ((i=filled; i<barw;   i++)); do bar+="░"; done
 
@@ -172,6 +247,13 @@ progress_init() {
 # to the full screen, ESC[K clears the bar line, ESC[0m drops leftover attributes.
 # We deliberately do NOT emit ESC c (RIS): that would wipe the build output.
 progress_cleanup() {
+    # Guaranteed reader sweep: the EXIT trap runs progress_cleanup but NOT
+    # kill_children, so an `exit 1` after a sub_start (that somehow skipped
+    # sub_stop) would otherwise leave the reader alive. Idempotent.
+    if (( ${SUB_PID:-0} > 0 )); then
+        kill "$SUB_PID" 2>/dev/null; pkill -P "$SUB_PID" 2>/dev/null
+        wait "$SUB_PID" 2>/dev/null; SUB_PID=0
+    fi
     if [ "${PROGRESS_TTY:-0}" -eq 1 ]; then
         { printf '\r\033[K\033[r\033[0m'; tput cnorm 2>/dev/null; } >&3 2>/dev/null
     fi
@@ -187,6 +269,15 @@ _KILLED=0
 kill_children() {
     [ "$_KILLED" -eq 1 ] && return 0
     _KILLED=1
+    # Kill the sub-progress reader first (and its tail|grep leaf) and WAIT it, so
+    # it can't fire one last bar redraw into fd 3 while progress_cleanup is
+    # restoring the terminal on the same line.
+    if (( ${SUB_PID:-0} > 0 )); then
+        kill "$SUB_PID" 2>/dev/null
+        pkill -P "$SUB_PID" 2>/dev/null
+        wait "$SUB_PID" 2>/dev/null
+        SUB_PID=0
+    fi
     # Signal the whole process group so pacman/mkarchiso (and their pacstrap
     # mounts) die. sudo keeps its child in THIS group (no use_pty in sudoers), so
     # a group kill reaches even root children. Look up the real PGID defensively
@@ -196,15 +287,169 @@ kill_children() {
     kill -TERM -"${pgid:-$$}" 2>/dev/null || true
 }
 
-# On Ctrl-C / SIGTERM: kill the whole build, restore the terminal, then exit 130
-# so the outer `script -e` propagates 128+SIGINT and the run fails fast. The EXIT
-# trap re-runs progress_cleanup (idempotent) afterwards, which is harmless.
-trap 'kill_children; progress_cleanup; exit 130' INT TERM HUP QUIT
-trap progress_cleanup EXIT
+# --- Live sub-progress readers ----------------------------------------------
+# During the two giant steps (20, 25) a background reader tails the live full.log
+# and maps the build's own progress lines to SUBFRAC (0..1000), redrawing the bar
+# on fd 3. The reader is a DIRECT child of this shell's process group, so the
+# existing group-kill in kill_children reaps it too; we also kill it explicitly.
+#
+# CRITICAL: while a reader is alive it is the SOLE writer of the bar. The reader
+# runs in a backgrounded subshell, so it cannot mutate the parent's SUBFRAC; it
+# owns its own copies of the weight context (passed as locals) and draws the bar
+# itself. The foreground does not touch the bar between sub_start and sub_stop.
+
+# Start a background bar-driver for the current step.
+#   $1 = mode: "step20" | "mkarchiso"
+#   $2 = (step20 only) repo-add package count for the repo-add band divisor.
+sub_start() {
+    [ "$PROGRESS_TTY" -eq 1 ] || return 0        # no TTY -> spawn nothing, no log noise
+    local mode=$1 repo_total=${2:-0}
+    # Snapshot the weight/label context so the child needs no shared parent state.
+    local done=$DONE_WEIGHT cur=$CUR_WEIGHT total=$TOTAL_WEIGHT
+    local step=$CURRENT_STEP steps=$TOTAL_STEPS label=$BAR_LABEL
+    {
+        # Force C locale so EPOCHREALTIME uses a '.' decimal separator (the throttle
+        # math below strips it) and so the tail|grep regex is byte-wise/fast.
+        LC_ALL=C
+        local sf=0 last=-1 cols=80 lastdraw=0 now rc=0 m=0 inpac=0
+        # Cache terminal width; only re-query occasionally (avoid a tput fork per
+        # package line during pacstrap's ~1381 Total() updates). SIGWINCH re-reads.
+        cols=$(tput cols <&3 2>/dev/null) || cols=80
+        trap 'cols=$(tput cols <&3 2>/dev/null) || cols=80' WINCH
+        # Self-contained redraw (identical math to draw_bar, throttled to ~4/s).
+        redraw() {
+            now=$(( ${EPOCHREALTIME/./} ))       # microseconds; bash 5 builtin
+            # Throttle: at most one redraw per ~250ms UNLESS this is the final snap.
+            if (( sf < 1000 )) && (( now - lastdraw < 250000 )); then return 0; fi
+            lastdraw=$now
+            local barw filled i bar="" pct eff lbl=$label
+            (( sf < 0 )) && sf=0; (( sf > 1000 )) && sf=1000
+            eff=$(( done*1000 + cur*sf )); pct=$(( eff/10/total )); (( pct>100 )) && pct=100
+            local prefix pctstr
+            printf -v prefix ' %2d/%d ' "$step" "$steps"
+            printf -v pctstr ' %3d%% ' "$pct"
+            barw=$(( cols-${#prefix}-${#pctstr}-26 )); (( barw<8 )) && barw=8
+            filled=$(( eff*barw/(1000*total) )); (( filled>barw )) && filled=barw
+            for ((i=0;i<filled;i++)); do bar+="█"; done
+            for ((i=filled;i<barw;i++)); do bar+="░"; done
+            (( ${#lbl}>22 )) && lbl="${lbl:0:21}…"
+            printf '\r\033[K\033[2m%s\033[0m\033[36m%s\033[0m\033[1m%s\033[0m %s' \
+                "$prefix" "$bar" "$pctstr" "$lbl" >&3
+        }
+        # Follow only NEW lines (-n0). The grep DROPS the reader's own bar redraws
+        # (they begin with CR + ESC[K) so the reader can never match its own output
+        # even if a label ever contained an anchor word (self-feedback guard).
+        # --line-buffered keeps it real-time.
+        tail -n0 -F "$FULL_LOG" 2>/dev/null \
+          | grep --line-buffered -av $'\r\033\[K' \
+          | while IFS= read -r line; do
+            case $mode in
+              step20)
+                # Phase A: pacman -Sw download -> band 0..440 (44% of step 20).
+                # Read N and M off the SAME line; M is live (1206 here) so nothing
+                # is hardcoded. On a fully-cached run this line never appears and
+                # sf simply stays 0 until phase B.
+                if [[ $line =~ Total\ \(\ *([0-9]+)/([0-9]+)\) ]]; then
+                    local n=${BASH_REMATCH[1]}; m=${BASH_REMATCH[2]}
+                    (( m > 0 )) && sf=$(( n * 440 / m ))
+                # Phase B: repo-add indexing -> band 440..1000 (56% of step 20).
+                # Count 'Adding package' lines; DIVISOR is the file count passed in
+                # ($repo_total), NOT the download's M -> works on a cached re-run
+                # where there was no download at all.
+                elif [[ $line == *"Adding package '"* ]]; then
+                    (( rc++ ))
+                    if (( repo_total > 0 )); then
+                        sf=$(( 440 + rc * 560 / repo_total ))
+                    else
+                        sf=440   # unknown total: hold at band start, sub_stop snaps to 1000
+                    fi
+                fi ;;
+              mkarchiso)
+                # Ordered phase table for step 25. pacstrap dominates (~84% of the
+                # step), so we parse ITS live 'Total (N/1133)' into the 20..860 band
+                # while pacstrap is running -- otherwise the bar would freeze at 20
+                # for ~5270 log lines (the exact freeze this whole task fixes).
+                case $line in
+                  *"Installing packages to"*)   inpac=1; (( sf<20 )) && sf=20 ;;
+                  *"Done! Packages installed"*) inpac=0; sf=860 ;;
+                  *"Creating SquashFS image"*)  inpac=0; sf=880 ;;
+                  *"Creating checksum file"*)   sf=930 ;;
+                  *"Creating ISO image"*)       sf=960 ;;
+                  *)
+                    # Only while pacstrap is downloading/installing: map N/1133.
+                    if (( inpac == 1 )) && [[ $line =~ Total\ \(\ *([0-9]+)/([0-9]+)\) ]]; then
+                        local n=${BASH_REMATCH[1]} mm=${BASH_REMATCH[2]}
+                        (( mm > 0 )) && sf=$(( 20 + n * 840 / mm ))   # 20..860
+                    fi ;;
+                esac ;;
+            esac
+            (( sf < last )) && sf=$last          # never go backwards (seam guard)
+            if (( sf != last )); then last=$sf; redraw; fi
+        done
+    } &
+    SUB_PID=$!
+}
+
+# Stop the reader, snap the current step to 100% of its slice, redraw once from
+# the foreground. Idempotent (SUB_PID resets to 0). Called on EVERY exit path of
+# a giant step (success and failure branches).
+sub_stop() {
+    if (( SUB_PID > 0 )); then
+        kill "$SUB_PID" 2>/dev/null
+        pkill -P "$SUB_PID" 2>/dev/null          # kill the tail|grep leaf pipeline
+        wait "$SUB_PID" 2>/dev/null              # reap; ensures no late fd-3 write
+        SUB_PID=0
+    fi
+    SUBFRAC=1000; draw_bar; SUBFRAC=0            # foreground: snap step to complete
+}
+
+# Best-effort teardown of any mkarchiso bind mounts left under the work tree, so a
+# Ctrl-C'd/failed build doesn't leave proc/sys/dev mounted and so the ownership
+# handback doesn't try to chown into a live procfs. Safe to call anytime.
+unmount_worktree() {
+    local m AIROOTFS_W="$WORKDIR/work/x86_64/airootfs"
+    [ -d "$AIROOTFS_W" ] || return 0
+    for m in proc sys dev run; do
+        mountpoint -q "$AIROOTFS_W/$m" 2>/dev/null && \
+            $SUDO umount -lf "$AIROOTFS_W/$m" 2>/dev/null || true
+    done
+    $SUDO umount -R "$AIROOTFS_W" 2>/dev/null || true
+    return 0
+}
+
+# Hand the three host bind-mount trees back to the invoking host user so nothing
+# is left root-owned/locked on the host. Best-effort, idempotent, never hangs,
+# never aborts the exit. No-op when HOST_UID is unresolved (see resolve_host_owner).
+_HANDED_BACK=0
+handback_ownership() {
+    [ "$_HANDED_BACK" -eq 1 ] && return 0
+    _HANDED_BACK=1
+    [ -n "$HOST_UID" ] && [ -n "$HOST_GID" ] || return 0   # unresolved -> skip
+    [ "$(id -u)" -eq 0 ] || return 0                        # only root created the root-owned files
+    local d
+    for d in "$CACHEDIR" "$BUILDDIR" "$LOGDIR"; do
+        [ -d "$d" ] || continue
+        # -R walks the tree; --preserve-root guards a pathological empty $d. A live
+        # procfs under work/ can't be chowned but errors per-file WITHOUT hanging;
+        # we swallow it. unmount_worktree (run first in the trap) removes those
+        # mounts in the common case anyway. output/build/ is disposable regardless.
+        chown -R --preserve-root "$HOST_UID:$HOST_GID" "$d" 2>/dev/null || true
+    done
+    return 0
+}
+
+# On Ctrl-C / SIGTERM: kill the build + reader, unmount mkarchiso's bind mounts,
+# restore the terminal, hand the host dirs back, exit 130. The EXIT trap re-runs
+# cleanup + handback (both idempotent) for the normal/error-exit paths.
+trap 'kill_children; unmount_worktree; progress_cleanup; handback_ownership; exit 130' INT TERM HUP QUIT
+trap 'progress_cleanup; handback_ownership' EXIT
 
 step() {
     CURRENT_STEP=$((CURRENT_STEP + 1))
     BAR_LABEL="$1"
+    DONE_WEIGHT=${CUM_WEIGHT[$((CURRENT_STEP-1))]}   # everything before this step
+    CUR_WEIGHT=${STEP_WEIGHTS[$CURRENT_STEP]}
+    SUBFRAC=0                                        # reset intra-step progress
     arm_region                               # re-pin in case pacman/mkarchiso reset it
     # Goes to stdout -> terminal + full log (via tee).
     printf '\n[ %2d/%d ] %s\n' "$CURRENT_STEP" "$TOTAL_STEPS" "$1"
@@ -341,10 +586,18 @@ step "Setting up packages for harddrive installation..."
 # The cache script downloads straight into cache/pkgs (persistent), so it is
 # incremental and resumable: only missing packages are fetched, and a prior
 # Ctrl-C leaves finished ones cached. It then stages the cache into the airootfs.
+# Divisor for the repo-add sub-band: count the .pkg.tar.zst already in the
+# persistent repo. On a fully-cached re-run there is NO download, but repo-add
+# still re-indexes every package, so we must size the band from the file count,
+# not from the (absent) download total. Fallback 0 -> reader holds at band start.
+REPO_TOTAL=$(ls -1 "$CACHEDIR"/pkgs/repo/*.pkg.tar.zst 2>/dev/null | wc -l)
+sub_start step20 "$REPO_TOTAL"               # live download + repo-add sub-progress
 if ! bash $CONFDIR/install/setup-pkgs-cache.sh "$WORKDIR" "$CACHEDIR"; then
+    sub_stop
     echo "[✗] Package caching/staging failed..."
     exit 1
 fi
+sub_stop
 arm_region; draw_bar                         # pacman reset the region; re-pin the bar
 mkdir -p airootfs/root/Easy-Arch/pacman-base-conf
 mkdir -p airootfs/root/Easy-Arch/pacstrap-easyarch-conf
@@ -402,7 +655,9 @@ export MKSQUASHFS_OPTIONS="-processors 4"
 ###
 # profile_dir = $WORKDIR (output/build); scratch = $WORKDIR/work; ISO -> $BUILDDIR
 # (output/) directly via -o, so the finished .iso sits in output/ next to nothing.
+sub_start mkarchiso                           # live pacstrap + squashfs + iso sub-progress
 $SUDO mkarchiso -v -w "$WORKDIR/work" -o "$BUILDDIR" "$WORKDIR"
+sub_stop
 arm_region; draw_bar                         # mkarchiso reset the region; re-pin at 25/25
 if [ -n "$(find "$BUILDDIR" -maxdepth 1 -type f -name '*.iso')" ]; then
     printf '\n[ %d/%d ] [✓] ISO built successfully in output/\n' "$TOTAL_STEPS" "$TOTAL_STEPS" | tee -a "$STEPS_LOG"
