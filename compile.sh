@@ -16,8 +16,8 @@ CACHEDIR=$REPODIR/cache
 # terminal (it may contain the children's own \r-based progress redraws).
 #
 # We re-exec the whole script under `script`, which runs it on a real PTY and
-# writes that PTY's output to the full log. The PTY is the crucial part: pacman,
-# pip and mkarchiso all detect a terminal and keep their LIVE, \r-redrawn
+# writes that PTY's output to the full log. The PTY is the crucial part: pacman
+# and mkarchiso both detect a terminal and keep their LIVE, \r-redrawn
 # progress bars. (Piping through plain `tee` makes them see a non-TTY, so they
 # switch to buffered output and appear frozen for minutes during big downloads.)
 LOGDIR=$REPODIR/logs
@@ -38,7 +38,7 @@ if [ -z "$_COMPILE_LOGGING" ]; then
     #                  mkarchiso still fails the whole run)
     #   -f  flush     (write the log after every chunk -> real-time, tail-able)
     #   -c  command   (run our own re-exec of this script on the PTY)
-    # The PTY is the point: pacman/pip/mkarchiso see a terminal and keep their
+    # The PTY is the point: pacman/mkarchiso see a terminal and keep their
     # live \r-redrawn progress bars instead of buffering silently.
     # If `script` is unavailable, fall back to tee (children buffer, but the run
     # still works and both logs are produced).
@@ -112,7 +112,7 @@ resolve_host_owner
 
 # Persistent download cache (repo root, survives cleanup). Downloads land here
 # directly, so caching is incremental and resumable:
-#   - present & complete -> pacman/pip skip it, no network hit.
+#   - present & complete -> pacman skips it, no network hit.
 #   - partial (e.g. prior Ctrl-C) -> only the missing files are fetched.
 #   - deleted -> everything is re-fetched. To force that: rm -rf cache/
 mkdir -p "$CACHEDIR"
@@ -130,14 +130,14 @@ mkdir -p "$CACHEDIR"
 # Implementation: a DECSTBM scroll region reserves the last row. If stdout is
 # not a TTY (piped to a file / Docker logs) we fall back to plain lines so no
 # escape codes leak into the log.
-TOTAL_STEPS=25
+TOTAL_STEPS=24
 CURRENT_STEP=0
 BAR_LABEL=""
 
 # --- Weighted progress model ------------------------------------------------
-# The old bar used pct = CURRENT_STEP*100/TOTAL_STEPS, giving every step 1/25 of
-# the bar. But two steps (20 = pacman -Sw + repo-add, 25 = mkarchiso) are ~99% of
-# wall-clock, so the bar rocketed to 19/25 in seconds then froze for the whole
+# The old bar used pct = CURRENT_STEP*100/TOTAL_STEPS, giving every step 1/24 of
+# the bar. But two steps (20 = pacman -Sw + repo-add, 24 = mkarchiso) are ~99% of
+# wall-clock, so the bar rocketed to 22/24 in seconds then froze for the whole
 # build. We now weight each step and, inside the two giant steps, drive a live
 # sub-fraction from the build's own log output. Weights are integers (arbitrary
 # units; only ratios matter). Trivial file-copy steps = 1 unit each. The two
@@ -149,18 +149,17 @@ STEP_WEIGHTS=(
   250   # 20 Setting up packages : pacman -Sw (~110u) + repo-add (~140u)  GIANT
   1     # 21 First-boot config    : 3x cp
   1     # 22 force-x11 pacman.conf : 1x cp
-  20    # 23 Python wheels        : pip download, moderate (~95 log lines)
-  1     # 24 Cleaning temp dir     : rm -rf
-  270   # 25 Building ISO         : mkarchiso pacstrap(~230u)+squashfs(~20u)+iso(~20u) GIANT
+  1     # 23 Cleaning temp dir     : rm -rf
+  270   # 24 Building ISO         : mkarchiso pacstrap(~230u)+squashfs(~20u)+iso(~20u) GIANT
 )
-# Prefix sums: CUM_WEIGHT[N] = total weight completed at the END of step N.
-CUM_WEIGHT=(0); _acc=0
+# Prefix sums: ACCUM_WEIGHT[N] = total weight completed at the END of step N.
+ACCUM_WEIGHT=(0); _acc=0
 for ((i=1; i<=TOTAL_STEPS; i++)); do
-    _acc=$(( _acc + ${STEP_WEIGHTS[i]} )); CUM_WEIGHT[i]=$_acc
+    _acc=$(( _acc + ${STEP_WEIGHTS[i]} )); ACCUM_WEIGHT[i]=$_acc
 done
-TOTAL_WEIGHT=$_acc      # = 19*1 + 250 + 1 + 1 + 20 + 1 + 270 = 562
+TOTAL_WEIGHT=$_acc      # = 19*1 + 250 + 1 + 1 + 1 + 270 = 542
 
-DONE_WEIGHT=0     # sum of weights of fully-completed steps  (= CUM_WEIGHT[CURRENT_STEP-1])
+DONE_WEIGHT=0     # sum of weights of fully-completed steps  (= ACCUM_WEIGHT[CURRENT_STEP-1])
 CUR_WEIGHT=0      # weight of the step currently running     (= STEP_WEIGHTS[CURRENT_STEP])
 SUBFRAC=0         # 0..1000 permille progress WITHIN the current step
 SUB_PID=0         # pid of the running background sub-progress reader (0 = none)
@@ -447,7 +446,7 @@ trap 'progress_cleanup; handback_ownership' EXIT
 step() {
     CURRENT_STEP=$((CURRENT_STEP + 1))
     BAR_LABEL="$1"
-    DONE_WEIGHT=${CUM_WEIGHT[$((CURRENT_STEP-1))]}   # everything before this step
+    DONE_WEIGHT=${ACCUM_WEIGHT[$((CURRENT_STEP-1))]}   # everything before this step
     CUR_WEIGHT=${STEP_WEIGHTS[$CURRENT_STEP]}
     SUBFRAC=0                                        # reset intra-step progress
     arm_region                               # re-pin in case pacman/mkarchiso reset it
@@ -483,8 +482,8 @@ mkdir -p "$WORKDIR"
 cd "$WORKDIR"
 
 step "Checking for build-host dependencies..."
-HOST_PKGS="archiso git base-devel go python python-pip"
-# These are the tools the build itself runs on (mkarchiso, makepkg, pip, ...),
+HOST_PKGS="archiso git base-devel go"
+# These are the tools the build itself runs on (mkarchiso, makepkg, ...),
 # not ISO content. If they're already installed we stay fully offline; only a
 # missing tool triggers a sync. (Docker also layer-caches these via the Dockerfile.)
 if pacman -Qq $HOST_PKGS >/dev/null 2>&1; then
@@ -613,37 +612,6 @@ cp $CONFDIR/install/first-boot/first-boot-setup.conf airootfs/root/Easy-Arch/fir
 
 step "Prepare script that forces x11 session..."
 cp $CONFDIR/system/force-x11-session/pacman.conf $WORKDIR/pacman.conf
-
-step "Setting up Python libraries for the finalizer script..."
-mkdir -p airootfs/root/Easy-Arch/finalize
-mkdir -p airootfs/root/Easy-Arch/finalize/pip-cache
-cp -r $CONFDIR/finalize/. airootfs/root/Easy-Arch/finalize/
-cp $CONFDIR/pip-libraries airootfs/root/Easy-Arch/finalize/pip-cache/pip-libraries
-# Download wheels straight into the PERSISTENT cache/pip. pip reuses wheels
-# already present there and fetches only the missing ones, so this is real-time
-# and resumable: a prior Ctrl-C leaves finished wheels cached, and a re-run only
-# grabs what's left. Staging into the airootfs then happens from the cache.
-mkdir -p "$CACHEDIR/pip"
-echo "    [+] Downloading missing Python wheels into the persistent cache (resumable)..."
-if pip download -d "$CACHEDIR/pip" -r $CONFDIR/pip-libraries; then
-    :
-elif [ -n "$(ls -A "$CACHEDIR/pip" 2>/dev/null)" ]; then
-    echo "    [+] Wheel download failed but cache/pip is populated — using it offline."
-else
-    echo "[✗] Downloading Python wheels failed and cache/pip is empty."
-    exit 1
-fi
-arm_region; draw_bar                         # pip may reset the region; re-pin
-# Stage cached wheels into the ISO working tree (always runs; local, offline).
-# -r so any subdir in the cache doesn't make cp error out; /. to include dotfiles.
-cp -r "$CACHEDIR/pip"/. airootfs/root/Easy-Arch/finalize/pip-cache/ || true
-# Verify the STAGED destination actually received wheels — not just that the
-# source cache is non-empty. (The dir always contains pip-libraries from above,
-# so count *.whl files rather than testing emptiness.)
-if [ -z "$(find airootfs/root/Easy-Arch/finalize/pip-cache -maxdepth 1 -type f -name '*.whl' 2>/dev/null)" ]; then
-    echo "[✗] Python wheels missing after staging into airootfs."
-    exit 1
-fi
 
 step "Cleaning up temp directory..."
 rm -rfv $WORKDIR/.temp

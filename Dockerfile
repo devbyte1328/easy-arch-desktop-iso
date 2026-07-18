@@ -27,7 +27,6 @@ FROM archlinux:latest
 #   archiso       -> mkarchiso
 #   base-devel    -> makepkg and friends
 #   go            -> building Go-based ISO components
-#   python/pip    -> downloading the finalizer's Python wheels
 #   git, sudo     -> checkout tooling; compile.sh calls sudo internally
 # --noconfirm keeps the build non-interactive.
 RUN pacman -Sy --needed --noconfirm archlinux-keyring \
@@ -35,8 +34,6 @@ RUN pacman -Sy --needed --noconfirm archlinux-keyring \
         archiso \
         base-devel \
         go \
-        python \
-        python-pip \
         git \
         sudo \
     && pacman -Scc --noconfirm

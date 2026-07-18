@@ -186,16 +186,6 @@ cp /root/Easy-Arch/first-boot-setup.sh /mnt/home/main/.config/first-boot/first-b
 cp /root/Easy-Arch/first-boot-setup.service /mnt/etc/systemd/system/first-boot-setup.service
 cp /root/Easy-Arch/first-boot-setup.conf /mnt/home/main/.config/first-boot/first-boot-setup.conf
 
-echo "[*] Copying finalizer script..."
-mkdir -p /mnt/home/main/Desktop
-mkdir -p /mnt/home/main/.config/easy-arch-finalizer
-mkdir -p /mnt/home/main/.config/easy-arch-finalizer/easy-arch-screen-holder
-mkdir -p /mnt/home/main/.config/easy-arch-finalizer/tmp
-cp /root/Easy-Arch/finalize/easy-arch-finalizer.sh /mnt/home/main/Desktop/easy-arch-finalizer.sh
-rm /root/Easy-Arch/finalize/easy-arch-finalizer.sh
-cp -r /root/Easy-Arch/finalize/. /mnt/home/main/.config/easy-arch-finalizer/
-mv /mnt/home/main/.config/easy-arch-finalizer/*.png /mnt/home/main/.config/easy-arch-finalizer/easy-arch-screen-holder/
-
 echo "[*] Copying pacman config..."
 mkdir -p /mnt/etc
 cp /root/Easy-Arch/pacman-base-conf/pacman.conf /mnt/etc/pacman.conf
