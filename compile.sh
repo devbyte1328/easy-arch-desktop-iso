@@ -63,6 +63,14 @@ fi
 BUILDDIR=$REPODIR/output
 WORKDIR=$BUILDDIR/build
 
+# Root-aware sudo wrapper. Inside the build container everything already runs as
+# root, so a `sudo` prefix is pure overhead AND an extra process between this
+# shell and pacman/mkarchiso. Dropping it when EUID=0 keeps the heavy commands as
+# DIRECT children of this shell's process group, so a group-kill (see the INT/TERM
+# trap below) reaches them. On a non-root Arch host $SUDO stays "sudo" so the
+# privileged steps still work.
+if [ "$(id -u)" -eq 0 ]; then SUDO=""; else SUDO="sudo"; fi
+
 # Persistent download cache (repo root, survives cleanup). Downloads land here
 # directly, so caching is incremental and resumable:
 #   - present & complete -> pacman/pip skip it, no network hit.
@@ -125,16 +133,15 @@ draw_bar() {
     label=$BAR_LABEL
     (( ${#label} > 22 )) && label="${label:0:21}…"
 
-    # All escape output goes to fd 3 (/dev/tty) so it paints the real terminal
-    # and never lands in the tee'd full log.
+    # All escape output goes to fd 3 so it paints the real terminal and never
+    # lands in the tee'd full log. We draw the bar in place on the CURRENT line
+    # with a leading carriage return and clear-to-end-of-line (\r\033[K) instead
+    # of pinning it to the bottom row via a reserved scroll region. This leaves
+    # NO persistent terminal state, so even a hard kill can't lock the terminal.
     {
-        tput sc                              # save cursor
-        tput cup $((rows - 1)) 0             # go to bottom row
-        tput el                              # clear the line
-        # dim counter · cyan bar · bold percent · plain label
-        printf '\033[2m%s\033[0m\033[36m%s\033[0m\033[1m%s\033[0m %s' \
+        # dim counter · cyan bar · bold percent · plain label, redrawn in place
+        printf '\r\033[K\033[2m%s\033[0m\033[36m%s\033[0m\033[1m%s\033[0m %s' \
             "$prefix" "$bar" "$pctstr" "$label"
-        tput rc                              # restore cursor
     } >&3
 }
 
@@ -142,34 +149,58 @@ draw_bar() {
 # pacman and mkarchiso reset the terminal's scroll region for their own progress
 # bars, which unpins ours; calling this again before each redraw re-arms it so
 # the bar never gets scrolled away or frozen mid-build.
-arm_region() {
-    [ "$PROGRESS_TTY" -eq 1 ] || return 0
-    local rows; rows=$(tput lines <&3)
-    tput csr 0 $((rows - 2)) >&3             # reserve last row for the bar
-}
+# NO-OP: we deliberately never reserve a DECSTBM scroll region. A reserved region
+# is persistent terminal state that survives the process, so a hard kill (SIGKILL,
+# uncatchable by any trap) would leave the terminal locked (text won't scroll or
+# clear). The progress bar is now drawn unpinned via a carriage-return line in
+# draw_bar, which leaves no persistent terminal state. Kept as a no-op so the
+# existing `arm_region; draw_bar` re-pin call sites stay valid and cheap.
+arm_region() { :; }
 
-# First-time setup: clear the screen so the reserved region starts clean, then
-# arm the region and paint the initial (empty) bar.
+# First-time setup: just paint the initial (empty) bar in place. With the
+# unpinned carriage-return bar there is no scroll region to arm and no need to
+# home the cursor (doing so would stomp on the header text), so this is minimal.
 progress_init() {
     [ "$PROGRESS_TTY" -eq 1 ] || return 0
-    arm_region
-    tput cup 0 0 >&3
     draw_bar
 }
 
 # Restore the full scroll region and cursor. Runs on any exit (success, error,
 # Ctrl-C) so the terminal is never left in a broken state.
+# Always restore the terminal to a sane state on ANY exit, without depending on a
+# `tput lines` query that can fail during a signal. ESC[r resets the scroll region
+# to the full screen, ESC[K clears the bar line, ESC[0m drops leftover attributes.
+# We deliberately do NOT emit ESC c (RIS): that would wipe the build output.
 progress_cleanup() {
-    [ "$PROGRESS_TTY" -eq 1 ] || return 0
-    local rows; rows=$(tput lines <&3)
-    {
-        tput csr 0 $((rows - 1))             # restore full scroll region
-        tput cup $((rows - 1)) 0
-        tput el
-        tput cnorm                           # ensure cursor visible
-    } >&3
+    if [ "${PROGRESS_TTY:-0}" -eq 1 ]; then
+        { printf '\r\033[K\033[r\033[0m'; tput cnorm 2>/dev/null; } >&3 2>/dev/null
+    fi
+    # Belt-and-braces: reset the line discipline so a killed child can't leave the
+    # tty in raw/no-echo mode. The whole group is redirected so that when there is
+    # no controlling terminal (docker run without -t, piped/CI) bash's own
+    # "/dev/tty: No such device or address" open-error is swallowed too.
+    { stty sane </dev/tty >/dev/tty; } >/dev/null 2>&1 || true
 }
-trap progress_cleanup EXIT INT TERM
+
+# Guard so the kill runs at most once.
+_KILLED=0
+kill_children() {
+    [ "$_KILLED" -eq 1 ] && return 0
+    _KILLED=1
+    # Signal the whole process group so pacman/mkarchiso (and their pacstrap
+    # mounts) die. sudo keeps its child in THIS group (no use_pty in sudoers), so
+    # a group kill reaches even root children. Look up the real PGID defensively
+    # and fall back to $$ if the lookup fails; ignore "no such process".
+    local pgid
+    pgid=$(ps -o pgid= -p "$$" 2>/dev/null | tr -d ' ')
+    kill -TERM -"${pgid:-$$}" 2>/dev/null || true
+}
+
+# On Ctrl-C / SIGTERM: kill the whole build, restore the terminal, then exit 130
+# so the outer `script -e` propagates 128+SIGINT and the run fails fast. The EXIT
+# trap re-runs progress_cleanup (idempotent) afterwards, which is harmless.
+trap 'kill_children; progress_cleanup; exit 130' INT TERM HUP QUIT
+trap progress_cleanup EXIT
 
 step() {
     CURRENT_STEP=$((CURRENT_STEP + 1))
@@ -189,10 +220,10 @@ AIROOTFS=$WORKDIR/work/x86_64/airootfs
 for mount in proc sys dev run; do
     if mountpoint -q $AIROOTFS/$mount; then
         echo "    [+] Unmounting $AIROOTFS/$mount..."
-        sudo umount -lf $AIROOTFS/$mount
+        $SUDO umount -lf $AIROOTFS/$mount
     fi
 done
-sudo umount -R $AIROOTFS 2>/dev/null || true
+$SUDO umount -R $AIROOTFS 2>/dev/null || true
 # Wipe the disposable profile/scratch tree and start fresh. We wipe only
 # $WORKDIR (output/build/), never $BUILDDIR (output/) itself: that keeps any
 # previously-built ISO sitting in output/ intact until the new build overwrites
@@ -200,7 +231,7 @@ sudo umount -R $AIROOTFS 2>/dev/null || true
 # rm never recurses into a live mountpoint (output/build is an ordinary same-fs
 # subdir). cache/ lives outside output/ entirely and is untouched.
 mkdir -p "$BUILDDIR"
-sudo rm -rf "$WORKDIR"
+$SUDO rm -rf "$WORKDIR"
 mkdir -p "$WORKDIR"
 # Everything below operates inside the profile tree; bare-relative paths
 # (airootfs/..., packages.x86_64) resolve here instead of polluting output/.
@@ -215,7 +246,7 @@ if pacman -Qq $HOST_PKGS >/dev/null 2>&1; then
     echo "    [+] Build-host dependencies already present, skipping sync (offline)."
 else
     echo "    [+] Installing missing build-host dependencies..."
-    sudo pacman -Sy --noconfirm --needed $HOST_PKGS
+    $SUDO pacman -Sy --noconfirm --needed $HOST_PKGS
 fi
 
 step "Copying releng base into working directory..."
@@ -371,7 +402,7 @@ export MKSQUASHFS_OPTIONS="-processors 4"
 ###
 # profile_dir = $WORKDIR (output/build); scratch = $WORKDIR/work; ISO -> $BUILDDIR
 # (output/) directly via -o, so the finished .iso sits in output/ next to nothing.
-sudo mkarchiso -v -w "$WORKDIR/work" -o "$BUILDDIR" "$WORKDIR"
+$SUDO mkarchiso -v -w "$WORKDIR/work" -o "$BUILDDIR" "$WORKDIR"
 arm_region; draw_bar                         # mkarchiso reset the region; re-pin at 25/25
 if [ -n "$(find "$BUILDDIR" -maxdepth 1 -type f -name '*.iso')" ]; then
     printf '\n[ %d/%d ] [✓] ISO built successfully in output/\n' "$TOTAL_STEPS" "$TOTAL_STEPS" | tee -a "$STEPS_LOG"

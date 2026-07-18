@@ -23,6 +23,12 @@ fail() {
     exit 1
 }
 
+# Root-aware sudo wrapper (see compile.sh). In the all-root build container this
+# drops sudo entirely so pacman is a DIRECT child of this shell and dies with the
+# process group on Ctrl-C; on a non-root host it stays "sudo" for the privileged
+# db/cache writes.
+if [ "$(id -u)" -eq 0 ]; then SUDO=""; else SUDO="sudo"; fi
+
 BUILDDIR=${1:-$PWD}
 CACHEDIR=${2:-$BUILDDIR/cache}
 
@@ -57,13 +63,13 @@ rm -rf "$GPGDIR"; mkdir -p "$GPGDIR"
 # run. This --dbpath is private to the build and single-threaded, so a lingering
 # db.lck is never a live lock — it only ever blocks the resume it is meant to
 # enable. Needs sudo because a crashed root pacman leaves a root-owned lock.
-sudo rm -f "$PKGDB/db.lck"
+$SUDO rm -f "$PKGDB/db.lck"
 
 echo "[*] Syncing package databases..."
 # Refresh the sync DB into the PERSISTENT db path. If the network is down but the
 # cache is already complete we still want to proceed offline, so a failed -Sy is
 # non-fatal as long as a previously synced DB exists.
-if ! sudo pacman -Sy --config "$DLCONF" --gpgdir "$GPGDIR" \
+if ! $SUDO pacman -Sy --config "$DLCONF" --gpgdir "$GPGDIR" \
         --dbpath "$PKGDB" --cachedir "$PKGREPO" --noconfirm; then
     if [ -n "$(ls -A "$PKGDB/sync" 2>/dev/null)" ]; then
         echo "    [+] DB sync failed but a cached DB exists — continuing offline."
@@ -80,13 +86,13 @@ echo "[*] Downloading missing packages into the persistent cache (resumable)..."
 # skips every package already in $PKGREPO, and downloads only what is missing —
 # so this is where real-time, resumable caching happens. --noconfirm suppresses
 # the "Proceed with download? [Y/n]" prompt.
-sudo pacman -Sw --config "$DLCONF" --gpgdir "$GPGDIR" --noconfirm \
+$SUDO pacman -Sw --config "$DLCONF" --gpgdir "$GPGDIR" --noconfirm \
     --cachedir "$PKGREPO" --dbpath "$PKGDB" $pkgs || fail "package download"
 
 # pacman ran as root, so newly downloaded files are root-owned. Hand the cache
 # back to the invoking user so later unprivileged steps (repo-add, the staging
 # copy, mkarchiso) can read it and so the user can `rm -rf cache/` freely.
-sudo chown -R "$(id -u):$(id -g)" "$PKGREPO" "$PKGDB"
+$SUDO chown -R "$(id -u):$(id -g)" "$PKGREPO" "$PKGDB"
 
 echo "[*] Building local repository index from the cache..."
 # Idempotent: refreshes the .db from whatever .pkg.tar.zst files are present.

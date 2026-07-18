@@ -129,12 +129,17 @@ Once Docker is installed and running, the steps are the same everywhere.
    to the `output/` folder, downloaded packages are kept in `cache/` so re-runs
    don't re-download several GB every time, and build logs land in `logs/`.
    ```
-   sudo docker run --rm -it --privileged \
+   sudo docker run --rm -it --init --privileged \
      -v "$PWD/cache:/build/cache" \
      -v "$PWD/output:/build/output" \
      -v "$PWD/logs:/build/logs" \
      easyarch
    ```
+   `--init` runs the container under tini as PID 1. Without it the build's PID 1
+   is the `script` logging process, and the kernel drops unhandled signals to
+   PID 1 / never reaps orphans, so **Ctrl-C** leaves the container hanging with
+   the download/build still running. With tini forwarding signals and reaping
+   orphans, Ctrl-C tears the whole build down promptly.
 
 4. **Collect the ISO.** After the build finishes, the ISO is in `output/`:
    ```
@@ -145,7 +150,7 @@ Once Docker is installed and running, the steps are the same everywhere.
 
 5. **(Optional) Save a full build log** for debugging:
    ```
-   sudo docker run --rm -t --privileged \
+   sudo docker run --rm -t --init --privileged \
      -v "$PWD/cache:/build/cache" \
      -v "$PWD/output:/build/output" \
      -v "$PWD/logs:/build/logs" \

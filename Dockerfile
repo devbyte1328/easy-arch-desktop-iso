@@ -74,4 +74,12 @@ WORKDIR /build
 COPY . /build
 
 # Build the ISO. The finished .iso appears directly in the mounted output/ dir on the host.
+#
+# IMPORTANT: run this image with `docker run --init` (the README run commands
+# already pass it). compile.sh re-execs via `exec script ...`, so without --init
+# the container's PID 1 is that `script` process; the kernel drops unhandled
+# signals to PID 1 and never reaps orphans, so Ctrl-C leaves the build hanging.
+# `--init` inserts tini as PID 1 to forward signals and reap orphans; compile.sh's
+# INT/TERM trap additionally kills the whole process group so pacman/mkarchiso die
+# immediately. tini is TTY-transparent, so the PTY logging still works.
 CMD ["./compile.sh"]
