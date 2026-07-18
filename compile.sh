@@ -180,12 +180,66 @@ else
     exec 3>/dev/null
 fi
 
+# --- Shared bar layout ------------------------------------------------------
+# Compute the four visible pieces of the bar so the WHOLE line is guaranteed to
+# fit in `cols` display columns at ANY width -- the old code reserved a fixed 26
+# columns for " <label>" and could overflow on a narrow terminal (or leave the
+# label running off the right edge). Here the label gets exactly the columns that
+# are actually left over, and is dropped entirely when there is no room.
+#
+# Called by BOTH the foreground draw_bar and the background reader's redraw, so the
+# geometry lives in one place and the two can never drift. All the block glyphs and
+# the ellipsis are 1 display column each; we count columns explicitly rather than
+# via ${#str} because the reader runs under LC_ALL=C where ${#str} counts BYTES
+# (each █/░/… is 3 bytes) and would mis-measure the label.
+#
+# In:  $1=cols $2=eff $3=total $4=pct $5=step $6=steps $7=label
+# Out: globals _LP_prefix _LP_bar _LP_pctstr _LP_label  (ready to print in order,
+#      separated by nothing except a single space before a non-empty label).
+_bar_layout() {
+    local cols=$1 eff=$2 total=$3 pct=$4 step=$5 steps=$6 label=$7
+    local prefix pctstr barw filled i bar=""
+    printf -v prefix ' %2d/%d ' "$step" "$steps"       # ASCII: width == ${#prefix}
+    printf -v pctstr ' %3d%% ' "$pct"                  # ASCII: width == ${#pctstr}
+    # Columns left for the bar + a 1-col separator + the label, after the fixed
+    # ASCII counter and percent. Never let the bar itself drop below 8 columns; if
+    # even that doesn't fit, the caller-side clamps below drop the label/bar.
+    local fixed=$(( ${#prefix} + ${#pctstr} ))
+    # Give the bar up to ~55% of the remaining width, floor 8, so there is always
+    # room for a label on a reasonably wide terminal but the bar shrinks first when
+    # space is tight.
+    local avail=$(( cols - fixed ))
+    barw=$(( avail * 55 / 100 )); (( barw < 8 )) && barw=8
+    (( barw > avail )) && barw=$avail                  # ultra-narrow: bar takes all
+    (( barw < 0 )) && barw=0
+    filled=$(( total > 0 ? eff * barw / (1000 * total) : 0 )); (( filled > barw )) && filled=barw
+    (( filled < 0 )) && filled=0
+    for ((i=0; i<filled;   i++)); do bar+="█"; done
+    for ((i=filled; i<barw; i++)); do bar+="░"; done
+    # Whatever columns remain after prefix+bar+pctstr become the label budget, minus
+    # 1 for the space that separates them. If <=0, there's no room -> no label.
+    local budget=$(( cols - fixed - barw - 1 ))
+    if (( budget <= 0 )); then
+        label=""
+    elif (( ${#label} > budget )); then
+        # Labels are ASCII, so ${#label} is the display width and a byte-slice is a
+        # char-slice. Reserve 1 column for the ellipsis (its own display width is 1).
+        if (( budget >= 2 )); then
+            label="${label:0:budget-1}…"
+        else
+            label="${label:0:budget}"
+        fi
+    fi
+    _LP_prefix=$prefix; _LP_bar=$bar; _LP_pctstr=$pctstr; _LP_label=$label
+}
+
 # Redraw the pinned bottom bar. Saves cursor, jumps to the last row, paints the
 # bar, then restores the cursor back into the scroll region.
 draw_bar() {
     [ "$PROGRESS_TTY" -eq 1 ] || return 0
-    local rows cols pct barw filled i bar="" label eff sf
+    local rows cols pct eff sf
     rows=$(tput lines <&3); cols=$(tput cols <&3)
+    [ -n "$cols" ] || cols=80; [ -n "$rows" ] || rows=24
     # Effective completed weight (permille units) = fully-done steps + the partial
     # of the current step. Clamp SUBFRAC to [0,1000] so a bad parse can never push
     # this step past its own slice.
@@ -193,29 +247,20 @@ draw_bar() {
     eff=$(( DONE_WEIGHT * 1000 + CUR_WEIGHT * sf ))
     pct=$(( eff / 10 / TOTAL_WEIGHT )); (( pct > 100 )) && pct=100
 
-    # Layout:  " 20/25  ████████████░░░░░░  80%  Building ISO "
-    # Reserve room for the counter, percent, and a padded label; the rest is bar.
-    local prefix pctstr
-    printf -v prefix ' %2d/%d ' "$CURRENT_STEP" "$TOTAL_STEPS"
-    printf -v pctstr ' %3d%% ' "$pct"
-    barw=$(( cols - ${#prefix} - ${#pctstr} - 26 )); [ "$barw" -lt 8 ] && barw=8
-    filled=$(( eff * barw / (1000 * TOTAL_WEIGHT) )); (( filled > barw )) && filled=barw
-    for ((i=0; i<filled;      i++)); do bar+="█"; done
-    for ((i=filled; i<barw;   i++)); do bar+="░"; done
-
-    # Truncate the label so the bar never wraps to a second line.
-    label=$BAR_LABEL
-    (( ${#label} > 22 )) && label="${label:0:21}…"
+    # Layout: " 20/24 ████████░░░░  80%  Building ISO". _bar_layout sizes every
+    # piece so the whole line fits in `cols` and truncates/drops the label as needed.
+    _bar_layout "$cols" "$eff" "$TOTAL_WEIGHT" "$pct" "$CURRENT_STEP" "$TOTAL_STEPS" "$BAR_LABEL"
+    local sep=""; [ -n "$_LP_label" ] && sep=" "
 
     # All escape output goes to fd 3 so it paints the real terminal and never
     # lands in the tee'd full log. The bar is PINNED to the bottom row: save the
     # cursor, jump to the last row, paint, then restore the cursor back inside the
     # scroll region (rows 1..N-1) where the build output keeps scrolling.
     {
-        # \033[s save cursor · jump to row N · dim counter · cyan bar · bold
-        # percent · plain label · \033[u restore cursor
-        printf '\033[s\033[%d;1H\033[K\033[2m%s\033[0m\033[36m%s\033[0m\033[1m%s\033[0m %s\033[u' \
-            "$rows" "$prefix" "$bar" "$pctstr" "$label"
+        # \033[s save cursor · jump to row N · \033[K clear the row · dim counter ·
+        # cyan bar · bold percent · plain label · \033[u restore cursor
+        printf '\033[s\033[%d;1H\033[K\033[2m%s\033[0m\033[36m%s\033[0m\033[1m%s\033[0m%s%s\033[u' \
+            "$rows" "$_LP_prefix" "$_LP_bar" "$_LP_pctstr" "$sep" "$_LP_label"
     } >&3
 }
 
@@ -318,28 +363,25 @@ sub_start() {
         cols=$(tput cols <&3 2>/dev/null) || cols=80
         rows=$(tput lines <&3 2>/dev/null) || rows=24
         trap 'cols=$(tput cols <&3 2>/dev/null) || cols=80; rows=$(tput lines <&3 2>/dev/null) || rows=24' WINCH
-        # Self-contained redraw (identical math to draw_bar, throttled to ~4/s).
+        # Redraw via the shared _bar_layout (inherited into this subshell) so the
+        # width math matches the foreground exactly and always fits `cols`. Throttled
+        # to ~4/s. Note: _bar_layout counts columns explicitly, so it is correct even
+        # though this subshell runs under LC_ALL=C where ${#str} would count bytes.
         redraw() {
             now=$(( ${EPOCHREALTIME/./} ))       # microseconds; bash 5 builtin
             # Throttle: at most one redraw per ~250ms UNLESS this is the final snap.
             if (( sf < 1000 )) && (( now - lastdraw < 250000 )); then return 0; fi
             lastdraw=$now
-            local barw filled i bar="" pct eff lbl=$label
+            local pct eff sep=""
             (( sf < 0 )) && sf=0; (( sf > 1000 )) && sf=1000
             eff=$(( done*1000 + cur*sf )); pct=$(( eff/10/total )); (( pct>100 )) && pct=100
-            local prefix pctstr
-            printf -v prefix ' %2d/%d ' "$step" "$steps"
-            printf -v pctstr ' %3d%% ' "$pct"
-            barw=$(( cols-${#prefix}-${#pctstr}-26 )); (( barw<8 )) && barw=8
-            filled=$(( eff*barw/(1000*total) )); (( filled>barw )) && filled=barw
-            for ((i=0;i<filled;i++)); do bar+="█"; done
-            for ((i=filled;i<barw;i++)); do bar+="░"; done
-            (( ${#lbl}>22 )) && lbl="${lbl:0:21}…"
+            _bar_layout "$cols" "$eff" "$total" "$pct" "$step" "$steps" "$label"
+            [ -n "$_LP_label" ] && sep=" "
             # Pinned to the bottom row: save cursor, jump to row N, clear the line
             # with \r\033[K (the same token the tail|grep guard drops, so the reader
             # never re-ingests its own output), paint, restore cursor.
-            printf '\033[s\033[%d;1H\r\033[K\033[2m%s\033[0m\033[36m%s\033[0m\033[1m%s\033[0m %s\033[u' \
-                "$rows" "$prefix" "$bar" "$pctstr" "$lbl" >&3
+            printf '\033[s\033[%d;1H\r\033[K\033[2m%s\033[0m\033[36m%s\033[0m\033[1m%s\033[0m%s%s\033[u' \
+                "$rows" "$_LP_prefix" "$_LP_bar" "$_LP_pctstr" "$sep" "$_LP_label" >&3
         }
         # Follow only NEW lines (-n0). The grep DROPS the reader's own bar redraws
         # (they begin with CR + ESC[K) so the reader can never match its own output
