@@ -230,7 +230,14 @@ _bar_layout() {
             label="${label:0:budget}"
         fi
     fi
-    _LP_prefix=$prefix; _LP_bar=$bar; _LP_pctstr=$pctstr; _LP_label=$label
+    # Total display width of the assembled line (prefix+bar+pctstr, plus the 1-col
+    # separator and label when present). Callers use it to center the line: the bar
+    # pieces are ASCII/box-drawing whose display width equals their char count, so
+    # summing char counts is correct. Left pad = (cols - width) / 2, floored at 0.
+    local width=$(( ${#prefix} + barw + ${#pctstr} ))
+    [ -n "$label" ] && width=$(( width + 1 + ${#label} ))
+    local pad=$(( (cols - width) / 2 )); (( pad < 0 )) && pad=0
+    _LP_prefix=$prefix; _LP_bar=$bar; _LP_pctstr=$pctstr; _LP_label=$label; _LP_col=$(( pad + 1 ))
 }
 
 # Redraw the pinned bottom bar. Saves cursor, jumps to the last row, paints the
@@ -257,10 +264,11 @@ draw_bar() {
     # cursor, jump to the last row, paint, then restore the cursor back inside the
     # scroll region (rows 1..N-1) where the build output keeps scrolling.
     {
-        # \033[s save cursor · jump to row N · \033[K clear the row · dim counter ·
-        # cyan bar · bold percent · plain label · \033[u restore cursor
-        printf '\033[s\033[%d;1H\033[K\033[2m%s\033[0m\033[36m%s\033[0m\033[1m%s\033[0m%s%s\033[u' \
-            "$rows" "$_LP_prefix" "$_LP_bar" "$_LP_pctstr" "$sep" "$_LP_label"
+        # \033[s save cursor · jump to row N col 1 · \033[K clear the whole row ·
+        # jump to the centered start column · dim counter · cyan bar · bold percent ·
+        # plain label · \033[u restore cursor. _LP_col centers the line in `cols`.
+        printf '\033[s\033[%d;1H\033[K\033[%d;%dH\033[2m%s\033[0m\033[36m%s\033[0m\033[1m%s\033[0m%s%s\033[u' \
+            "$rows" "$rows" "$_LP_col" "$_LP_prefix" "$_LP_bar" "$_LP_pctstr" "$sep" "$_LP_label"
     } >&3
 }
 
@@ -379,9 +387,11 @@ sub_start() {
             [ -n "$_LP_label" ] && sep=" "
             # Pinned to the bottom row: save cursor, jump to row N, clear the line
             # with \r\033[K (the same token the tail|grep guard drops, so the reader
-            # never re-ingests its own output), paint, restore cursor.
-            printf '\033[s\033[%d;1H\r\033[K\033[2m%s\033[0m\033[36m%s\033[0m\033[1m%s\033[0m%s%s\033[u' \
-                "$rows" "$_LP_prefix" "$_LP_bar" "$_LP_pctstr" "$sep" "$_LP_label" >&3
+            # never re-ingests its own output), jump to the centered start column,
+            # paint, restore cursor. Keep the \r\033[K clear BEFORE the reposition so
+            # the self-feedback guard still matches the emitted line's prefix.
+            printf '\033[s\033[%d;1H\r\033[K\033[%d;%dH\033[2m%s\033[0m\033[36m%s\033[0m\033[1m%s\033[0m%s%s\033[u' \
+                "$rows" "$rows" "$_LP_col" "$_LP_prefix" "$_LP_bar" "$_LP_pctstr" "$sep" "$_LP_label" >&3
         }
         # Follow only NEW lines (-n0). The grep DROPS the reader's own bar redraws
         # (they begin with CR + ESC[K) so the reader can never match its own output
