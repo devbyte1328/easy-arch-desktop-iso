@@ -147,7 +147,7 @@ if cached pkgs/pacstrap-easyarch-repo; then
     cp -r $CACHEDIR/pkgs/pacstrap-easyarch-db/.   airootfs/root/Easy-Arch/pacstrap-easyarch-db/
 else
     echo "[*] Downloading and caching packages for harddrive installation..."
-    if ! bash $CONFDIR/install/setup-pkgs-cache.sh; then
+    if ! bash $CONFDIR/install/setup-pkgs-cache.sh "$BUILDDIR"; then
         echo "[✗] Downloading packages failed..."
         exit 1
     fi

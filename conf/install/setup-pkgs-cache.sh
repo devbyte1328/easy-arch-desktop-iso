@@ -8,15 +8,18 @@ fail() {
     exit 1
 }
 
-# Set temp location for pacman to safely write
-TMPDB=/tmp/pacstrap-easyarch-db
-MNTREPO=/mnt/pacstrap-easyarch-repo
+# Scratch location for pacman to write to. Kept inside the build dir so the
+# script is self-contained and needs no root-owned paths like /mnt.
+SCRATCH=${1:-$PWD}/.pkgs-cache-tmp
+TMPDB=$SCRATCH/db
+MNTREPO=$SCRATCH/repo
 
 # Set final destination (relative to current dir)
 FINALDB=airootfs/root/Easy-Arch/pacstrap-easyarch-db
 FINALCACHE=airootfs/root/Easy-Arch/pacstrap-easyarch-repo
 
 # Create safe temp dirs
+rm -rf $SCRATCH
 mkdir -p $TMPDB/sync
 mkdir -p $MNTREPO
 
@@ -37,20 +40,24 @@ for pkg in $pkgs; do
 done
 
 echo "[*] Creating local repository..."
-repo-add $MNTREPO/pacstrap-easyarch-repo.db.tar.gz $MNTREPO/*.tar.zst || fail "repo-add"
+# pacman ran as root, so the scratch files are root-owned; repo-add must too.
+sudo repo-add $MNTREPO/pacstrap-easyarch-repo.db.tar.gz $MNTREPO/*.tar.zst || fail "repo-add"
 
 # Create final destination dirs
 mkdir -p $FINALDB
 mkdir -p $FINALCACHE
 
 # Move downloaded data back to working directory
-cp -r $TMPDB/* $FINALDB/ || fail "copying DB"
-cp -r $MNTREPO/* $FINALCACHE/ || fail "copying cache"
+sudo cp -r $TMPDB/* $FINALDB/ || fail "copying DB"
+sudo cp -r $MNTREPO/* $FINALCACHE/ || fail "copying cache"
 
-# Cleanup
+# Hand the copied files back to the invoking user so mkarchiso and the cache
+# copy-back (both run unprivileged) can read/write them.
+sudo chown -R "$(id -u):$(id -g)" $FINALDB $FINALCACHE
+
+# Cleanup (scratch is root-owned after sudo pacman)
 echo "[*] Cleaning up temporary files..."
-rm -rf $TMPDB
-rm -rf $MNTREPO
+sudo rm -rf $SCRATCH
 
 echo "[✓] All packages downloaded successfully and moved to working directory."
 
