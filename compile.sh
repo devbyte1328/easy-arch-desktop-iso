@@ -681,6 +681,23 @@ cp $CONFDIR/install/first-boot/first-boot-setup.conf airootfs/root/Easy-Arch/fir
 
 step "Prepare script that forces x11 session..."
 cp $CONFDIR/system/force-x11-session/pacman.conf $WORKDIR/pacman.conf
+# Point mkarchiso's internal pacstrap at the PERSISTENT package cache so the
+# live-ISO packages (~1200, several GB) are reused across builds instead of
+# re-downloaded from mirrors every time. Without this, mkarchiso resolves the
+# profile CacheDir to the default /var/cache/pacman/pkg -- ephemeral inside the
+# container (emptied by the image's `pacman -Scc`, destroyed by `docker run
+# --rm`) -- so every build refetched the whole set even with a warm cache/.
+# mkarchiso only honors a profile CacheDir when it differs from the default, so
+# we inject a non-default absolute path here (correct for Docker's /build/cache
+# and a native run's $REPODIR/cache alike). The dir must exist before mkarchiso
+# runs; pacman writes new packages here too, so the cache stays warm going forward.
+PACSTRAP_CACHE="$CACHEDIR/pacman-pkg"
+mkdir -p "$PACSTRAP_CACHE"
+# Drop any existing (commented or active) CacheDir line, then add the real one
+# right after [options]. Two steps so the result is exactly one active CacheDir
+# regardless of what the template had.
+sed -i '/^#*CacheDir/d' "$WORKDIR/pacman.conf"
+sed -i "/^\[options\]/a CacheDir    = $PACSTRAP_CACHE/" "$WORKDIR/pacman.conf"
 
 step "Cleaning up temp directory..."
 rm -rfv $WORKDIR/.temp
