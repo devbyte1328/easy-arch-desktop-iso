@@ -14,9 +14,9 @@
 #           -v "$PWD/logs:/build/logs" \
 #           easyarch
 #         These three mounts mirror compile.sh's own directory scheme so the
-#         host keeps the persistent download cache (cache/), the build output
-#         incl. the finished ISO written directly to output/ (the disposable
-#         profile+scratch tree lives in output/build/), and both build logs
+#         host keeps the persistent download cache (cache/, which also holds the
+#         disposable profile+scratch tree in cache/build/), the build output
+#         incl. the finished ISO written directly to output/, and both build logs
 #         (logs/). No stray host-side out/ dir is created.
 #         (--privileged is required: mkarchiso mounts proc/sys/dev and uses
 #          loop devices + squashfs inside the airootfs.)
@@ -57,8 +57,8 @@ RUN echo "root ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/00-root \
     && chmod 0440 /etc/sudoers.d/00-root
 
 # Project lives here. compile.sh writes everything under three dirs at the build
-# root: cache/ (persistent downloads), output/ (the finished ISO, with the
-# disposable profile+scratch tree in output/build/) and logs/. Bind-mount those
+# root: cache/ (persistent downloads, plus the disposable profile+scratch tree in
+# cache/build/), output/ (the finished ISO) and logs/. Bind-mount those
 # to the host to persist them:
 #   -v "$PWD/cache:/build/cache" -v "$PWD/output:/build/output" -v "$PWD/logs:/build/logs"
 # compile.sh re-execs itself on a PTY (via util-linux `script`) and draws a

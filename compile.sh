@@ -58,10 +58,11 @@ fi
 # All build scratch lives here so the project root stays clean.
 # BUILDDIR is the final artifact dir: the finished ISO lands directly in it
 # (and it is the host bind-mount target under Docker).
-# WORKDIR is the disposable mkarchiso PROFILE tree (releng + airootfs + packages),
-# a subdir of BUILDDIR so it never litters output/ next to the ISO.
+# WORKDIR is the disposable mkarchiso PROFILE tree (releng + airootfs + packages).
+# It lives under cache/ (not output/) so the heavy, regenerable scratch tree sits
+# next to the download cache and never litters output/ next to the finished ISO.
 BUILDDIR=$REPODIR/output
-WORKDIR=$BUILDDIR/build
+WORKDIR=$CACHEDIR/build
 
 # Root-aware sudo wrapper. Inside the build container everything already runs as
 # root, so a `sudo` prefix is pure overhead AND an extra process between this
@@ -410,7 +411,7 @@ sub_start() {
                     local n=${BASH_REMATCH[1]}; m=${BASH_REMATCH[2]}
                     (( m > 0 )) && sf=$(( n * 440 / m ))
                 # Phase B: repo-add indexing -> band 440..1000 (56% of step 20).
-                # The fresh-seed path (setup-pkgs-cache.sh, first run only) prints
+                # The fresh-seed path (cache-pkgs.sh, first run only) prints
                 # "[+] Indexing N/TOTAL packages..." per chunk -- parse that N/TOTAL
                 # directly so the bar tracks the one-time seed exactly instead of
                 # sitting idle while a silent repo-add runs.
@@ -495,7 +496,7 @@ handback_ownership() {
         # -R walks the tree; --preserve-root guards a pathological empty $d. A live
         # procfs under work/ can't be chowned but errors per-file WITHOUT hanging;
         # we swallow it. unmount_worktree (run first in the trap) removes those
-        # mounts in the common case anyway. output/build/ is disposable regardless.
+        # mounts in the common case anyway. cache/build/ is disposable regardless.
         chown -R --preserve-root "$HOST_UID:$HOST_GID" "$d" 2>/dev/null || true
     done
     return 0
@@ -533,11 +534,12 @@ for mount in proc sys dev run; do
 done
 $SUDO umount -R $AIROOTFS 2>/dev/null || true
 # Wipe the disposable profile/scratch tree and start fresh. We wipe only
-# $WORKDIR (output/build/), never $BUILDDIR (output/) itself: that keeps any
-# previously-built ISO sitting in output/ intact until the new build overwrites
-# it, and — under Docker, where output/ is the host bind mount — it means the
-# rm never recurses into a live mountpoint (output/build is an ordinary same-fs
-# subdir). cache/ lives outside output/ entirely and is untouched.
+# $WORKDIR (cache/build/), never $CACHEDIR (cache/) itself: that keeps the
+# persistent download cache (cache/pkgs, cache/pip) intact, and — under Docker,
+# where cache/ is the host bind mount — it means the rm never recurses into a
+# live mountpoint (cache/build is an ordinary same-fs subdir). output/ (the
+# finished ISO) lives outside cache/ entirely and is untouched, so a prior ISO
+# survives until the new build overwrites it.
 mkdir -p "$BUILDDIR"
 $SUDO rm -rf "$WORKDIR"
 mkdir -p "$WORKDIR"
@@ -650,7 +652,7 @@ step "Setting up packages for harddrive installation..."
 # incremental and resumable: only missing packages are fetched, and a prior
 # Ctrl-C leaves finished ones cached. It then stages the cache into the airootfs.
 # Divisor for the repo-add sub-band: count the .pkg.tar.zst in the persistent repo
-# as an upper bound. setup-pkgs-cache.sh now reconciles the repo index INCREMENTALLY
+# as an upper bound. cache-pkgs.sh now reconciles the repo index INCREMENTALLY
 # (it only repo-adds new/changed packages, quietly), so on a fully-cached re-run the
 # indexing is near-instant and emits few/no "Adding package" lines -- the reader's
 # repo-add band simply doesn't fill and sub_stop snaps step 20 to 100%. On a run
@@ -658,7 +660,7 @@ step "Setting up packages for harddrive installation..."
 # up to this count. Fallback 0 -> reader holds at band start.
 REPO_TOTAL=$(ls -1 "$CACHEDIR"/pkgs/repo/*.pkg.tar.zst 2>/dev/null | wc -l)
 sub_start step20 "$REPO_TOTAL"               # live download + repo-add sub-progress
-if ! bash $CONFDIR/install/setup-pkgs-cache.sh "$WORKDIR" "$CACHEDIR"; then
+if ! bash $CONFDIR/install/cache-pkgs.sh "$WORKDIR" "$CACHEDIR"; then
     sub_stop
     echo "[✗] Package caching/staging failed..."
     exit 1
@@ -688,7 +690,7 @@ step "Building ISO..."
 ### """FATAL ERROR: xz uncompress failed with error code 9""" 
 export MKSQUASHFS_OPTIONS="-processors 4"
 ###
-# profile_dir = $WORKDIR (output/build); scratch = $WORKDIR/work; ISO -> $BUILDDIR
+# profile_dir = $WORKDIR (cache/build); scratch = $WORKDIR/work; ISO -> $BUILDDIR
 # (output/) directly via -o, so the finished .iso sits in output/ next to nothing.
 sub_start mkarchiso                           # live pacstrap + squashfs + iso sub-progress
 $SUDO mkarchiso -v -w "$WORKDIR/work" -o "$BUILDDIR" "$WORKDIR"

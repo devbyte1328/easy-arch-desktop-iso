@@ -47,7 +47,7 @@ FINALCACHE=airootfs/root/Easy-Arch/pacstrap-easyarch-repo
 # of the host /etc/pacman.conf) makes the download work regardless of what distro
 # the build host runs (e.g. Manjaro), and pins Arch's official mirrors.
 SELFDIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-DLCONF=$SELFDIR/setup-pkgs-cache-pacman.conf
+DLCONF=$SELFDIR/cache-pkgs-pacman.conf
 
 # Fresh, empty GPG dir so no host keyring is ever consulted for the download step
 # (a non-Arch host's keyring would not trust Arch package signatures). Transient,
