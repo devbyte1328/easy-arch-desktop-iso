@@ -18,16 +18,28 @@ MNTREPO=$SCRATCH/repo
 FINALDB=airootfs/root/Easy-Arch/pacstrap-easyarch-db
 FINALCACHE=airootfs/root/Easy-Arch/pacstrap-easyarch-repo
 
+# Self-contained Arch download config lives next to this script. Using it (instead
+# of the host /etc/pacman.conf) makes the download work regardless of what distro
+# the build host runs (e.g. Manjaro), and pins Arch's official mirrors.
+SELFDIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+DLCONF=$SELFDIR/setup-pkgs-cache-pacman.conf
+
 # Create safe temp dirs
 rm -rf $SCRATCH
 mkdir -p $TMPDB/sync
 mkdir -p $MNTREPO
 
+# Fresh, empty GPG dir so no host keyring is ever consulted for the download step
+# (a non-Arch host's keyring would not trust Arch package signatures). Lives under
+# $SCRATCH, so the existing cleanup removes it.
+GPGDIR=$SCRATCH/gnupg
+mkdir -p $GPGDIR
+
 echo "[*] Downloading and caching base packages using pacman..."
 
 # Important: Initialize pacman database for custom dbpath
 echo "[*] Initializing pacman database in temporary path..."
-sudo pacman -Sy --dbpath $TMPDB --cachedir $MNTREPO --noconfirm
+sudo pacman -Sy --config $DLCONF --gpgdir $GPGDIR --dbpath $TMPDB --cachedir $MNTREPO --noconfirm
 
 echo "[*] Preparing package list..."
 pkgs=$(tr '\n' ' ' < packages.x86_64)
@@ -36,7 +48,7 @@ echo "[*] Downloading and caching each package individually (auto-resolving depe
 
 for pkg in $pkgs; do
     echo "    [+] Downloading: $pkg"
-    sudo pacman -Sw --noconfirm --cachedir $MNTREPO --dbpath $TMPDB $pkg || fail "$pkg"
+    sudo pacman -Sw --config $DLCONF --gpgdir $GPGDIR --noconfirm --cachedir $MNTREPO --dbpath $TMPDB $pkg || fail "$pkg"
 done
 
 echo "[*] Creating local repository..."

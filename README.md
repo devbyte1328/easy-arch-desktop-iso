@@ -1,6 +1,19 @@
 # Easy Arch Linux
 
-# This project is a work in progress. this README is currently for development purposes:
+
+<table width="100%">
+<thead>
+<tr><th align="left">🚧 UNDER CONSTRUCTION</th></tr>
+</thead>
+<tbody>
+<tr><td>
+
+This is a year-old, neglected, poorly put-together project that is undergoing a massive overhaul. Nothing works correctly yet, so please come back later.
+
+</td></tr>
+</tbody>
+</table>
+
 
 Easy Arch Linux is a lightweight, Arch-based distribution that stays close to upstream. It's built for ease of installation, allowing users to quickly set up and reproduce their development environment. It starts off stable, with the option to easily update to a rolling release using `sudo pacman -Syu`.
 
