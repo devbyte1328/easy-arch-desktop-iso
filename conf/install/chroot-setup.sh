@@ -104,7 +104,6 @@ touch /var/log/.locale_set
 # Generate initramfs
 mkinitcpio -P
 
-pacman -U --noconfirm /root/Easy-Arch/aur_pkgs/*.pkg.tar.zst
 pacman -R --noconfirm discover plasma-welcome
 
 is_uefi=$(cat /etc/install_info/is_uefi)
@@ -117,13 +116,6 @@ else
 fi
 
 grub-mkconfig -o /boot/grub/grub.cfg
-
-mkdir -p /home/main/.config/BraveSoftware_Profile
-cp -r /root/Easy-Arch/BraveSoftware_Profile/. /home/main/.config/BraveSoftware_Profile/
-cp /root/Easy-Arch/BraveSoftware_Config/kwalletrc /home/main/.config/kwalletrc
-cp /root/Easy-Arch/BraveSoftware_Config/brave-profile.conf /home/main/.config/brave-profile.conf
-cp /root/Easy-Arch/BraveSoftware_Config/brave /usr/bin/brave
-chmod +x /usr/bin/brave
 
 mkdir -p /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/
 cp /root/Easy-Arch/Footer.qml /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/Footer.qml

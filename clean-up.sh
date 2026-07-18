@@ -2,12 +2,12 @@
 
 set -o pipefail
 
-WORKDIR=$(pwd)
+REPODIR=$(pwd)
+BUILDDIR=$REPODIR/output
 
-echo "[*] Cleaning up build directories..."
-# Define airootfs path
-AIROOTFS=$WORKDIR/work/x86_64/airootfs
-# Unmount any virtual filesystems if mounted
+echo "[*] Cleaning up build directory..."
+# Unmount any virtual filesystems left mounted inside the build airootfs.
+AIROOTFS=$BUILDDIR/work/x86_64/airootfs
 for mount in proc sys dev run; do
     if mountpoint -q $AIROOTFS/$mount; then
         echo "[*] Unmounting $AIROOTFS/$mount..."
@@ -16,5 +16,9 @@ for mount in proc sys dev run; do
 done
 # Ensure recursive unmount in case of nested mounts
 sudo umount -R $AIROOTFS 2>/dev/null || true
-# Now safely remove build directories
-rm -rfv $WORKDIR/out $WORKDIR/work $WORKDIR/.temp $WORKDIR/airootfs $WORKDIR/efiboot $WORKDIR/grub $WORKDIR/syslinux $WORKDIR/bootstrap_packages.x86_64 $WORKDIR/packages.x86_64 $WORKDIR/pacman.conf $WORKDIR/profiledef.sh $WORKDIR/logs.txt
+
+# Remove the whole build dir. cache/ lives outside it and is left untouched;
+# delete cache/ separately if you want to force a fresh download.
+sudo rm -rf "$BUILDDIR"
+
+echo "[✓] Build directory removed. (cache/ kept — 'rm -rf cache/' to force re-download.)"

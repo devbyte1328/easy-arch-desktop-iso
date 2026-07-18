@@ -165,10 +165,6 @@ echo "[*] Copying X11 startup file..."
 mkdir -p /mnt/usr/share/xsessions
 cp /usr/share/xsessions/plasma.desktop /mnt/usr/share/xsessions/plasma.desktop
 
-echo "[*] Copying aur pkg build files..."
-mkdir -p /mnt/root/Easy-Arch/aur_pkgs
-cp -r /root/Easy-Arch/aur_pkgs/. /mnt/root/Easy-Arch/aur_pkgs/
-
 echo "[*] Copying KDE minimal theme files..."
 mkdir -p /mnt/home/main/.config/menus
 mkdir -p /mnt/root/Easy-Arch/kde
@@ -189,14 +185,6 @@ mkdir -p /mnt/etc/profile.d
 cp /root/Easy-Arch/first-boot-setup.sh /mnt/home/main/.config/first-boot/first-boot-setup.sh
 cp /root/Easy-Arch/first-boot-setup.service /mnt/etc/systemd/system/first-boot-setup.service
 cp /root/Easy-Arch/first-boot-setup.conf /mnt/home/main/.config/first-boot/first-boot-setup.conf
-
-echo "[*] Copying Brave browser profile..."
-mkdir -p /mnt/root/Easy-Arch/BraveSoftware_Profile
-mkdir -p /mnt/root/Easy-Arch/BraveSoftware_Config
-cp -r /home/main/.config/BraveSoftware_Profile/. /mnt/root/Easy-Arch/BraveSoftware_Profile/
-cp /home/main/.config/kwalletrc /mnt/root/Easy-Arch/BraveSoftware_Config/kwalletrc
-cp /root/Easy-Arch/brave-profile.conf /mnt/root/Easy-Arch/BraveSoftware_Config/brave-profile.conf
-cp /root/Easy-Arch/brave /mnt/root/Easy-Arch/BraveSoftware_Config/brave
 
 echo "[*] Copying finalizer script..."
 mkdir -p /mnt/home/main/Desktop

@@ -2,11 +2,15 @@
 
 set -o pipefail
 
-WORKDIR=$(pwd)
-CONFDIR=$WORKDIR/conf
-CACHEDIR=$WORKDIR/cache
+REPODIR=$(pwd)
+CONFDIR=$REPODIR/conf
+CACHEDIR=$REPODIR/cache
+# All build scratch lives here so the project root stays clean.
+# WORKDIR is where releng + airootfs + mkarchiso all operate.
+BUILDDIR=$REPODIR/output
+WORKDIR=$BUILDDIR
 
-# Persistent download cache.
+# Persistent download cache (repo root, survives cleanup).
 #   - cache/ present and populated -> reuse it, no network.
 #   - cache/ deleted or empty      -> hit the servers and refill it.
 # To force a fresh pull of everything: rm -rf cache/
@@ -18,8 +22,8 @@ cached() {
     [ -d "$d" ] && [ -n "$(ls -A "$d" 2>/dev/null)" ]
 }
 
-echo "[*] Cleaning up previous build directories..."
-AIROOTFS=$WORKDIR/work/x86_64/airootfs
+echo "[*] Cleaning up previous build directory..."
+AIROOTFS=$BUILDDIR/work/x86_64/airootfs
 for mount in proc sys dev run; do
     if mountpoint -q $AIROOTFS/$mount; then
         echo "[*] Unmounting $AIROOTFS/$mount..."
@@ -27,7 +31,12 @@ for mount in proc sys dev run; do
     fi
 done
 sudo umount -R $AIROOTFS 2>/dev/null || true
-rm -rfv $WORKDIR/out $WORKDIR/work $WORKDIR/.temp $WORKDIR/airootfs $WORKDIR/efiboot $WORKDIR/grub $WORKDIR/syslinux $WORKDIR/bootstrap_packages.x86_64 $WORKDIR/packages.x86_64 $WORKDIR/pacman.conf $WORKDIR/profiledef.sh $WORKDIR/logs.txt
+# Wipe the entire build dir and start fresh (cache/ lives outside it, untouched).
+sudo rm -rf "$BUILDDIR"
+mkdir -p "$BUILDDIR"
+# Everything below operates inside the build dir; bare-relative paths (airootfs/...)
+# resolve here instead of polluting the project root.
+cd "$BUILDDIR"
 
 echo "[*] Checking for build-host dependencies..."
 HOST_PKGS="archiso git base-devel go python python-pip"
@@ -51,18 +60,6 @@ cp $CONFDIR/system/archiso_sys-linux.cfg $WORKDIR/syslinux/
 
 echo "[*] Copying custom package list..."
 cp $CONFDIR/packages.x86_64 $WORKDIR/packages.x86_64
-
-echo "[*] Setting up AUR packages..."
-mkdir -p airootfs/root/Easy-Arch/aur_pkgs
-if cached aur; then
-    echo "[*] Reusing built AUR packages from cache/aur (offline)..."
-    cp $CACHEDIR/aur/*.pkg.tar.zst airootfs/root/Easy-Arch/aur_pkgs/
-else
-    echo "[*] Building AUR packages and caching them..."
-    bash $CONFDIR/system/setup-aur-packages.sh $WORKDIR $SUDO_USER
-    mkdir -p "$CACHEDIR/aur"
-    cp airootfs/root/Easy-Arch/aur_pkgs/*.pkg.tar.zst "$CACHEDIR/aur/"
-fi
 
 echo "[*] Setting up users..."
 mkdir -p airootfs/etc
@@ -107,14 +104,6 @@ chmod +x airootfs/root/Easy-Arch/setup-pkgs.sh
 
 echo "[*] Adding pkgs systemd service..."
 cp $CONFDIR/system/pkgs-setup.service airootfs/etc/systemd/system/pkgs-setup.service
-
-echo "[*] Copying Brave-Browser profile..."
-mkdir -p airootfs/home/main/.config/BraveSoftware_Profile/
-cp -r $CONFDIR/brave/BraveSoftware_Profile/. airootfs/home/main/.config/BraveSoftware_Profile/
-cp $CONFDIR/brave/kwalletrc airootfs/home/main/.config/kwalletrc
-cp $CONFDIR/brave/brave-profile.conf airootfs/home/main/.config/brave-profile.conf
-cp $CONFDIR/brave/brave-profile.conf airootfs/root/Easy-Arch/brave-profile.conf
-cp $CONFDIR/brave/brave airootfs/root/Easy-Arch/brave
 
 echo "[*] Adding SDDM config..."
 mkdir -p airootfs/etc
@@ -212,7 +201,7 @@ export MKSQUASHFS_OPTIONS="-processors 4"
 ###
 sudo mkarchiso -v $WORKDIR
 if [ -d "$WORKDIR/out" ] && [ -n "$(find "$WORKDIR/out" -maxdepth 1 -type f -name '*.iso')" ]; then
-    echo "[✓] ISO built successfully in out/ directory"
+    echo "[✓] ISO built successfully in output/out/ directory"
 else
-    echo "[✗] ISO build failed, out/ directory or ISO file not found"
+    echo "[✗] ISO build failed, output/out/ directory or ISO file not found"
 fi
