@@ -328,6 +328,36 @@ draw_bar() {
     } >&3
 }
 
+# Print the bar ONE last time as a permanent, normal (scrolled) line -- used at the
+# end of a successful build so a completed 100% bar stays on screen (the pinned bar
+# is wiped by progress_cleanup on exit). Unpins the scroll region first so the line
+# lands in normal flow, computes the layout from the current SUBFRAC (caller sets it
+# to 1000 for 100%), and writes to stdout so it is also captured in the full log.
+# On a non-TTY run it prints a plain, escape-free "[####....]  100%  <label>" line.
+finalize_bar() {
+    local cols rows pct eff sf=$SUBFRAC
+    (( sf < 0 )) && sf=0; (( sf > 1000 )) && sf=1000
+    eff=$(( DONE_WEIGHT * 1000 + CUR_WEIGHT * sf ))
+    pct=$(( eff / 10 / TOTAL_WEIGHT )); (( pct > 100 )) && pct=100
+    if [ "${PROGRESS_TTY:-0}" -eq 1 ]; then
+        printf '\033[r' >&3                      # unpin: restore full scroll region
+        cols=$(tput cols <&3 2>/dev/null) || cols=80
+        _bar_layout "$cols" "$eff" "$TOTAL_WEIGHT" "$pct" "$CURRENT_STEP" "$TOTAL_STEPS" "$BAR_LABEL"
+        local sep=""; [ -n "$_LP_label" ] && sep=" "
+        # Print as a normal line (scrolls, persists). Leading \r\033[K clears whatever
+        # the pinned bar left on the current row; then the centered, colored bar.
+        printf '\r\033[K%*s\033[2m%s\033[0m\033[36m%s\033[0m\033[1m%s\033[0m%s%s\n' \
+            "$(( _LP_col - 1 ))" "" "$_LP_prefix" "$_LP_bar" "$_LP_pctstr" "$sep" "$_LP_label" >&3
+    else
+        # No TTY: plain ASCII bar so nothing weird lands in a piped log.
+        local barw=40 filled i bar=""
+        filled=$(( eff * barw / (1000 * TOTAL_WEIGHT) )); (( filled > barw )) && filled=barw
+        for ((i=0; i<filled; i++)); do bar+="#"; done
+        for ((i=filled; i<barw; i++)); do bar+="."; done
+        printf '[%s] %3d%%  %s\n' "$bar" "$pct" "$BAR_LABEL"
+    fi
+}
+
 # (Re-)reserve the bottom row: scroll region = rows 1..(N-1). Subprocesses like
 # pacman and mkarchiso reset the terminal's scroll region for their own progress
 # bars, which unpins ours; calling this again before each redraw re-arms it so
@@ -667,6 +697,23 @@ reclaim_trees() {
     done
 }
 
+# Reclaim ownership NOW to whoever should own the trees, working in BOTH modes:
+#   * Docker (root in container): chown to the host uid/gid passed via -e HOST_UID/GID.
+#   * Native (non-root + sudo)  : chown to the invoking user.
+# This is what the startup and post-mkarchiso safeguards call. It must NOT be gated on
+# `id -u != 0` (an earlier version was, which disabled those safeguards inside Docker --
+# the exact case that left cache/build/ root-owned on the host). Idempotent, cheap.
+reclaim_now() {
+    local owner=""
+    if [ "$(id -u)" -eq 0 ]; then
+        [ -n "$HOST_UID" ] && [ -n "$HOST_GID" ] && owner="$HOST_UID:$HOST_GID"
+    elif [ -n "$SUDO" ]; then
+        owner="$(id -u):$(id -g)"
+    fi
+    [ -n "$owner" ] && reclaim_trees "$owner"
+    return 0
+}
+
 # On Ctrl-C / SIGTERM: kill the build + reader, unmount mkarchiso's bind mounts,
 # restore the terminal, hand the host dirs back, exit 130. The EXIT trap re-runs
 # cleanup + handback (both idempotent) for the normal/error-exit paths.
@@ -692,9 +739,7 @@ step() {
 # SIGKILL'd / power-cut cannot have run any trap, so this is the only thing that can
 # unlock a tree left behind that way -- guaranteeing the lock never outlives a single
 # invocation. Cheap: chown -R over an already-user-owned tree is a near-no-op.
-if [ "$(id -u)" -ne 0 ] && [ -n "$SUDO" ]; then
-    reclaim_trees "$(id -u):$(id -g)"
-fi
+reclaim_now
 # Keep the sudo timestamp warm for the whole build so the immediate/trap chowns work.
 start_sudo_keepalive
 
@@ -895,12 +940,27 @@ sub_stop
 # live procfs. After this line cache/build/ is already user-owned on the normal path;
 # the exit trap's handback is then just a redundant safety net.
 unmount_worktree
-if [ "$(id -u)" -ne 0 ] && [ -n "$SUDO" ]; then
-    reclaim_trees "$(id -u):$(id -g)"
-fi
-arm_region; draw_bar                         # mkarchiso reset the region; re-pin at 24/24
+reclaim_now
 if [ -n "$(find "$BUILDDIR" -maxdepth 1 -type f -name '*.iso')" ]; then
-    printf '\n[ %d/%d ] [✓] ISO built successfully in output/\n' "$TOTAL_STEPS" "$TOTAL_STEPS" | tee -a "$STEPS_LOG"
+    # Finalize the bar at 100%. The pinned bar is cleared by progress_cleanup on exit,
+    # so we also print a permanent full bar as a normal (scrolled) line here -- that is
+    # the "done" state the user actually sees. Force SUBFRAC=1000 because sub_stop reset
+    # it to 0 (and step 24 starts at 50%), which is why the bar looked stuck at 50%.
+    SUBFRAC=1000; finalize_bar
+    # Report the ISO's ACTUAL location. mkarchiso prints the path it wrote to, which
+    # inside Docker is the container path (/build/output/...) -- not where the file
+    # really is for the user. So we echo the true location ourselves:
+    #   * Native run: BUILDDIR is the real absolute host path -> print it verbatim.
+    #   * Docker run: /build/output is a bind mount of the host's repo output/ dir, so
+    #     the container can't know the host's absolute path; print the repo-relative
+    #     output/<iso> (correct and unambiguous on the host).
+    ISO_FILE=$(find "$BUILDDIR" -maxdepth 1 -type f -name '*.iso' -printf '%f\n' 2>/dev/null | head -1)
+    if [ -f /.dockerenv ]; then
+        ISO_PATH="output/$ISO_FILE"
+    else
+        ISO_PATH="$BUILDDIR/$ISO_FILE"
+    fi
+    printf '\n[ %d/%d ] [✓] ISO built successfully: %s\n' "$TOTAL_STEPS" "$TOTAL_STEPS" "$ISO_PATH" | tee -a "$STEPS_LOG"
 else
     printf '\n[ %d/%d ] [✗] ISO build failed: no .iso found in output/\n' "$TOTAL_STEPS" "$TOTAL_STEPS" | tee -a "$STEPS_LOG"
     exit 1
