@@ -124,6 +124,73 @@ stop_sudo_keepalive() {
     SUDO_KEEPALIVE_PID=0
 }
 
+# --- Continuous ownership reclaim (never leave the host locked mid-build) -----
+# The three overlapping safeguards above (startup / post-mkarchiso / trap) only
+# unlock the trees at BUILD BOUNDARIES. In between -- for the whole multi-hour
+# mkarchiso run -- every file root freshly writes under cache/ output/ logs/ is
+# root-owned and thus LOCKED for the host user. This loop closes that window: it
+# re-chowns (and restores owner-write) the safe trees back to the host user every
+# few seconds for the entire build, so nothing stays locked for more than one
+# sweep interval. It mirrors the sudo keepalive exactly: `sudo -n` only (never
+# prompts, so it can't hang the PTY), self-terminating, fully trap-managed.
+#
+# CRITICAL -- it must NEVER recurse the work tree $WORKDIR (=cache/build). During
+# mkarchiso that tree holds the airootfs with LIVE bind mounts
+# (proc/sys/dev/run); a naive `chown -R cache/` would descend through those into
+# the host's real /dev,/sys,/run under --privileged (corrupting the host), race
+# pacstrap's writes, and bake wrong ownership/modes into the squashfs (e.g. a
+# writable 0440 sudoers breaks sudo in the shipped ISO). So reclaim_periodic (see
+# below) deliberately skips cache/build; that tree is reclaimed ONLY by the inline
+# reclaim_now AFTER unmount_worktree -- the one point where it is safe to touch.
+CHOWNER_PID=0
+start_continuous_chowner() {
+    local owner=""
+    if [ "$(id -u)" -eq 0 ]; then
+        [ -n "$HOST_UID" ] && [ -n "$HOST_GID" ] && owner="$HOST_UID:$HOST_GID"
+    elif [ -n "$SUDO" ]; then
+        owner="$(id -u):$(id -g)"
+    fi
+    [ -n "$owner" ] || return 0                       # unresolved owner -> nothing to do
+    (
+        while true; do
+            # Single-flight: reclaim_periodic skips the work tree, so a sweep is only
+            # a chown/chmod over the flat package caches + output + logs -- ~10ms even
+            # at thousands of files (measured). So we can poll TIGHT (1s) to keep the
+            # residual lock window ~1s even during pacman's fast download bursts, at
+            # negligible load. flock -n still guards against the pathological case
+            # where a sweep somehow runs longer than the interval: the next tick just
+            # skips instead of stacking a second concurrent chown.
+            ( flock -n 9 || exit 0; reclaim_periodic "$owner" ) 9>"$LOGDIR/.chowner.lock"
+            sleep 1                                    # sleep AFTER the sweep -> strictly serialized
+        done
+    ) &
+    CHOWNER_PID=$!
+}
+# Collect a PID and every descendant, deepest first, by walking pgrep -P. Used to
+# reap the chowner's whole subtree (loop -> flock subshell -> in-flight chown -R)
+# in one shot: we must snapshot the tree BEFORE killing the root, because once the
+# root dies the parent links break and orphaned grandchildren can't be found again.
+_descendant_pids() {
+    local p=$1 kid
+    for kid in $(pgrep -P "$p" 2>/dev/null); do
+        _descendant_pids "$kid"
+        printf '%s\n' "$kid"
+    done
+}
+stop_continuous_chowner() {
+    (( CHOWNER_PID > 0 )) || return 0
+    local victims v
+    victims=$(_descendant_pids "$CHOWNER_PID")     # snapshot subtree first
+    kill "$CHOWNER_PID" 2>/dev/null
+    for v in $victims; do
+        kill "$v" 2>/dev/null
+        # An in-flight chown -R may be a root child on a native run; reap it via sudo.
+        [ -n "$SUDO" ] && $SUDO -n kill "$v" 2>/dev/null
+    done
+    wait "$CHOWNER_PID" 2>/dev/null
+    CHOWNER_PID=0
+}
+
 # --- Host ownership handback ------------------------------------------------
 # Everything under cache/ output/ logs/ is created by ROOT inside the container,
 # so on the host bind mounts it lands root:root and the invoking user cannot
@@ -444,8 +511,8 @@ kill_group() {
     local pgid=$1 s p pids
     for s in TERM KILL; do
         # PIDs in this process group, minus this shell and the keepalive loop.
-        pids=$(ps -o pid= -o pgid= -a 2>/dev/null | awk -v g="$pgid" -v me="$$" -v h="${SUDO_KEEPALIVE_PID:-0}" \
-                 '$2==g && $1!=me && $1!=h {print $1}')
+        pids=$(ps -o pid= -o pgid= -a 2>/dev/null | awk -v g="$pgid" -v me="$$" -v h="${SUDO_KEEPALIVE_PID:-0}" -v c="${CHOWNER_PID:-0}" \
+                 '$2==g && $1!=me && $1!=h && $1!=c {print $1}')
         for p in $pids; do
             kill -"$s" "$p" 2>/dev/null || true
             [ -n "$SUDO" ] && $SUDO -n kill -"$s" "$p" 2>/dev/null || true
@@ -700,6 +767,50 @@ reclaim_trees() {
     done
 }
 
+# Low-cost periodic reclaim used ONLY by the continuous chowner. Unlike
+# reclaim_trees it deliberately does NOT recurse the work tree $WORKDIR
+# (=cache/build): during mkarchiso that subtree holds the airootfs with LIVE
+# bind mounts (proc/sys/dev/run) and becomes the squashfs, so recursing it here
+# would chown into the host's real /dev,/sys,/run (under --privileged), race
+# pacstrap, and bake wrong owner/modes into the ISO. cache/build is reclaimed
+# only by the inline reclaim_now that runs AFTER unmount_worktree.
+# What it DOES reclaim, live, every few seconds:
+#   * the three top-level roots cache/ output/ logs/ (non-recursive) -- so the
+#     inodes the Docker daemon and root create directly under them are unlocked;
+#   * every direct child of cache/ EXCEPT build/ (recursive) -- the persistent
+#     stores (cache/pkgs, cache/pip, cache/pacman-pkg, ...) that grow during the
+#     build, without ever entering the live work tree;
+#   * output/ and logs/ in full (recursive) -- small, no live mounts, safe.
+reclaim_periodic() {
+    local owner=$1 d chown_cmd chmod_cmd
+    if [ "$(id -u)" -eq 0 ]; then
+        chown_cmd=(chown); chmod_cmd=(chmod)                 # already root
+    else
+        chown_cmd=($SUDO -n chown); chmod_cmd=($SUDO -n chmod)  # keepalive keeps ts warm
+    fi
+    # Non-recursive unlock of the top inodes (cheap; catches daemon-created dirs).
+    for d in "$CACHEDIR" "$BUILDDIR" "$LOGDIR"; do
+        [ -d "$d" ] || continue
+        "${chown_cmd[@]}" "$owner" "$d" 2>/dev/null || true
+        "${chmod_cmd[@]}" u+w "$d" 2>/dev/null || true
+    done
+    # Recurse output/ and logs/ fully (no live mounts, small trees).
+    for d in "$BUILDDIR" "$LOGDIR"; do
+        [ -d "$d" ] || continue
+        "${chown_cmd[@]}" -R --preserve-root "$owner" "$d" 2>/dev/null || true
+        "${chmod_cmd[@]}" -R u+w "$d" 2>/dev/null || true
+    done
+    # Recurse every child of cache/ EXCEPT the work tree (cache/build). This
+    # auto-covers the persistent caches without ever descending into the airootfs
+    # bind mounts -- the naive `chown -R cache/` hazard is avoided by construction.
+    for d in "$CACHEDIR"/*; do
+        [ -e "$d" ] || continue          # empty glob guard
+        [ "$d" = "$WORKDIR" ] && continue # NEVER the live work tree
+        "${chown_cmd[@]}" -R --preserve-root "$owner" "$d" 2>/dev/null || true
+        "${chmod_cmd[@]}" -R u+w "$d" 2>/dev/null || true
+    done
+}
+
 # Reclaim ownership NOW to whoever should own the trees, working in BOTH modes:
 #   * Docker (root in container): chown to the host uid/gid passed via -e HOST_UID/GID.
 #   * Native (non-root + sudo)  : chown to the invoking user.
@@ -720,8 +831,8 @@ reclaim_now() {
 # On Ctrl-C / SIGTERM: kill the build + reader, unmount mkarchiso's bind mounts,
 # restore the terminal, hand the host dirs back, exit 130. The EXIT trap re-runs
 # cleanup + handback (both idempotent) for the normal/error-exit paths.
-trap 'terminate_build; unmount_worktree; progress_cleanup; handback_ownership; stop_sudo_keepalive; exit 130' INT TERM HUP QUIT
-trap 'progress_cleanup; handback_ownership; stop_sudo_keepalive' EXIT
+trap 'terminate_build; stop_continuous_chowner; unmount_worktree; progress_cleanup; handback_ownership; stop_sudo_keepalive; exit 130' INT TERM HUP QUIT
+trap 'stop_continuous_chowner; progress_cleanup; handback_ownership; stop_sudo_keepalive' EXIT
 
 step() {
     CURRENT_STEP=$((CURRENT_STEP + 1))
@@ -745,6 +856,11 @@ step() {
 reclaim_now
 # Keep the sudo timestamp warm for the whole build so the immediate/trap chowns work.
 start_sudo_keepalive
+# SAFEGUARD 0 (continuous reclaim): keep the safe trees owned by the host user for
+# the WHOLE build, not just at boundaries, so nothing stays locked mid-build for
+# more than one sweep interval. Starts after the keepalive so its first `sudo -n`
+# finds a warm timestamp. No-op if the owner is unresolved (Docker without -e).
+start_continuous_chowner
 
 progress_init
 
@@ -958,12 +1074,27 @@ if [ -n "$(find "$BUILDDIR" -maxdepth 1 -type f -name '*.iso')" ]; then
     #     the container can't know the host's absolute path; print the repo-relative
     #     output/<iso> (correct and unambiguous on the host).
     ISO_FILE=$(find "$BUILDDIR" -maxdepth 1 -type f -name '*.iso' -printf '%f\n' 2>/dev/null | head -1)
+    # Compute the size ourselves with `du -h` so the number matches (and lets the
+    # user ignore) mkarchiso's own trailing du line, which shows the CONTAINER path.
+    ISO_SIZE=$(du -h "$BUILDDIR/$ISO_FILE" 2>/dev/null | cut -f1)
     if [ -f /.dockerenv ]; then
         ISO_PATH="output/$ISO_FILE"
     else
         ISO_PATH="$BUILDDIR/$ISO_FILE"
     fi
-    printf '\n[ %d/%d ] [✓] ISO built successfully: %s\n' "$TOTAL_STEPS" "$TOTAL_STEPS" "$ISO_PATH" | tee -a "$STEPS_LOG"
+    if [ -n "$ISO_SIZE" ]; then
+        printf '\n[ %d/%d ] [✓] ISO built successfully: %s (%s)\n' "$TOTAL_STEPS" "$TOTAL_STEPS" "$ISO_PATH" "$ISO_SIZE" | tee -a "$STEPS_LOG"
+    else
+        printf '\n[ %d/%d ] [✓] ISO built successfully: %s\n' "$TOTAL_STEPS" "$TOTAL_STEPS" "$ISO_PATH" | tee -a "$STEPS_LOG"
+    fi
+    # Docker only: mkarchiso's trailing "du" line above shows the CONTAINER path
+    # /build/output/... which does NOT exist on the host. Spell out the real spot so
+    # the user never mistakes it for build/output/. (Native runs already print the
+    # real host path, so this note would be false there -- hence the /.dockerenv gate.)
+    if [ -f /.dockerenv ]; then
+        printf '           The ISO is at %s on your host (NOT build/output/ -- that\n' "$ISO_PATH" | tee -a "$STEPS_LOG"
+        printf '           /build/output/ du line above is the path INSIDE the container).\n' | tee -a "$STEPS_LOG"
+    fi
 else
     printf '\n[ %d/%d ] [✗] ISO build failed: no .iso found in output/\n' "$TOTAL_STEPS" "$TOTAL_STEPS" | tee -a "$STEPS_LOG"
     exit 1
