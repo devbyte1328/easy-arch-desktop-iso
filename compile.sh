@@ -208,34 +208,36 @@ draw_bar() {
     (( ${#label} > 22 )) && label="${label:0:21}…"
 
     # All escape output goes to fd 3 so it paints the real terminal and never
-    # lands in the tee'd full log. We draw the bar in place on the CURRENT line
-    # with a leading carriage return and clear-to-end-of-line (\r\033[K) instead
-    # of pinning it to the bottom row via a reserved scroll region. This leaves
-    # NO persistent terminal state, so even a hard kill can't lock the terminal.
+    # lands in the tee'd full log. The bar is PINNED to the bottom row: save the
+    # cursor, jump to the last row, paint, then restore the cursor back inside the
+    # scroll region (rows 1..N-1) where the build output keeps scrolling.
     {
-        # dim counter · cyan bar · bold percent · plain label, redrawn in place
-        printf '\r\033[K\033[2m%s\033[0m\033[36m%s\033[0m\033[1m%s\033[0m %s' \
-            "$prefix" "$bar" "$pctstr" "$label"
+        # \033[s save cursor · jump to row N · dim counter · cyan bar · bold
+        # percent · plain label · \033[u restore cursor
+        printf '\033[s\033[%d;1H\033[K\033[2m%s\033[0m\033[36m%s\033[0m\033[1m%s\033[0m %s\033[u' \
+            "$rows" "$prefix" "$bar" "$pctstr" "$label"
     } >&3
 }
 
 # (Re-)reserve the bottom row: scroll region = rows 1..(N-1). Subprocesses like
 # pacman and mkarchiso reset the terminal's scroll region for their own progress
 # bars, which unpins ours; calling this again before each redraw re-arms it so
-# the bar never gets scrolled away or frozen mid-build.
-# NO-OP: we deliberately never reserve a DECSTBM scroll region. A reserved region
-# is persistent terminal state that survives the process, so a hard kill (SIGKILL,
-# uncatchable by any trap) would leave the terminal locked (text won't scroll or
-# clear). The progress bar is now drawn unpinned via a carriage-return line in
-# draw_bar, which leaves no persistent terminal state. Kept as a no-op so the
-# existing `arm_region; draw_bar` re-pin call sites stay valid and cheap.
-arm_region() { :; }
+# the bar never gets scrolled away or frozen mid-build. progress_cleanup runs on
+# EVERY catchable exit and resets the region (\033[r), so the terminal is left
+# sane; the only unrecoverable case is SIGKILL, which no trap can catch anyway.
+arm_region() {
+    [ "$PROGRESS_TTY" -eq 1 ] || return 0
+    local rows; rows=$(tput lines <&3 2>/dev/null) || return 0
+    # DECSTBM: scroll region = rows 1..(rows-1), leaving row `rows` for the bar.
+    printf '\033[1;%dr' "$((rows - 1))" >&3
+}
 
-# First-time setup: just paint the initial (empty) bar in place. With the
-# unpinned carriage-return bar there is no scroll region to arm and no need to
-# home the cursor (doing so would stomp on the header text), so this is minimal.
+# First-time setup: reserve the bottom row, then paint the initial (empty) bar
+# pinned to it. arm_region sets the scroll region so subsequent build output
+# scrolls in rows 1..N-1 and never overwrites the bar.
 progress_init() {
     [ "$PROGRESS_TTY" -eq 1 ] || return 0
+    arm_region
     draw_bar
 }
 
@@ -310,11 +312,12 @@ sub_start() {
         # Force C locale so EPOCHREALTIME uses a '.' decimal separator (the throttle
         # math below strips it) and so the tail|grep regex is byte-wise/fast.
         LC_ALL=C
-        local sf=0 last=-1 cols=80 lastdraw=0 now rc=0 m=0 inpac=0
-        # Cache terminal width; only re-query occasionally (avoid a tput fork per
-        # package line during pacstrap's ~1381 Total() updates). SIGWINCH re-reads.
+        local sf=0 last=-1 cols=80 rows=24 lastdraw=0 now rc=0 m=0 inpac=0
+        # Cache terminal width/height; only re-query occasionally (avoid a tput fork
+        # per package line during pacstrap's ~1381 Total() updates). SIGWINCH re-reads.
         cols=$(tput cols <&3 2>/dev/null) || cols=80
-        trap 'cols=$(tput cols <&3 2>/dev/null) || cols=80' WINCH
+        rows=$(tput lines <&3 2>/dev/null) || rows=24
+        trap 'cols=$(tput cols <&3 2>/dev/null) || cols=80; rows=$(tput lines <&3 2>/dev/null) || rows=24' WINCH
         # Self-contained redraw (identical math to draw_bar, throttled to ~4/s).
         redraw() {
             now=$(( ${EPOCHREALTIME/./} ))       # microseconds; bash 5 builtin
@@ -332,8 +335,11 @@ sub_start() {
             for ((i=0;i<filled;i++)); do bar+="█"; done
             for ((i=filled;i<barw;i++)); do bar+="░"; done
             (( ${#lbl}>22 )) && lbl="${lbl:0:21}…"
-            printf '\r\033[K\033[2m%s\033[0m\033[36m%s\033[0m\033[1m%s\033[0m %s' \
-                "$prefix" "$bar" "$pctstr" "$lbl" >&3
+            # Pinned to the bottom row: save cursor, jump to row N, clear the line
+            # with \r\033[K (the same token the tail|grep guard drops, so the reader
+            # never re-ingests its own output), paint, restore cursor.
+            printf '\033[s\033[%d;1H\r\033[K\033[2m%s\033[0m\033[36m%s\033[0m\033[1m%s\033[0m %s\033[u' \
+                "$rows" "$prefix" "$bar" "$pctstr" "$lbl" >&3
         }
         # Follow only NEW lines (-n0). The grep DROPS the reader's own bar redraws
         # (they begin with CR + ESC[K) so the reader can never match its own output
@@ -626,7 +632,7 @@ export MKSQUASHFS_OPTIONS="-processors 4"
 sub_start mkarchiso                           # live pacstrap + squashfs + iso sub-progress
 $SUDO mkarchiso -v -w "$WORKDIR/work" -o "$BUILDDIR" "$WORKDIR"
 sub_stop
-arm_region; draw_bar                         # mkarchiso reset the region; re-pin at 25/25
+arm_region; draw_bar                         # mkarchiso reset the region; re-pin at 24/24
 if [ -n "$(find "$BUILDDIR" -maxdepth 1 -type f -name '*.iso')" ]; then
     printf '\n[ %d/%d ] [✓] ISO built successfully in output/\n' "$TOTAL_STEPS" "$TOTAL_STEPS" | tee -a "$STEPS_LOG"
 else
