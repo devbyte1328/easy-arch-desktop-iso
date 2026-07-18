@@ -5,6 +5,56 @@ set -o pipefail
 REPODIR=$(pwd)
 CONFDIR=$REPODIR/conf
 CACHEDIR=$REPODIR/cache
+
+# --- Logging --------------------------------------------------------------
+# Every run produces two logs under logs/:
+#   - full:  the complete build output (every line, incl. pacman/pip/mkarchiso
+#            chatter and the "    [+] ..." sub-actions). This is the firehose.
+#   - steps: only the step() milestones, one line each. This is the summary you
+#            skim to see how far the build got and where it stopped.
+# The steps log is escape-free text; the full log is a faithful capture of the
+# terminal (it may contain the children's own \r-based progress redraws).
+#
+# We re-exec the whole script under `script`, which runs it on a real PTY and
+# writes that PTY's output to the full log. The PTY is the crucial part: pacman,
+# pip and mkarchiso all detect a terminal and keep their LIVE, \r-redrawn
+# progress bars. (Piping through plain `tee` makes them see a non-TTY, so they
+# switch to buffered output and appear frozen for minutes during big downloads.)
+LOGDIR=$REPODIR/logs
+mkdir -p "$LOGDIR"
+FULL_LOG=$LOGDIR/full.log
+STEPS_LOG=$LOGDIR/steps.log
+
+if [ -z "$_COMPILE_LOGGING" ]; then
+    export _COMPILE_LOGGING=1
+    # Truncate both logs at the start of a fresh run.
+    : > "$FULL_LOG"
+    : > "$STEPS_LOG"
+    # Re-exec on a PTY via util-linux `script`, which writes the full log itself:
+    #   -q  quiet     (trims banners on newer util-linux; older ones still print a
+    #                  one-line "Script started/done" header/footer — harmless, it
+    #                  even records the exit code)
+    #   -e  return-exit (propagate the child's exit status so a failed download or
+    #                  mkarchiso still fails the whole run)
+    #   -f  flush     (write the log after every chunk -> real-time, tail-able)
+    #   -c  command   (run our own re-exec of this script on the PTY)
+    # The PTY is the point: pacman/pip/mkarchiso see a terminal and keep their
+    # live \r-redrawn progress bars instead of buffering silently.
+    # If `script` is unavailable, fall back to tee (children buffer, but the run
+    # still works and both logs are produced).
+    if command -v script >/dev/null 2>&1; then
+        exec script -qefc "_COMPILE_LOGGING=1 _COMPILE_ONPTY=1 bash '$0' $*" "$FULL_LOG"
+    else
+        exec > >(tee "$FULL_LOG") 2>&1
+    fi
+fi
+# Under `script` our stdout IS the PTY, so [ -t 1 ] is true again and the pinned
+# progress bar draws normally on it. Without script (tee fallback) it is a pipe.
+if [ "${_COMPILE_ONPTY:-0}" -eq 1 ] || [ -t 1 ]; then
+    export _COMPILE_ISATTY=1
+else
+    export _COMPILE_ISATTY=0
+fi
 # All build scratch lives here so the project root stays clean.
 # WORKDIR is where releng + airootfs + mkarchiso all operate.
 BUILDDIR=$REPODIR/output
@@ -34,10 +84,20 @@ TOTAL_STEPS=25
 CURRENT_STEP=0
 BAR_LABEL=""
 
-if [ -t 1 ]; then
+# Where the pinned bar's escape codes go (fd 3). It MUST be the same terminal the
+# scrolling build output goes to, or the reserved scroll region won't line up.
+#   - On the PTY (script): that's stdout, which is a real TTY -> draw to stdout.
+#     Bonus: the bar is then captured in the full log too, same as on-screen.
+#   - tee fallback: stdout is a pipe, so draw to /dev/tty and keep escapes out of
+#     the log (the scrolling text also reaches /dev/tty, so they still align).
+if [ "${_COMPILE_ONPTY:-0}" -eq 1 ]; then
+    exec 3>&1                                # bar -> stdout (the PTY)
     PROGRESS_TTY=1
+elif [ "${_COMPILE_ISATTY:-0}" -eq 1 ] && { exec 3<>/dev/tty; } 2>/dev/null; then
+    PROGRESS_TTY=1                           # bar -> real terminal (fd 3 opened above)
 else
     PROGRESS_TTY=0
+    exec 3>/dev/null
 fi
 
 # Redraw the pinned bottom bar. Saves cursor, jumps to the last row, paints the
@@ -45,7 +105,7 @@ fi
 draw_bar() {
     [ "$PROGRESS_TTY" -eq 1 ] || return 0
     local rows cols pct barw filled i bar="" label
-    rows=$(tput lines); cols=$(tput cols)
+    rows=$(tput lines <&3); cols=$(tput cols <&3)
     pct=$(( CURRENT_STEP * 100 / TOTAL_STEPS ))
 
     # Layout:  " 20/25  ████████████░░░░░░  80%  Building ISO "
@@ -62,13 +122,17 @@ draw_bar() {
     label=$BAR_LABEL
     (( ${#label} > 22 )) && label="${label:0:21}…"
 
-    tput sc                                  # save cursor
-    tput cup $((rows - 1)) 0                 # go to bottom row
-    tput el                                  # clear the line
-    # dim counter · cyan bar · bold percent · plain label
-    printf '\033[2m%s\033[0m\033[36m%s\033[0m\033[1m%s\033[0m %s' \
-        "$prefix" "$bar" "$pctstr" "$label"
-    tput rc                                  # restore cursor
+    # All escape output goes to fd 3 (/dev/tty) so it paints the real terminal
+    # and never lands in the tee'd full log.
+    {
+        tput sc                              # save cursor
+        tput cup $((rows - 1)) 0             # go to bottom row
+        tput el                              # clear the line
+        # dim counter · cyan bar · bold percent · plain label
+        printf '\033[2m%s\033[0m\033[36m%s\033[0m\033[1m%s\033[0m %s' \
+            "$prefix" "$bar" "$pctstr" "$label"
+        tput rc                              # restore cursor
+    } >&3
 }
 
 # (Re-)reserve the bottom row: scroll region = rows 1..(N-1). Subprocesses like
@@ -77,8 +141,8 @@ draw_bar() {
 # the bar never gets scrolled away or frozen mid-build.
 arm_region() {
     [ "$PROGRESS_TTY" -eq 1 ] || return 0
-    local rows; rows=$(tput lines)
-    tput csr 0 $((rows - 2))                 # reserve last row for the bar
+    local rows; rows=$(tput lines <&3)
+    tput csr 0 $((rows - 2)) >&3             # reserve last row for the bar
 }
 
 # First-time setup: clear the screen so the reserved region starts clean, then
@@ -86,7 +150,7 @@ arm_region() {
 progress_init() {
     [ "$PROGRESS_TTY" -eq 1 ] || return 0
     arm_region
-    tput cup 0 0
+    tput cup 0 0 >&3
     draw_bar
 }
 
@@ -94,11 +158,13 @@ progress_init() {
 # Ctrl-C) so the terminal is never left in a broken state.
 progress_cleanup() {
     [ "$PROGRESS_TTY" -eq 1 ] || return 0
-    local rows; rows=$(tput lines)
-    tput csr 0 $((rows - 1))                 # restore full scroll region
-    tput cup $((rows - 1)) 0
-    tput el
-    tput cnorm                               # ensure cursor visible
+    local rows; rows=$(tput lines <&3)
+    {
+        tput csr 0 $((rows - 1))             # restore full scroll region
+        tput cup $((rows - 1)) 0
+        tput el
+        tput cnorm                           # ensure cursor visible
+    } >&3
 }
 trap progress_cleanup EXIT INT TERM
 
@@ -106,7 +172,10 @@ step() {
     CURRENT_STEP=$((CURRENT_STEP + 1))
     BAR_LABEL="$1"
     arm_region                               # re-pin in case pacman/mkarchiso reset it
+    # Goes to stdout -> terminal + full log (via tee).
     printf '\n[ %2d/%d ] %s\n' "$CURRENT_STEP" "$TOTAL_STEPS" "$1"
+    # Milestone-only summary, appended straight to the steps log (no escapes).
+    printf '[ %2d/%d ] %s\n' "$CURRENT_STEP" "$TOTAL_STEPS" "$1" >> "$STEPS_LOG"
     draw_bar
 }
 
@@ -290,8 +359,8 @@ export MKSQUASHFS_OPTIONS="-processors 4"
 sudo mkarchiso -v $WORKDIR
 arm_region; draw_bar                         # mkarchiso reset the region; re-pin at 25/25
 if [ -d "$WORKDIR/out" ] && [ -n "$(find "$WORKDIR/out" -maxdepth 1 -type f -name '*.iso')" ]; then
-    printf '\n[ %d/%d ] [✓] ISO built successfully in output/out/\n' "$TOTAL_STEPS" "$TOTAL_STEPS"
+    printf '\n[ %d/%d ] [✓] ISO built successfully in output/out/\n' "$TOTAL_STEPS" "$TOTAL_STEPS" | tee -a "$STEPS_LOG"
 else
-    printf '\n[ %d/%d ] [✗] ISO build failed: output/out/ or ISO file not found\n' "$TOTAL_STEPS" "$TOTAL_STEPS"
+    printf '\n[ %d/%d ] [✗] ISO build failed: output/out/ or ISO file not found\n' "$TOTAL_STEPS" "$TOTAL_STEPS" | tee -a "$STEPS_LOG"
     exit 1
 fi
