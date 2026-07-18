@@ -56,9 +56,12 @@ else
     export _COMPILE_ISATTY=0
 fi
 # All build scratch lives here so the project root stays clean.
-# WORKDIR is where releng + airootfs + mkarchiso all operate.
+# BUILDDIR is the final artifact dir: the finished ISO lands directly in it
+# (and it is the host bind-mount target under Docker).
+# WORKDIR is the disposable mkarchiso PROFILE tree (releng + airootfs + packages),
+# a subdir of BUILDDIR so it never litters output/ next to the ISO.
 BUILDDIR=$REPODIR/output
-WORKDIR=$BUILDDIR
+WORKDIR=$BUILDDIR/build
 
 # Persistent download cache (repo root, survives cleanup). Downloads land here
 # directly, so caching is incremental and resumable:
@@ -182,7 +185,7 @@ step() {
 progress_init
 
 step "Cleaning up previous build directory..."
-AIROOTFS=$BUILDDIR/work/x86_64/airootfs
+AIROOTFS=$WORKDIR/work/x86_64/airootfs
 for mount in proc sys dev run; do
     if mountpoint -q $AIROOTFS/$mount; then
         echo "    [+] Unmounting $AIROOTFS/$mount..."
@@ -190,16 +193,18 @@ for mount in proc sys dev run; do
     fi
 done
 sudo umount -R $AIROOTFS 2>/dev/null || true
-# Wipe the build dir contents and start fresh (cache/ lives outside it, untouched).
-# We delete the CONTENTS rather than $BUILDDIR itself: the ISO output dir
-# (output/out) is a bind mount from the host, and `rm -rf $BUILDDIR` would recurse
-# into that live mount and hang. `find ... -mount` stays on the build dir's own
-# filesystem and never descends into any bind-mounted subdir.
+# Wipe the disposable profile/scratch tree and start fresh. We wipe only
+# $WORKDIR (output/build/), never $BUILDDIR (output/) itself: that keeps any
+# previously-built ISO sitting in output/ intact until the new build overwrites
+# it, and — under Docker, where output/ is the host bind mount — it means the
+# rm never recurses into a live mountpoint (output/build is an ordinary same-fs
+# subdir). cache/ lives outside output/ entirely and is untouched.
 mkdir -p "$BUILDDIR"
-sudo find "$BUILDDIR" -mindepth 1 -maxdepth 1 -mount -exec rm -rf {} +
-# Everything below operates inside the build dir; bare-relative paths (airootfs/...)
-# resolve here instead of polluting the project root.
-cd "$BUILDDIR"
+sudo rm -rf "$WORKDIR"
+mkdir -p "$WORKDIR"
+# Everything below operates inside the profile tree; bare-relative paths
+# (airootfs/..., packages.x86_64) resolve here instead of polluting output/.
+cd "$WORKDIR"
 
 step "Checking for build-host dependencies..."
 HOST_PKGS="archiso git base-devel go python python-pip"
@@ -305,7 +310,7 @@ step "Setting up packages for harddrive installation..."
 # The cache script downloads straight into cache/pkgs (persistent), so it is
 # incremental and resumable: only missing packages are fetched, and a prior
 # Ctrl-C leaves finished ones cached. It then stages the cache into the airootfs.
-if ! bash $CONFDIR/install/setup-pkgs-cache.sh "$BUILDDIR" "$CACHEDIR"; then
+if ! bash $CONFDIR/install/setup-pkgs-cache.sh "$WORKDIR" "$CACHEDIR"; then
     echo "[✗] Package caching/staging failed..."
     exit 1
 fi
@@ -346,9 +351,13 @@ else
 fi
 arm_region; draw_bar                         # pip may reset the region; re-pin
 # Stage cached wheels into the ISO working tree (always runs; local, offline).
-cp "$CACHEDIR/pip"/* airootfs/root/Easy-Arch/finalize/pip-cache/ || true
-if [ -z "$(ls -A "$CACHEDIR/pip" 2>/dev/null)" ]; then
-    echo "[✗] Python wheel cache (cache/pip) is empty after download."
+# -r so any subdir in the cache doesn't make cp error out; /. to include dotfiles.
+cp -r "$CACHEDIR/pip"/. airootfs/root/Easy-Arch/finalize/pip-cache/ || true
+# Verify the STAGED destination actually received wheels — not just that the
+# source cache is non-empty. (The dir always contains pip-libraries from above,
+# so count *.whl files rather than testing emptiness.)
+if [ -z "$(find airootfs/root/Easy-Arch/finalize/pip-cache -maxdepth 1 -type f -name '*.whl' 2>/dev/null)" ]; then
+    echo "[✗] Python wheels missing after staging into airootfs."
     exit 1
 fi
 
@@ -360,11 +369,13 @@ step "Building ISO..."
 ### """FATAL ERROR: xz uncompress failed with error code 9""" 
 export MKSQUASHFS_OPTIONS="-processors 4"
 ###
-sudo mkarchiso -v $WORKDIR
+# profile_dir = $WORKDIR (output/build); scratch = $WORKDIR/work; ISO -> $BUILDDIR
+# (output/) directly via -o, so the finished .iso sits in output/ next to nothing.
+sudo mkarchiso -v -w "$WORKDIR/work" -o "$BUILDDIR" "$WORKDIR"
 arm_region; draw_bar                         # mkarchiso reset the region; re-pin at 25/25
-if [ -d "$WORKDIR/out" ] && [ -n "$(find "$WORKDIR/out" -maxdepth 1 -type f -name '*.iso')" ]; then
-    printf '\n[ %d/%d ] [✓] ISO built successfully in output/out/\n' "$TOTAL_STEPS" "$TOTAL_STEPS" | tee -a "$STEPS_LOG"
+if [ -n "$(find "$BUILDDIR" -maxdepth 1 -type f -name '*.iso')" ]; then
+    printf '\n[ %d/%d ] [✓] ISO built successfully in output/\n' "$TOTAL_STEPS" "$TOTAL_STEPS" | tee -a "$STEPS_LOG"
 else
-    printf '\n[ %d/%d ] [✗] ISO build failed: output/out/ or ISO file not found\n' "$TOTAL_STEPS" "$TOTAL_STEPS" | tee -a "$STEPS_LOG"
+    printf '\n[ %d/%d ] [✗] ISO build failed: no .iso found in output/\n' "$TOTAL_STEPS" "$TOTAL_STEPS" | tee -a "$STEPS_LOG"
     exit 1
 fi

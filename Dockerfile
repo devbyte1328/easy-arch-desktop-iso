@@ -15,8 +15,9 @@
 #           easyarch
 #         These three mounts mirror compile.sh's own directory scheme so the
 #         host keeps the persistent download cache (cache/), the build output
-#         incl. the finished ISO under output/out/ (output/), and both build
-#         logs (logs/). No stray host-side out/ dir is created.
+#         incl. the finished ISO written directly to output/ (the disposable
+#         profile+scratch tree lives in output/build/), and both build logs
+#         (logs/). No stray host-side out/ dir is created.
 #         (--privileged is required: mkarchiso mounts proc/sys/dev and uses
 #          loop devices + squashfs inside the airootfs.)
 
@@ -59,8 +60,9 @@ RUN echo "root ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/00-root \
     && chmod 0440 /etc/sudoers.d/00-root
 
 # Project lives here. compile.sh writes everything under three dirs at the build
-# root: cache/ (persistent downloads), output/ (build tree + the finished ISO in
-# output/out/) and logs/. Bind-mount those to the host to persist them:
+# root: cache/ (persistent downloads), output/ (the finished ISO, with the
+# disposable profile+scratch tree in output/build/) and logs/. Bind-mount those
+# to the host to persist them:
 #   -v "$PWD/cache:/build/cache" -v "$PWD/output:/build/output" -v "$PWD/logs:/build/logs"
 # compile.sh re-execs itself on a PTY (via util-linux `script`) and draws a
 # pinned progress bar with tput. Inside a bare container there is no TERM, so
@@ -71,5 +73,5 @@ ENV TERM=xterm
 WORKDIR /build
 COPY . /build
 
-# Build the ISO. The result appears in the mounted out/ directory on the host.
+# Build the ISO. The finished .iso appears directly in the mounted output/ dir on the host.
 CMD ["./compile.sh"]

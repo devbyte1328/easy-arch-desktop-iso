@@ -125,28 +125,30 @@ Once Docker is installed and running, the steps are the same everywhere.
    ```
 
 3. **Compile the ISO.** `--privileged` is required — `mkarchiso` mounts
-   `proc`/`sys`/`dev` and uses loop devices. The finished ISO is written to an
-   `out/` folder in the current directory, and downloaded packages are kept in a
-   `cache/` folder so re-runs don't re-download several GB every time.
+   `proc`/`sys`/`dev` and uses loop devices. The finished ISO is written directly
+   to the `output/` folder, downloaded packages are kept in `cache/` so re-runs
+   don't re-download several GB every time, and build logs land in `logs/`.
    ```
    sudo docker run --rm -it --privileged \
-     -v "$PWD/out:/build/output/out" \
      -v "$PWD/cache:/build/cache" \
+     -v "$PWD/output:/build/output" \
+     -v "$PWD/logs:/build/logs" \
      easyarch
    ```
 
-4. **Collect the ISO.** After the build finishes, the ISO is in `out/`:
+4. **Collect the ISO.** After the build finishes, the ISO is in `output/`:
    ```
-   ls out/
+   ls output/*.iso
    ```
    - **Windows (WSL):** the same folder is reachable from File Explorer at
-     `\\wsl$\<distro>\home\<your-username>\easy-arch-desktop-iso\out`.
+     `\\wsl$\<distro>\home\<your-username>\easy-arch-desktop-iso\output`.
 
 5. **(Optional) Save a full build log** for debugging:
    ```
    sudo docker run --rm -t --privileged \
-     -v "$PWD/out:/build/output/out" \
      -v "$PWD/cache:/build/cache" \
+     -v "$PWD/output:/build/output" \
+     -v "$PWD/logs:/build/logs" \
      easyarch 2>&1 | tee build.log
    ```
 
