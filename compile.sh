@@ -591,10 +591,13 @@ step "Setting up packages for harddrive installation..."
 # The cache script downloads straight into cache/pkgs (persistent), so it is
 # incremental and resumable: only missing packages are fetched, and a prior
 # Ctrl-C leaves finished ones cached. It then stages the cache into the airootfs.
-# Divisor for the repo-add sub-band: count the .pkg.tar.zst already in the
-# persistent repo. On a fully-cached re-run there is NO download, but repo-add
-# still re-indexes every package, so we must size the band from the file count,
-# not from the (absent) download total. Fallback 0 -> reader holds at band start.
+# Divisor for the repo-add sub-band: count the .pkg.tar.zst in the persistent repo
+# as an upper bound. setup-pkgs-cache.sh now reconciles the repo index INCREMENTALLY
+# (it only repo-adds new/changed packages, quietly), so on a fully-cached re-run the
+# indexing is near-instant and emits few/no "Adding package" lines -- the reader's
+# repo-add band simply doesn't fill and sub_stop snaps step 20 to 100%. On a run
+# that actually downloads new packages the band advances per "Adding package" line
+# up to this count. Fallback 0 -> reader holds at band start.
 REPO_TOTAL=$(ls -1 "$CACHEDIR"/pkgs/repo/*.pkg.tar.zst 2>/dev/null | wc -l)
 sub_start step20 "$REPO_TOTAL"               # live download + repo-add sub-progress
 if ! bash $CONFDIR/install/setup-pkgs-cache.sh "$WORKDIR" "$CACHEDIR"; then

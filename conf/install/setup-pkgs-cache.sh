@@ -99,10 +99,105 @@ _OWN_UID=${HOST_UID:-$(id -u)}
 _OWN_GID=${HOST_GID:-$(id -g)}
 $SUDO chown -R "$_OWN_UID:$_OWN_GID" "$PKGREPO" "$PKGDB" 2>/dev/null || true
 
-echo "[*] Building local repository index from the cache..."
-# Idempotent: refreshes the .db from whatever .pkg.tar.zst files are present.
-rm -f "$PKGREPO"/pacstrap-easyarch-repo.db* "$PKGREPO"/pacstrap-easyarch-repo.files*
-repo-add "$PKGREPO/pacstrap-easyarch-repo.db.tar.gz" "$PKGREPO"/*.pkg.tar.zst || fail "repo-add"
+echo "[*] Reconciling local repository index with the cache..."
+# INCREMENTAL by design: the .db is PERSISTENT (kept across runs, like the .pkg
+# files) and we only touch what actually changed. The old code deleted the .db
+# then re-ran repo-add over ALL ~1200 packages every build, so every run printed
+# "Adding package / Computing checksums / Creating desc/files db entry" for the
+# whole set even when nothing was downloaded — it looked like the cache was unused.
+# repo-add re-hashes every package you hand it (even one already identical in the
+# db; -n only skips AFTER still printing a warning per pkg), so the only way to
+# avoid the redundant work AND the noise is to compute the delta ourselves and
+# pass repo-add just the genuinely-new/changed files. Result is byte-for-byte the
+# same .db a full rebuild would produce: it always ends up describing EXACTLY the
+# .pkg.tar.zst files present, with no stale entries.
+DB="$PKGREPO/pacstrap-easyarch-repo.db.tar.gz"
+
+# db-key of a package file = its name-ver-rel, i.e. the basename minus the trailing
+# "-<arch>.pkg.tar.zst". That is exactly the entry-dir name repo-add stores, so we
+# can compare on-disk files against db entries without unpacking anything.
+declare -A have_key      # db-key            -> file basename   (what's on disk now)
+declare -A have_name     # pkgname           -> 1               (names present on disk)
+declare -A file_of_name  # pkgname           -> newest file for that name (dup guard)
+declare -A ver_of_name   # pkgname           -> newest ver-rel  (dup guard)
+declare -A key_of_name   # pkgname           -> newest db-key   (dup guard)
+superseded=()            # older duplicate .pkg files to delete from the cache
+
+shopt -s nullglob
+_pkgfiles=( "$PKGREPO"/*.pkg.tar.zst )
+shopt -u nullglob
+(( ${#_pkgfiles[@]} )) || fail "no packages in cache to index"
+
+for f in "${_pkgfiles[@]}"; do
+    b=${f##*/}
+    key=${b%-*.pkg.tar.zst}          # name-ver-rel  (arch + suffix stripped)
+    verrel=${key##*-}                # pkgrel
+    nv=${key%-*}                     # name-ver
+    verrel=${nv##*-}-$verrel; name=${nv%-*}   # full ver-rel, and pkgname
+    # pacman -Sw never prunes old versions, so the cache can hold two versions of
+    # one package. Keep the newest (vercmp-correct) and mark the other for deletion
+    # so the cache and db stay single-version. Without this the db would end up
+    # indexing whichever version repo-add saw last (glob order = wrong for e.g.
+    # 2.0 vs 10.0) and the loser file would linger forever.
+    if [[ -n ${ver_of_name[$name]:-} ]]; then
+        if (( $(vercmp "$verrel" "${ver_of_name[$name]}") > 0 )); then
+            # This file is newer than the one we picked earlier: retire the old pick
+            # (drop its basename-keyed have_key entry and queue its file for deletion).
+            superseded+=( "${file_of_name[$name]}" ); unset "have_key[${key_of_name[$name]}]"
+        else
+            superseded+=( "$f" ); continue
+        fi
+    fi
+    have_key[$key]=$b; have_name[$name]=1
+    file_of_name[$name]=$f; ver_of_name[$name]=$verrel; key_of_name[$name]=$key
+done
+
+# Self-heal: if the db is missing or unreadable (first run, deleted, or a corrupt
+# partial from a killed run) rebuild it cleanly from the winning files only.
+if [[ ! -f $DB ]] || ! bsdtar -tf "$DB" >/dev/null 2>&1; then
+    echo "    [+] No usable index — building fresh from ${#have_key[@]} package(s)."
+    rm -f "$PKGREPO"/pacstrap-easyarch-repo.db* "$PKGREPO"/pacstrap-easyarch-repo.files*
+    _add=(); for k in "${!have_key[@]}"; do _add+=( "$PKGREPO/${have_key[$k]}" ); done
+    repo-add -q "$DB" "${_add[@]}" || fail "repo-add (fresh)"
+else
+    # Which name-ver-rel keys (and which names) the db already indexes.
+    declare -A db_key db_name
+    while IFS= read -r ekey; do
+        db_key[$ekey]=1; db_name[${ekey%-*-*}]=1
+    done < <(bsdtar -tf "$DB" 2>/dev/null | sed -n 's,/desc$,,p')
+
+    # Add only files whose exact key is NOT already indexed (new pkg or new version).
+    _add=()
+    for k in "${!have_key[@]}"; do
+        [[ -z ${db_key[$k]:-} ]] && _add+=( "$PKGREPO/${have_key[$k]}" )
+    done
+    # Remove any indexed name that no longer has a file on disk (package dropped, or
+    # its old version was just superseded) so the db never advertises a missing file.
+    _rm=()
+    for n in "${!db_name[@]}"; do
+        [[ -z ${have_name[$n]:-} ]] && _rm+=( "$n" )
+    done
+
+    if (( ${#_rm[@]} )); then
+        echo "    [-] Dropping ${#_rm[@]} stale entr(y/ies) from the index."
+        repo-remove -q "$DB" "${_rm[@]}" || fail "repo-remove"
+    fi
+    if (( ${#_add[@]} )); then
+        echo "    [+] Indexing ${#_add[@]} new/updated package(s)."
+        repo-add -q "$DB" "${_add[@]}" || fail "repo-add (delta)"
+    fi
+    if (( ${#_rm[@]} == 0 && ${#_add[@]} == 0 )); then
+        echo "    [=] Index already up to date — nothing to re-index."
+    fi
+fi
+
+# Prune the superseded duplicate .pkg files so the cache stays single-version and
+# doesn't grow without bound. Their db entries (if any) were dropped by the reconcile
+# above via the name-not-on-disk / key-not-indexed logic.
+if (( ${#superseded[@]} )); then
+    echo "    [-] Removing ${#superseded[@]} superseded package file(s) from cache."
+    rm -f "${superseded[@]}"
+fi
 
 echo "[*] Staging cached packages into the ISO working tree..."
 # Always runs (airootfs is wiped each build); pure local copy, no network.
