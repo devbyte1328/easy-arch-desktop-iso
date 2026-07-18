@@ -155,10 +155,25 @@ done
 # Self-heal: if the db is missing or unreadable (first run, deleted, or a corrupt
 # partial from a killed run) rebuild it cleanly from the winning files only.
 if [[ ! -f $DB ]] || ! bsdtar -tf "$DB" >/dev/null 2>&1; then
-    echo "    [+] No usable index — building fresh from ${#have_key[@]} package(s)."
-    rm -f "$PKGREPO"/pacstrap-easyarch-repo.db* "$PKGREPO"/pacstrap-easyarch-repo.files*
     _add=(); for k in "${!have_key[@]}"; do _add+=( "$PKGREPO/${have_key[$k]}" ); done
-    repo-add -q "$DB" "${_add[@]}" || fail "repo-add (fresh)"
+    echo "    [+] No usable index — building fresh from ${#_add[@]} package(s) (one-time)."
+    rm -f "$PKGREPO"/pacstrap-easyarch-repo.db* "$PKGREPO"/pacstrap-easyarch-repo.files*
+    # Seed the persistent db in CHUNKS so the build SHOWS live progress instead of
+    # freezing on a single silent multi-minute repo-add. After each chunk we print
+    # "[+] Indexing N/TOTAL packages..." -- that line is both human-visible AND what
+    # the compile.sh progress reader parses to advance the step-20 bar. We chunk
+    # (not one-package-at-a-time) because repo-add re-gzips the whole .db on every
+    # call, so per-package is ~2x slower and grows superlinearly; a chunk of 50 is
+    # as fast as a single batched call while still updating ~24 times over the seed.
+    # repo-add -q keeps each call quiet (no per-package wall of text). This is the
+    # ONLY path that loops (runs once, when there is no db); the steady-state
+    # incremental path below stays a single fast batched call.
+    _tot=${#_add[@]} _n=0 _CHUNK=50
+    for (( _i=0; _i<_tot; _i+=_CHUNK )); do
+        repo-add -q "$DB" "${_add[@]:_i:_CHUNK}" >/dev/null 2>&1 || fail "repo-add (fresh)"
+        _n=$(( _i + _CHUNK )); (( _n > _tot )) && _n=$_tot
+        printf '    [+] Indexing %d/%d packages...\n' "$_n" "$_tot"
+    done
 else
     # Which name-ver-rel keys (and which names) the db already indexes.
     declare -A db_key db_name

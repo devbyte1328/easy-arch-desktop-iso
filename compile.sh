@@ -400,9 +400,15 @@ sub_start() {
                     local n=${BASH_REMATCH[1]}; m=${BASH_REMATCH[2]}
                     (( m > 0 )) && sf=$(( n * 440 / m ))
                 # Phase B: repo-add indexing -> band 440..1000 (56% of step 20).
-                # Count 'Adding package' lines; DIVISOR is the file count passed in
-                # ($repo_total), NOT the download's M -> works on a cached re-run
-                # where there was no download at all.
+                # The fresh-seed path (setup-pkgs-cache.sh, first run only) prints
+                # "[+] Indexing N/TOTAL packages..." per chunk -- parse that N/TOTAL
+                # directly so the bar tracks the one-time seed exactly instead of
+                # sitting idle while a silent repo-add runs.
+                elif [[ $line =~ \[\+\]\ Indexing\ ([0-9]+)/([0-9]+)\ packages ]]; then
+                    local n=${BASH_REMATCH[1]} m=${BASH_REMATCH[2]}
+                    (( m > 0 )) && sf=$(( 440 + n * 560 / m ))
+                # Fallback: on paths where repo-add itself is verbose, count its
+                # 'Adding package' lines against the passed-in file total.
                 elif [[ $line == *"Adding package '"* ]]; then
                     (( rc++ ))
                     if (( repo_total > 0 )); then
