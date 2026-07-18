@@ -27,6 +27,23 @@ STEPS_LOG=$LOGDIR/steps.log
 
 if [ -z "$_COMPILE_LOGGING" ]; then
     export _COMPILE_LOGGING=1
+    # Prime sudo ONCE here, on the real controlling terminal, BEFORE the `script`
+    # re-exec below. This is the only point in the run where a password prompt is
+    # guaranteed to reach the user: after the re-exec everything runs on a PTY, and
+    # the exit/signal traps have no interactive channel at all. The primed credential
+    # is what lets the long-lived root helper (launched after SUDO is set) start with
+    # `sudo -n`; that helper then holds root for the whole build so the ownership
+    # handback works even after sudo's short timestamp expires mid-build -- the exact
+    # failure that left cache/build/ root-owned and locked.
+    if [ "$(id -u)" -ne 0 ] && command -v sudo >/dev/null 2>&1; then
+        # Order of preference:
+        #   1. `sudo -n -v` : refresh an existing valid timestamp with no prompt.
+        #   2. `sudo -n true`: usable WITHOUT a timestamp (NOPASSWD config) -> no prompt.
+        #   3. `sudo -v`    : prompt interactively (fine here: real terminal, pre-re-exec).
+        # Only bail if none work, so we never launch a build that can't reclaim its tree.
+        sudo -n -v 2>/dev/null || sudo -n true 2>/dev/null || sudo -v || {
+            echo "[!] sudo is required for the privileged build steps." >&2; exit 1; }
+    fi
     # Truncate both logs at the start of a fresh run.
     : > "$FULL_LOG"
     : > "$STEPS_LOG"
@@ -71,6 +88,41 @@ WORKDIR=$CACHEDIR/build
 # trap below) reaches them. On a non-root Arch host $SUDO stays "sudo" so the
 # privileged steps still work.
 if [ "$(id -u)" -eq 0 ]; then SUDO=""; else SUDO="sudo"; fi
+
+# --- Never leave cache/build/ locked ----------------------------------------
+# mkarchiso/pacstrap run as root (via sudo on a native build) and create
+# cache/build/** owned by root. If that ownership is not handed back, the invoking
+# user cannot rm/edit cache/build/ -- it is "locked". We guarantee it is NEVER left
+# locked with THREE independent, overlapping safeguards, so no single failure
+# (expired sudo timestamp, uncatchable SIGKILL, power loss) can leave it root-owned:
+#
+#   1. STARTUP reclaim (below): before doing anything, unconditionally chown the
+#      whole cache/ output/ logs/ back to the user. This is the ONLY thing that can
+#      recover a tree left behind by a previous run that was SIGKILL'd / power-cut
+#      (no trap can ever run in those cases). So even in the worst case, the lock
+#      lasts only until the next invocation and is cleared automatically.
+#   2. IMMEDIATE reclaim: right after `mkarchiso` returns (success OR failure), we
+#      chown inline in the normal control flow -- while the sudo timestamp is
+#      guaranteed fresh (mkarchiso itself just used it). No trap, no background
+#      process, no FIFO -- nothing to wedge or be killed mid-teardown.
+#   3. TRAP reclaim: on Ctrl-C/TERM/HUP/QUIT and on any EXIT, handback_ownership
+#      runs the same chown, covering an interrupt that happens mid-mkarchiso.
+#
+# A background `sudo -v` keepalive keeps the timestamp warm across the long build so
+# the trap/immediate `sudo -n chown` still works even past sudo's short timeout. If
+# a given sudo config can't refresh non-interactively, safeguard 1 still covers it.
+SUDO_KEEPALIVE_PID=0
+start_sudo_keepalive() {
+    [ -n "$SUDO" ] || return 0
+    ( while true; do sudo -n -v 2>/dev/null || sudo -n true 2>/dev/null || exit 0; sleep 60; done ) &
+    SUDO_KEEPALIVE_PID=$!
+}
+stop_sudo_keepalive() {
+    (( SUDO_KEEPALIVE_PID > 0 )) || return 0
+    kill "$SUDO_KEEPALIVE_PID" 2>/dev/null
+    wait "$SUDO_KEEPALIVE_PID" 2>/dev/null
+    SUDO_KEEPALIVE_PID=0
+}
 
 # --- Host ownership handback ------------------------------------------------
 # Everything under cache/ output/ logs/ is created by ROOT inside the container,
@@ -199,8 +251,11 @@ fi
 #      separated by nothing except a single space before a non-empty label).
 _bar_layout() {
     local cols=$1 eff=$2 total=$3 pct=$4 step=$5 steps=$6 label=$7
-    local prefix pctstr barw filled i bar=""
-    printf -v prefix ' %2d/%d ' "$step" "$steps"       # ASCII: width == ${#prefix}
+    local prefix="" pctstr barw filled i bar=""
+    # The "N/24" step counter was dropped from the bar (it read as meaningless): the
+    # bar is now just "[████░░░░]  50%  Label". prefix is kept as an empty string so
+    # all the width/centering math below (which sums ${#prefix}) still holds with no
+    # other change. step/steps stay in the signature for callers but are unused here.
     printf -v pctstr ' %3d%% ' "$pct"                  # ASCII: width == ${#pctstr}
     # Columns left for the bar + a 1-col separator + the label, after the fixed
     # ASCII counter and percent. Never let the bar itself drop below 8 columns; if
@@ -303,7 +358,7 @@ progress_init() {
 # We deliberately do NOT emit ESC c (RIS): that would wipe the build output.
 progress_cleanup() {
     # Guaranteed reader sweep: the EXIT trap runs progress_cleanup but NOT
-    # kill_children, so an `exit 1` after a sub_start (that somehow skipped
+    # terminate_build, so an `exit 1` after a sub_start (that somehow skipped
     # sub_stop) would otherwise leave the reader alive. Idempotent.
     if (( ${SUB_PID:-0} > 0 )); then
         kill "$SUB_PID" 2>/dev/null; pkill -P "$SUB_PID" 2>/dev/null
@@ -321,7 +376,7 @@ progress_cleanup() {
 
 # Guard so the kill runs at most once.
 _KILLED=0
-kill_children() {
+terminate_build() {
     [ "$_KILLED" -eq 1 ] && return 0
     _KILLED=1
     # Kill the sub-progress reader first (and its tail|grep leaf) and WAIT it, so
@@ -346,15 +401,25 @@ kill_children() {
     kill_group "${pgid:-$$}"
 }
 
-# Send TERM then KILL to a process group, escalating through $SUDO for root
-# children. `sudo -n` keeps it non-interactive: this runs inside the signal trap,
-# so it must never block on a password prompt (the build's timestamp is fresh; if
-# it expired we skip rather than hang). $SUDO is empty on a root run.
+# Kill the build's children (mkarchiso/pacstrap and their descendants) WITHOUT
+# killing this shell -- the previous version sent `kill -KILL -$pgid` to the whole
+# process group, and since this shell is IN that group and KILL cannot be trapped or
+# ignored, it took the parent down MID-TRAP, before handback_ownership ran. That is
+# exactly why cache/build/ was left root-owned and locked after a Ctrl-C.
+#
+# So we enumerate the group's PIDs and signal every one EXCEPT our own ($$) and the
+# sudo keepalive. Root children (pacstrap under mkarchiso) are killed via `sudo -n`
+# (the keepalive keeps the timestamp warm). $SUDO empty -> we are root already.
 kill_group() {
-    local pgid=$1 s
+    local pgid=$1 s p pids
     for s in TERM KILL; do
-        kill -"$s" -"$pgid" 2>/dev/null || true
-        [ -n "$SUDO" ] && $SUDO -n kill -"$s" -"$pgid" 2>/dev/null || true
+        # PIDs in this process group, minus this shell and the keepalive loop.
+        pids=$(ps -o pid= -o pgid= -a 2>/dev/null | awk -v g="$pgid" -v me="$$" -v h="${SUDO_KEEPALIVE_PID:-0}" \
+                 '$2==g && $1!=me && $1!=h {print $1}')
+        for p in $pids; do
+            kill -"$s" "$p" 2>/dev/null || true
+            [ -n "$SUDO" ] && $SUDO -n kill -"$s" "$p" 2>/dev/null || true
+        done
     done
 }
 
@@ -362,7 +427,7 @@ kill_group() {
 # During the two giant steps (20, 25) a background reader tails the live full.log
 # and maps the build's own progress lines to SUBFRAC (0..1000), redrawing the bar
 # on fd 3. The reader is a DIRECT child of this shell's process group, so the
-# existing group-kill in kill_children reaps it too; we also kill it explicitly.
+# existing group-kill in terminate_build reaps it too; we also kill it explicitly.
 #
 # CRITICAL: while a reader is alive it is the SOLE writer of the bar. The reader
 # runs in a backgrounded subshell, so it cannot mutate the parent's SUBFRAC; it
@@ -382,7 +447,7 @@ sub_start() {
         # Force C locale so EPOCHREALTIME uses a '.' decimal separator (the throttle
         # math below strips it) and so the tail|grep regex is byte-wise/fast.
         LC_ALL=C
-        local sf=0 last=-1 cols=80 rows=24 lastdraw=0 now rc=0 m=0 inpac=0
+        local sf=0 last=-1 cols=80 rows=24 lastdraw=0 now rc=0 rc2=0 m=0 inpac=0
         # Cache terminal width/height; only re-query occasionally (avoid a tput fork
         # per package line during pacstrap's ~1381 Total() updates). SIGWINCH re-reads.
         cols=$(tput cols <&3 2>/dev/null) || cols=80
@@ -410,56 +475,110 @@ sub_start() {
             printf '\033[s\033[%d;1H\r\033[K\033[%d;%dH\033[2m%s\033[0m\033[36m%s\033[0m\033[1m%s\033[0m%s%s\033[u' \
                 "$rows" "$rows" "$_LP_col" "$_LP_prefix" "$_LP_bar" "$_LP_pctstr" "$sep" "$_LP_label" >&3
         }
-        # Follow only NEW lines (-n0). The grep DROPS the reader's own bar redraws
-        # (they begin with CR + ESC[K) so the reader can never match its own output
-        # even if a label ever contained an anchor word (self-feedback guard).
+        # Follow only NEW lines (-n0), then translate CR->LF. This is the crux of the
+        # progress fix: pacman/pacstrap redraw their live progress with CARRIAGE
+        # RETURNS, not newlines, so a whole phase like "checking keys in keyring" is a
+        # SINGLE ~98KB physical line carrying ~1200 embedded '\r' frames. Without the
+        # `tr`, `read -r` (which splits on '\n' only) receives that entire phase as one
+        # line delivered AFTER it finishes -- so the reader saw none of the intermediate
+        # (N/M) counts and the bar froze for the whole multi-minute phase. `tr '\r' '\n'`
+        # turns every frame into its own line so the loop can react to each (N/M) live.
+        # The grep then DROPS the reader's own bar redraws: after the `tr` split, our
+        # redraw's leading "\r\033[K" becomes an empty line + a line starting with
+        # ESC[K, so we drop any line containing ESC[K (self-feedback guard).
         # --line-buffered keeps it real-time.
         tail -n0 -F "$FULL_LOG" 2>/dev/null \
-          | grep --line-buffered -av $'\r\033\[K' \
+          | tr '\r' '\n' \
+          | grep --line-buffered -av $'\033\[K' \
           | while IFS= read -r line; do
             case $mode in
               step20)
-                # Phase A: pacman -Sw download -> band 0..440 (44% of step 20).
-                # Read N and M off the SAME line; M is live (1206 here) so nothing
-                # is hardcoded. On a fully-cached run this line never appears and
-                # sf simply stays 0 until phase B.
-                if [[ $line =~ Total\ \(\ *([0-9]+)/([0-9]+)\) ]]; then
-                    local n=${BASH_REMATCH[1]}; m=${BASH_REMATCH[2]}
-                    (( m > 0 )) && sf=$(( n * 440 / m ))
-                # Phase B: repo-add indexing -> band 440..1000 (56% of step 20).
-                # The fresh-seed path (cache-pkgs.sh, first run only) prints
-                # "[+] Indexing N/TOTAL packages..." per chunk -- parse that N/TOTAL
-                # directly so the bar tracks the one-time seed exactly instead of
-                # sitting idle while a silent repo-add runs.
+                # step 20 = cache-pkgs.sh: sync DB -> download missing pkgs -> index
+                # (repo-add) -> stage into airootfs. We drive SUBFRAC from cache-pkgs.sh's
+                # own milestone echoes and from pacman's live per-file download counter,
+                # so the bar moves smoothly whether the cache is cold (real downloads)
+                # or warm (near-instant). Bands: DB/download 0..440, index 440..880,
+                # stage 880..1000.
+                #
+                # Phase A: pacman -Sw download. pacman prints one "downloading <file>"
+                # line per package as it fetches; count them against the package total
+                # (repo_total is the current repo size, a good upper bound). On a fully
+                # cached run there are no downloads and this never fires.
+                if [[ $line == *"downloading "*".pkg.tar."* ]]; then
+                    (( rc++ ))
+                    if (( repo_total > 0 )); then
+                        local d=$(( rc * 440 / repo_total )); (( d > 440 )) && d=440
+                        (( d > sf )) && sf=$d
+                    fi
+                # Milestone: DB synced / download step reached -> ensure we're at least
+                # at the start of the download band so the bar leaves 0 promptly.
+                elif [[ $line == *"Downloading missing packages"* ]]; then
+                    (( sf < 20 )) && sf=20
+                # Phase B: repo-add indexing -> band 440..880. The fresh-seed path
+                # (cache-pkgs.sh, first run only) prints "[+] Indexing N/TOTAL
+                # packages..." per chunk -- parse that N/TOTAL directly so the bar
+                # tracks the one-time seed exactly instead of sitting idle.
                 elif [[ $line =~ \[\+\]\ Indexing\ ([0-9]+)/([0-9]+)\ packages ]]; then
                     local n=${BASH_REMATCH[1]} m=${BASH_REMATCH[2]}
-                    (( m > 0 )) && sf=$(( 440 + n * 560 / m ))
+                    (( m > 0 )) && sf=$(( 440 + n * 440 / m ))
                 # Fallback: on paths where repo-add itself is verbose, count its
                 # 'Adding package' lines against the passed-in file total.
                 elif [[ $line == *"Adding package '"* ]]; then
-                    (( rc++ ))
+                    (( rc2++ ))
                     if (( repo_total > 0 )); then
-                        sf=$(( 440 + rc * 560 / repo_total ))
+                        sf=$(( 440 + rc2 * 440 / repo_total ))
                     else
-                        sf=440   # unknown total: hold at band start, sub_stop snaps to 1000
+                        (( sf < 440 )) && sf=440
                     fi
+                # Milestone: reconcile reached (index up to date on a warm cache, so the
+                # Indexing/Adding lines never appear) -> advance past the index band.
+                elif [[ $line == *"Reconciling local repository index"* ]]; then
+                    (( sf < 440 )) && sf=440
+                # Phase C: staging the cache into the airootfs -> band 880..1000.
+                elif [[ $line == *"Staging cached packages"* ]]; then
+                    (( sf < 880 )) && sf=880
+                elif [[ $line == *"Package cache is complete and staged"* ]]; then
+                    sf=1000
                 fi ;;
               mkarchiso)
-                # Ordered phase table for step 25. pacstrap dominates (~84% of the
-                # step), so we parse ITS live 'Total (N/1133)' into the 20..860 band
-                # while pacstrap is running -- otherwise the bar would freeze at 20
-                # for ~5270 log lines (the exact freeze this whole task fixes).
+                # Step 24 = mkarchiso. pacstrap dominates (~84% of the step). pacstrap
+                # runs pacman, whose live progress is a series of "(N/M) <phase>" frames
+                # redrawn with '\r' -- now split into individual lines by the `tr` above.
+                # We map each pacman phase to its own sub-band within 20..820 and scale
+                # by that phase's own N/M, so the bar RAMPS smoothly through the whole
+                # multi-minute install instead of freezing at 20 (the exact bug this
+                # fixes: the old code looked for "Total (N/M)", a string pacman NEVER
+                # prints). squashfs/checksum/iso keep their milestone snaps after 820.
+                #
+                # pacman phase order during a pacstrap: keyring -> integrity -> load
+                # files -> file conflicts -> disk space -> installing/upgrading (the
+                # long one) -> post-transaction hooks. Bands are sized to roughly match
+                # each phase's share of wall-clock (install dominates).
                 case $line in
                   *"Installing packages to"*)   inpac=1; (( sf<20 )) && sf=20 ;;
-                  *"Done! Packages installed"*) inpac=0; sf=860 ;;
-                  *"Creating SquashFS image"*)  inpac=0; sf=880 ;;
-                  *"Creating checksum file"*)   sf=930 ;;
-                  *"Creating ISO image"*)       sf=960 ;;
+                  *"Done! Packages installed"*) inpac=0; (( sf<820 )) && sf=820 ;;
+                  *"Creating SquashFS image"*)  inpac=0; (( sf<840 )) && sf=840 ;;
+                  *"Creating checksum file"*)   (( sf<930 )) && sf=930 ;;
+                  *"Creating ISO image"*)       (( sf<960 )) && sf=960 ;;
                   *)
-                    # Only while pacstrap is downloading/installing: map N/1133.
-                    if (( inpac == 1 )) && [[ $line =~ Total\ \(\ *([0-9]+)/([0-9]+)\) ]]; then
-                        local n=${BASH_REMATCH[1]} mm=${BASH_REMATCH[2]}
-                        (( mm > 0 )) && sf=$(( 20 + n * 840 / mm ))   # 20..860
+                    # Map pacman's "(N/M) <phase>" frames while pacstrap is running.
+                    # Each phase gets [base..base+span]; within it we scale by N/M.
+                    if (( inpac == 1 )) && [[ $line =~ \(\ *([0-9]+)/([0-9]+)\)\ (checking\ keys\ in\ keyring|checking\ package\ integrity|loading\ package\ files|checking\ for\ file\ conflicts|checking\ available\ disk\ space|installing|upgrading|reinstalling|downgrading) ]]; then
+                        local n=${BASH_REMATCH[1]} mm=${BASH_REMATCH[2]} ph=${BASH_REMATCH[3]}
+                        local base=20 span=0
+                        case $ph in
+                          "checking keys in keyring")      base=20;  span=90  ;;  #  20..110
+                          "checking package integrity")    base=110; span=70  ;;  # 110..180
+                          "loading package files")         base=180; span=20  ;;  # 180..200
+                          "checking for file conflicts")   base=200; span=20  ;;  # 200..220
+                          "checking available disk space") base=220; span=20  ;;  # 220..240
+                          installing|upgrading|reinstalling|downgrading)
+                                                           base=240; span=580 ;;  # 240..820 (long)
+                        esac
+                        if (( mm > 0 )); then
+                            local d=$(( base + n * span / mm ))
+                            (( d > sf )) && sf=$d       # monotonic within the band
+                        fi
                     fi ;;
                 esac ;;
             esac
@@ -489,11 +608,13 @@ sub_stop() {
 unmount_worktree() {
     local m AIROOTFS_W="$WORKDIR/work/x86_64/airootfs"
     [ -d "$AIROOTFS_W" ] || return 0
+    # Non-interactive sudo; the keepalive keeps the timestamp warm across the build.
     for m in proc sys dev run; do
-        mountpoint -q "$AIROOTFS_W/$m" 2>/dev/null && \
-            $SUDO umount -lf "$AIROOTFS_W/$m" 2>/dev/null || true
+        if mountpoint -q "$AIROOTFS_W/$m" 2>/dev/null; then
+            $SUDO -n umount -lf "$AIROOTFS_W/$m" 2>/dev/null || true
+        fi
     done
-    $SUDO umount -R "$AIROOTFS_W" 2>/dev/null || true
+    $SUDO -n umount -R "$AIROOTFS_W" 2>/dev/null || true
     return 0
 }
 
@@ -514,39 +635,43 @@ handback_ownership() {
     [ "$_HANDED_BACK" -eq 1 ] && return 0
     _HANDED_BACK=1
     local owner d
-    local -a chowner
     if [ "$(id -u)" -eq 0 ]; then
         # Root (Docker path): hand back to the host user, but only if resolved.
         [ -n "$HOST_UID" ] && [ -n "$HOST_GID" ] || return 0   # unresolved -> skip
         owner="$HOST_UID:$HOST_GID"
-        chowner=(chown)                       # already root, no escalation needed
     else
-        # Non-root (native path): the root-owned files are ours to reclaim. Hand
-        # back to the invoking user, escalating through $SUDO. If there is no
-        # sudo wrapper (shouldn't happen when id!=0) skip rather than fail.
         [ -n "$SUDO" ] || return 0
         owner="$(id -u):$(id -g)"
-        # -n (non-interactive): this runs in the exit/signal trap, so it must
-        # never block on a password prompt. The timestamp is fresh from the just-
-        # -run build; if it expired we skip rather than hang. See kill_children.
-        chowner=("$SUDO" -n chown)
     fi
+    reclaim_trees "$owner"
+    return 0
+}
+
+# Chown cache/ output/ logs/ back to $1 (uid:gid), as root. This is the ONE
+# operation that must never be skipped -- if it doesn't run, cache/build/ is left
+# root-owned and locked. It runs directly (no background helper, no FIFO, no signal
+# indirection): on a normal/error/Ctrl-C exit the build was root only moments ago,
+# so a plain `sudo -n chown` still has a valid timestamp; if it somehow doesn't,
+# reclaim_at_startup on the NEXT run reclaims it unconditionally. Idempotent.
+reclaim_trees() {
+    local owner=$1 d
     for d in "$CACHEDIR" "$BUILDDIR" "$LOGDIR"; do
         [ -d "$d" ] || continue
-        # -R walks the tree; --preserve-root guards a pathological empty $d. A live
-        # procfs under work/ can't be chowned but errors per-file WITHOUT hanging;
-        # we swallow it. unmount_worktree (run first in the trap) removes those
-        # mounts in the common case anyway. cache/build/ is disposable regardless.
-        "${chowner[@]}" -R --preserve-root "$owner" "$d" 2>/dev/null || true
+        if [ "$(id -u)" -eq 0 ]; then
+            chown -R --preserve-root "$owner" "$d" 2>/dev/null || true
+        else
+            # Try non-interactive (fast path, valid mid-build); the up-front prime and
+            # the just-finished root build keep the timestamp warm here.
+            $SUDO -n chown -R --preserve-root "$owner" "$d" 2>/dev/null || true
+        fi
     done
-    return 0
 }
 
 # On Ctrl-C / SIGTERM: kill the build + reader, unmount mkarchiso's bind mounts,
 # restore the terminal, hand the host dirs back, exit 130. The EXIT trap re-runs
 # cleanup + handback (both idempotent) for the normal/error-exit paths.
-trap 'kill_children; unmount_worktree; progress_cleanup; handback_ownership; exit 130' INT TERM HUP QUIT
-trap 'progress_cleanup; handback_ownership' EXIT
+trap 'terminate_build; unmount_worktree; progress_cleanup; handback_ownership; stop_sudo_keepalive; exit 130' INT TERM HUP QUIT
+trap 'progress_cleanup; handback_ownership; stop_sudo_keepalive' EXIT
 
 step() {
     CURRENT_STEP=$((CURRENT_STEP + 1))
@@ -561,6 +686,17 @@ step() {
     printf '[ %2d/%d ] %s\n' "$CURRENT_STEP" "$TOTAL_STEPS" "$1" >> "$STEPS_LOG"
     draw_bar
 }
+
+# SAFEGUARD 1 (startup reclaim): unconditionally hand any pre-existing root-owned
+# tree back to the user BEFORE doing anything else. A previous run that was
+# SIGKILL'd / power-cut cannot have run any trap, so this is the only thing that can
+# unlock a tree left behind that way -- guaranteeing the lock never outlives a single
+# invocation. Cheap: chown -R over an already-user-owned tree is a near-no-op.
+if [ "$(id -u)" -ne 0 ] && [ -n "$SUDO" ]; then
+    reclaim_trees "$(id -u):$(id -g)"
+fi
+# Keep the sudo timestamp warm for the whole build so the immediate/trap chowns work.
+start_sudo_keepalive
 
 progress_init
 
@@ -752,6 +888,16 @@ export MKSQUASHFS_OPTIONS="-processors 4"
 sub_start mkarchiso                           # live pacstrap + squashfs + iso sub-progress
 $SUDO mkarchiso -v -w "$WORKDIR/work" -o "$BUILDDIR" "$WORKDIR"
 sub_stop
+# SAFEGUARD 2 (immediate reclaim): mkarchiso just created cache/build/** as root.
+# Reclaim ownership RIGHT NOW, inline, while the sudo timestamp is guaranteed fresh
+# (mkarchiso used it moments ago) -- not deferred to a trap that could be skipped or
+# hit an expired timestamp. First drop any bind mounts so the chown doesn't touch a
+# live procfs. After this line cache/build/ is already user-owned on the normal path;
+# the exit trap's handback is then just a redundant safety net.
+unmount_worktree
+if [ "$(id -u)" -ne 0 ] && [ -n "$SUDO" ]; then
+    reclaim_trees "$(id -u):$(id -g)"
+fi
 arm_region; draw_bar                         # mkarchiso reset the region; re-pin at 24/24
 if [ -n "$(find "$BUILDDIR" -maxdepth 1 -type f -name '*.iso')" ]; then
     printf '\n[ %d/%d ] [✓] ISO built successfully in output/\n' "$TOTAL_STEPS" "$TOTAL_STEPS" | tee -a "$STEPS_LOG"
