@@ -237,6 +237,74 @@ resolve_host_owner
 #   - deleted -> everything is re-fetched. To force that: rm -rf cache/
 mkdir -p "$CACHEDIR"
 
+# --- Cache-first, network-never-unless-wiped -------------------------------
+# Policy: if we already hold a COMPLETE package cache, the whole build runs with
+# ZERO server contact -- no DB sync, no download probe, nothing. We only reach out
+# to the mirrors when the cache is absent, i.e. after the user ran
+#   git clean -Xdf
+# (which deletes the gitignored cache/ tree -- cache/ is in .gitignore) or an
+# equivalent `rm -rf cache/`. That wipe is the single, explicit signal that means
+# "re-fetch from the network"; short of it we never ping anything.
+#
+# "Complete cache" is defined by the artifacts that live ONLY under cache/ and are
+# therefore destroyed exactly by `git clean -Xdf`:
+#   1. the local file:// repo INDEX  cache/pkgs/repo/pacstrap-easyarch-repo.db
+#      (a symlink to the .db.tar.gz repo-add builds), plus
+#   2. at least one indexed package  cache/pkgs/repo/*.pkg.tar.zst, plus
+#   3. the synced pacman sync DBs    cache/pkgs/db/sync/*.db
+#      (core/extra/multilib -- what `pacman -Sy` would otherwise fetch).
+# All three present => cache-pkgs.sh can resolve + stage the full package set with
+# no network, so there is nothing to gain from touching a mirror. Miss any one and
+# we treat the cache as incomplete and go online to (re)build it.
+#
+# Escape hatch: set FORCE_ONLINE=1 to ping the mirrors and pull fresh upstream
+# packages WITHOUT wiping the cache (the incremental -Sw then only fetches deltas).
+# Unset/empty => the cache-present path stays fully offline, as requested.
+LOCALREPO_INDEX="$CACHEDIR/pkgs/repo/pacstrap-easyarch-repo.db"
+PKG_SYNC_DBDIR="$CACHEDIR/pkgs/db/sync"
+cache_is_complete() {
+    [ "${FORCE_ONLINE:-0}" = "1" ] && return 1        # user opted back into the network
+    # 1. local repo index symlink present and resolving. repo-add always creates
+    #    this .db symlink alongside the real .db.tar.gz, so requiring it here is
+    #    correct; a lone unreferenced .db.tar.gz (which repo-add never leaves) is
+    #    deliberately judged incomplete -> safe fall-through to an online rebuild.
+    [ -e "$LOCALREPO_INDEX" ] || return 1
+    # 2. at least one real package indexed by that repo.
+    local p; for p in "$CACHEDIR"/pkgs/repo/*.pkg.tar.zst; do [ -e "$p" ] && break; done
+    [ -e "$p" ] || return 1
+    # 3. the synced pacman DBs exist (so no -Sy is needed to resolve deps offline).
+    local d; for d in "$PKG_SYNC_DBDIR"/*.db; do [ -e "$d" ] && break; done
+    [ -e "$d" ] || return 1
+    return 0
+}
+# Resolve the policy ONCE, up front, so every downstream decision (cache-pkgs.sh's
+# -Sy/-Sw and the pre-mkarchiso mirror probe) reads the same verdict and they can
+# never disagree. Exported so cache-pkgs.sh (a child process) sees it too.
+if cache_is_complete; then
+    export BUILD_OFFLINE=1
+else
+    export BUILD_OFFLINE=0
+fi
+
+# --- Stale-cache notice -----------------------------------------------------
+# The offline decision is deliberately COARSE (do we hold a cache at all), which is
+# exactly the git-clean-Xdf signal we want. But it does NOT re-check the cache
+# against packages.x86_64: if you EDIT that list to add a package while a complete
+# cache exists, we stay offline and never fetch the new package, and the build then
+# fails confusingly deep inside pacstrap ("target not found" against the file://
+# repo). Resolving the list (with groups like xorg/plasma) to know for sure needs a
+# full pacman resolve, which is heavy; instead we use a cheap, false-negative-safe
+# proxy: if the package list is NEWER than the repo index, it was likely edited
+# after the cache was built, so warn and point at the escape hatch. We only NOTIFY
+# (never silently switch to the network) so the user's "offline when cached" intent
+# is preserved -- they choose whether to refresh.
+if [ "${BUILD_OFFLINE:-0}" = "1" ] && [ "$CONFDIR/packages.x86_64" -nt "$CACHEDIR/pkgs/repo/pacstrap-easyarch-repo.db.tar.gz" ]; then
+    echo "[!] packages.x86_64 is newer than the cached package index. If you ADDED" >&2
+    echo "    packages, this offline build won't have them and pacstrap may fail with" >&2
+    echo "    'target not found'. Re-run with FORCE_ONLINE=1 (or 'git clean -Xdf' the" >&2
+    echo "    cache) to fetch the new packages; ignore this if you only removed some." >&2
+fi
+
 # --- Persistent progress bar ----------------------------------------------
 # A status bar is pinned to the BOTTOM row of the terminal and repainted on
 # every step, while all build output scrolls in the region above it. It shows
@@ -894,6 +962,19 @@ HOST_PKGS="archiso git base-devel go"
 # missing tool triggers a sync. (Docker also layer-caches these via the Dockerfile.)
 if pacman -Qq $HOST_PKGS >/dev/null 2>&1; then
     echo "    [+] Build-host dependencies already present, skipping sync (offline)."
+elif [ "${BUILD_OFFLINE:-0}" = "1" ]; then
+    # Cache-first policy: a complete cache must contact NO server, so we refuse to
+    # `pacman -Sy` here even when a build tool is missing. This is a host-provisioning
+    # gap (the tools that RUN the build, not ISO content), not something the package
+    # cache can supply -- so we fail loudly with the fix instead of silently going
+    # online behind the user's back. Wiping cache/ (git clean -Xdf) or FORCE_ONLINE=1
+    # both flip BUILD_OFFLINE off and let this install the missing tools normally.
+    echo "[✗] Missing build-host dependencies but the package cache is complete, so" >&2
+    echo "    this run must stay fully offline (no server contact)." >&2
+    echo "    Install them yourself:  $SUDO pacman -Sy --needed $HOST_PKGS" >&2
+    echo "    or re-run with FORCE_ONLINE=1 (or after 'git clean -Xdf') to let the" >&2
+    echo "    build sync them for you." >&2
+    exit 1
 else
     echo "    [+] Installing missing build-host dependencies..."
     $SUDO pacman -Sy --noconfirm --needed $HOST_PKGS
@@ -1039,8 +1120,7 @@ mkdir -p "$PACSTRAP_CACHE"
 sed -i '/^#*CacheDir/d' "$WORKDIR/pacman.conf"
 sed -i "/^\[options\]/a CacheDir    = $PACSTRAP_CACHE/" "$WORKDIR/pacman.conf"
 
-# --- Offline recompile: fall back to the local package repo when the mirrors are
-# unreachable -----------------------------------------------------------------
+# --- Offline recompile: build straight from the local package repo -----------
 # mkarchiso runs pacstrap internally, and pacstrap ALWAYS does `pacman -Sy` (see
 # /usr/bin/pacstrap: `pacmode=-Sy`). That refreshes the sync DBs from whatever
 # [core]/[extra]/[multilib] Servers the profile pacman.conf lists -- here the
@@ -1058,10 +1138,13 @@ sed -i "/^\[options\]/a CacheDir    = $PACSTRAP_CACHE/" "$WORKDIR/pacman.conf"
 # its .db straight off disk, so pointing pacstrap at it makes the -Sy succeed
 # entirely offline.
 #
-# We only switch to the local repo when the mirrors are actually unreachable, so
-# a normal ONLINE build is completely unchanged (it keeps the network repos and
-# still pulls new/updated packages, warming cache/pacman-pkg going forward). The
-# probe is a fast throwaway `pacman -Sy` into a scratch dbpath using this very
+# CACHE-FIRST POLICY (see cache_is_complete near the top):
+#   * BUILD_OFFLINE=1 (complete cache, the common case) -> rewrite pacman.conf to
+#     the local file:// repo WITHOUT probing any mirror. Zero server contact.
+#   * BUILD_OFFLINE=0 (cache wiped by `git clean -Xdf`, or FORCE_ONLINE=1) -> we
+#     genuinely need the network, so probe the mirrors and, only if they are
+#     actually unreachable, fall back to the local repo if one somehow exists.
+# The probe is a fast throwaway `pacman -Sy` into a scratch dbpath using this very
 # profile pacman.conf -- it exercises the exact mirror set pacstrap will use, so
 # it can't disagree with what pacstrap then sees. Seconds on a warm network,
 # fails within pacman's own connect timeout when offline.
@@ -1070,47 +1153,65 @@ LOCALREPO_DB="$LOCALREPO/pacstrap-easyarch-repo.db"
 # Drop any zero-byte *.part left by an interrupted cache-pkgs.sh -Sw so a file://
 # directory listing never trips over a transient artifact. Harmless if none exist.
 rm -f "$LOCALREPO"/*.part 2>/dev/null || true
-_probe_db="$WORKDIR/.netprobe-db"
-rm -rf "$_probe_db"; mkdir -p "$_probe_db/sync"
-# The probe is a PURE connectivity test: its own scratch --dbpath AND --cachedir
-# (both throwaway) mean it can never mutate the warm cache/pacman-pkg the injected
-# CacheDir now points at. --disable-sandbox mirrors pacstrap's own pacman call
-# (pacstrap comments out DownloadUser and runs unsandboxed), so a host lacking
-# Landlock/sandbox privileges can't make the probe a false-negative.
-if $SUDO pacman -Sy --config "$WORKDIR/pacman.conf" --dbpath "$_probe_db" \
-        --cachedir "$_probe_db" --disable-sandbox --noconfirm >/dev/null 2>&1; then
-    echo "    [+] Mirrors reachable -- building online (new packages will be fetched)."
+
+# Rewrite the profile pacman.conf so pacstrap installs from the local file:// repo
+# instead of the network mirrors. Shared by both offline paths (cache-present and
+# probe-failed) so the rewrite lives in exactly one place.
+switch_pacman_conf_to_local_repo() {
+    # Replace every network repo section ([core]/[extra]/[multilib], each an
+    # `Include = /etc/pacman.d/mirrorlist` block) with a single local file://
+    # repo. Deleting from each '[repo]' header up to the blank line before the
+    # next section drops the header AND its Include/Server lines cleanly. Then
+    # append the local repo, whose db+packages both live in cache/pkgs/repo.
+    # SigLevel = Never mirrors [pacstrap-easyarch-repo] elsewhere in the build:
+    # these are locally-built packages with NO .sig files (cache-pkgs.sh fetched
+    # them SigLevel=Never), and pacstrap runs with -G (no keyring copied into the
+    # target), so signature verification would have nothing to check against --
+    # hence Never, matching the ISO installer's own file:// repo.
+    sed -i '/^\[core\]/,/^$/d; /^\[extra\]/,/^$/d; /^\[multilib\]/,/^$/d' \
+        "$WORKDIR/pacman.conf"
+    # file://%s uses $LOCALREPO verbatim, which is already an absolute path that
+    # resolves correctly in BOTH environments: /build/cache/pkgs/repo under Docker
+    # (the bind mount) and $REPODIR/cache/pkgs/repo natively. Do not "fix" it to a
+    # host path -- pacstrap runs where this path is valid.
+    {
+        printf '\n[pacstrap-easyarch-repo]\n'
+        printf 'SigLevel = Never\n'
+        printf 'Server = file://%s\n' "$LOCALREPO"
+    } >> "$WORKDIR/pacman.conf"
+    # Assert the rewrite actually landed the local repo. If a future edit to the
+    # profile pacman.conf changed the [core]/[extra] header spelling, the deletes
+    # above could no-op and leave network repos in place -- warn loudly rather
+    # than silently fall back to a build that will fail offline.
+    grep -q '^\[pacstrap-easyarch-repo\]' "$WORKDIR/pacman.conf" \
+        || echo "    [!] Offline conf rewrite did not inject the local repo -- check the profile pacman.conf." >&2
+}
+
+if [ "${BUILD_OFFLINE:-0}" = "1" ]; then
+    # Complete cache -> go straight to the local repo, no mirror contact at all.
+    # (This is the whole point: a warm cache never pings a server.)
+    echo "    [+] Complete cache present -- building OFFLINE from the cached local repo."
+    echo "        ($LOCALREPO) -- no mirror will be contacted. Wipe cache/ (e.g."
+    echo "        'git clean -Xdf') or set FORCE_ONLINE=1 to fetch fresh packages."
+    switch_pacman_conf_to_local_repo
 else
-    if [ -f "$LOCALREPO_DB" ]; then
+    # Cache incomplete (wiped by git clean -Xdf) or FORCE_ONLINE=1 -> we need the
+    # network. Probe the mirrors; only fall back to the local repo if they are
+    # actually down. The probe is a PURE connectivity test: its own scratch
+    # --dbpath AND --cachedir (both throwaway) mean it can never mutate the warm
+    # cache/pacman-pkg the injected CacheDir now points at. --disable-sandbox
+    # mirrors pacstrap's own pacman call (pacstrap comments out DownloadUser and
+    # runs unsandboxed), so a host lacking Landlock/sandbox privileges can't make
+    # the probe a false-negative.
+    _probe_db="$WORKDIR/.netprobe-db"
+    rm -rf "$_probe_db"; mkdir -p "$_probe_db/sync"
+    if $SUDO pacman -Sy --config "$WORKDIR/pacman.conf" --dbpath "$_probe_db" \
+            --cachedir "$_probe_db" --disable-sandbox --noconfirm >/dev/null 2>&1; then
+        echo "    [+] Mirrors reachable -- building online (new packages will be fetched)."
+    elif [ -f "$LOCALREPO_DB" ]; then
         echo "    [!] Mirrors unreachable -- building OFFLINE from the cached local repo."
         echo "        ($LOCALREPO)"
-        # Replace every network repo section ([core]/[extra]/[multilib], each an
-        # `Include = /etc/pacman.d/mirrorlist` block) with a single local file://
-        # repo. Deleting from each '[repo]' header up to the blank line before the
-        # next section drops the header AND its Include/Server lines cleanly. Then
-        # append the local repo, whose db+packages both live in cache/pkgs/repo.
-        # SigLevel = Never mirrors [pacstrap-easyarch-repo] elsewhere in the build:
-        # these are locally-built packages with NO .sig files (cache-pkgs.sh fetched
-        # them SigLevel=Never), and pacstrap runs with -G (no keyring copied into the
-        # target), so signature verification would have nothing to check against --
-        # hence Never, matching the ISO installer's own file:// repo.
-        sed -i '/^\[core\]/,/^$/d; /^\[extra\]/,/^$/d; /^\[multilib\]/,/^$/d' \
-            "$WORKDIR/pacman.conf"
-        # file://%s uses $LOCALREPO verbatim, which is already an absolute path that
-        # resolves correctly in BOTH environments: /build/cache/pkgs/repo under Docker
-        # (the bind mount) and $REPODIR/cache/pkgs/repo natively. Do not "fix" it to a
-        # host path -- pacstrap runs where this path is valid.
-        {
-            printf '\n[pacstrap-easyarch-repo]\n'
-            printf 'SigLevel = Never\n'
-            printf 'Server = file://%s\n' "$LOCALREPO"
-        } >> "$WORKDIR/pacman.conf"
-        # Assert the rewrite actually landed the local repo. If a future edit to the
-        # profile pacman.conf changed the [core]/[extra] header spelling, the deletes
-        # above could no-op and leave network repos in place -- warn loudly rather
-        # than silently fall back to a build that will fail offline.
-        grep -q '^\[pacstrap-easyarch-repo\]' "$WORKDIR/pacman.conf" \
-            || echo "    [!] Offline conf rewrite did not inject the local repo -- check the profile pacman.conf." >&2
+        switch_pacman_conf_to_local_repo
     else
         # No network AND no local repo to fall back on: let mkarchiso run and fail
         # with pacman's own clear "failed retrieving core.db" message rather than
@@ -1120,8 +1221,8 @@ else
         echo "        $LOCALREPO -- an offline build is not possible yet. Run once" >&2
         echo "        online to populate the cache, then offline rebuilds will work." >&2
     fi
+    rm -rf "$_probe_db"
 fi
-rm -rf "$_probe_db"
 
 step "Cleaning up temp directory..."
 rm -rfv $WORKDIR/.temp

@@ -65,36 +65,56 @@ rm -rf "$GPGDIR"; mkdir -p "$GPGDIR"
 # enable. Needs sudo because a crashed root pacman leaves a root-owned lock.
 $SUDO rm -f "$PKGDB/db.lck"
 
-echo "[*] Syncing package databases..."
-# Refresh the sync DB into the PERSISTENT db path. If the network is down but the
-# cache is already complete we still want to proceed offline, so a failed -Sy is
-# non-fatal as long as a previously synced DB exists.
-if ! $SUDO pacman -Sy --config "$DLCONF" --gpgdir "$GPGDIR" \
-        --dbpath "$PKGDB" --cachedir "$PKGREPO" --noconfirm; then
-    if [ -n "$(ls -A "$PKGDB/sync" 2>/dev/null)" ]; then
-        echo "    [+] DB sync failed but a cached DB exists — continuing offline."
-    else
-        fail "Could not sync package databases and no cached DB to fall back on."
+# --- Cache-first: skip ALL network when the cache is already complete ---------
+# compile.sh resolves the policy ONCE (see cache_is_complete there) and exports
+# BUILD_OFFLINE. When it is 1 we already hold a complete package cache + synced
+# DBs, so there is nothing to fetch: skip BOTH the `pacman -Sy` DB sync and the
+# `pacman -Sw` download entirely and jump straight to reconciling + staging the
+# existing cache. No server is pinged. The mirrors are only touched when the
+# cache was wiped (git clean -Xdf -> BUILD_OFFLINE=0) or FORCE_ONLINE=1.
+# Default to online (0) when run standalone without compile.sh exporting the var.
+if [ "${BUILD_OFFLINE:-0}" = "1" ]; then
+    echo "[*] Complete cache present — skipping DB sync and download (fully offline)."
+    if [ -z "$(ls -A "$PKGDB/sync" 2>/dev/null)" ]; then
+        # Defensive: BUILD_OFFLINE=1 implies compile.sh already verified the synced
+        # DBs exist, but if they somehow vanished between that check and here we must
+        # not silently proceed with an empty db -- fail loudly instead.
+        fail "BUILD_OFFLINE set but no cached sync DB at $PKGDB/sync — wipe cache/ and rebuild online."
     fi
+else
+    echo "[*] Syncing package databases..."
+    # Refresh the sync DB into the PERSISTENT db path. If the network is down but the
+    # cache is already complete we still want to proceed offline, so a failed -Sy is
+    # non-fatal as long as a previously synced DB exists.
+    if ! $SUDO pacman -Sy --config "$DLCONF" --gpgdir "$GPGDIR" \
+            --dbpath "$PKGDB" --cachedir "$PKGREPO" --noconfirm; then
+        if [ -n "$(ls -A "$PKGDB/sync" 2>/dev/null)" ]; then
+            echo "    [+] DB sync failed but a cached DB exists — continuing offline."
+        else
+            fail "Could not sync package databases and no cached DB to fall back on."
+        fi
+    fi
+
+    echo "[*] Preparing package list..."
+    pkgs=$(tr '\n' ' ' < packages.x86_64)
+
+    echo "[*] Downloading missing packages into the persistent cache (resumable)..."
+    # One non-interactive call for the whole list. pacman resolves dependencies once,
+    # skips every package already in $PKGREPO, and downloads only what is missing —
+    # so this is where real-time, resumable caching happens. --noconfirm suppresses
+    # the "Proceed with download? [Y/n]" prompt.
+    $SUDO pacman -Sw --config "$DLCONF" --gpgdir "$GPGDIR" --noconfirm \
+        --cachedir "$PKGREPO" --dbpath "$PKGDB" $pkgs || fail "package download"
 fi
 
-echo "[*] Preparing package list..."
-pkgs=$(tr '\n' ' ' < packages.x86_64)
-
-echo "[*] Downloading missing packages into the persistent cache (resumable)..."
-# One non-interactive call for the whole list. pacman resolves dependencies once,
-# skips every package already in $PKGREPO, and downloads only what is missing —
-# so this is where real-time, resumable caching happens. --noconfirm suppresses
-# the "Proceed with download? [Y/n]" prompt.
-$SUDO pacman -Sw --config "$DLCONF" --gpgdir "$GPGDIR" --noconfirm \
-    --cachedir "$PKGREPO" --dbpath "$PKGDB" $pkgs || fail "package download"
-
-# pacman ran as root, so newly downloaded files are root-owned. Hand this cache
-# subtree back so the later UNPRIVILEGED steps in THIS script (repo-add, staging
-# cp) can read it, and so the host user isn't locked out mid-build. Prefer the
-# host uid/gid exported by compile.sh (correct across the Docker bind mount);
-# fall back to the current user for a native/standalone run. compile.sh's final
-# sweep chowns cache/ again on exit anyway, so this is belt-and-braces.
+# On the online path pacman just ran as root, so newly downloaded files are
+# root-owned; hand this cache subtree back so the later UNPRIVILEGED steps in THIS
+# script (repo-add, staging cp) can read it and the host user isn't locked out
+# mid-build. On the offline path nothing new was written, so this is a near-no-op
+# that only re-affirms ownership -- harmless and idempotent either way. Prefer the
+# host uid/gid exported by compile.sh (correct across the Docker bind mount); fall
+# back to the current user for a native/standalone run. compile.sh's final sweep
+# chowns cache/ again on exit anyway, so this is belt-and-braces.
 _OWN_UID=${HOST_UID:-$(id -u)}
 _OWN_GID=${HOST_GID:-$(id -g)}
 $SUDO chown -R "$_OWN_UID:$_OWN_GID" "$PKGREPO" "$PKGDB" 2>/dev/null || true
