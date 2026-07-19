@@ -50,8 +50,10 @@ It comes with only the essential packages needed for any system. The desktop env
 
 ## 🧰 How to Compile Easy Arch Linux
 
-You can clone this repository and compile the ISO yourself. This needs an
-internet connection to download every component that goes into the ISO.
+You can clone this repository and compile the ISO yourself. The **first** build
+needs an internet connection to download every component that goes into the ISO;
+after that everything is cached and rebuilds run fully offline (see
+[Offline rebuilds from cache](#-offline-rebuilds-from-cache)).
 
 Packages are pulled at their latest version, so the ISO you build may contain
 bugs the pre-built download does not (that one was briefly examined before being
@@ -158,15 +160,41 @@ Once Docker is installed and running, the steps are the same everywhere.
    - **Windows (WSL):** the same folder is reachable from File Explorer at
      `\\wsl$\<distro>\home\<your-username>\easy-arch-desktop-iso\output`.
 
-5. **(Optional) Save a full build log** for debugging:
-   ```
-   sudo docker run --rm -t --init --privileged \
-     -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" \
-     -v "$PWD/cache:/build/cache" \
-     -v "$PWD/output:/build/output" \
-     -v "$PWD/logs:/build/logs" \
-     easyarch 2>&1 | tee build.log
-   ```
+   Every run already writes its full build log to `logs/` (a complete `full.log`
+   and a milestone-only `steps.log`), so there is no separate step to capture it.
+
+### 📦 Offline rebuilds from cache
+
+Once you have built the ISO successfully at least once, the `cache/` folder holds
+every package the build needs (several GB), plus the synced package databases and
+a local package index. From then on **you can rely entirely on the cache**: as
+long as `cache/` is intact, the build contacts **no server at all** — no database
+sync, no download, not even a connectivity probe. It builds straight from the
+local cache, so rebuilds work fully offline and are much faster.
+
+The mirrors are only contacted again when you explicitly ask for it:
+
+- **Wipe the cache** to force a fresh, fully-online rebuild:
+  ```
+  git clean -Xdf        # deletes cache/, output/, logs/ (all git-ignored)
+  ```
+  (Or just `rm -rf cache/` to clear only the package cache.)
+- **Refresh without wiping** — pull the latest upstream package versions while
+  keeping the cache — by passing `-e FORCE_ONLINE=1` to the build:
+  ```
+  sudo docker run --rm -it --init --privileged \
+    -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" \
+    -e FORCE_ONLINE=1 \
+    -v "$PWD/cache:/build/cache" \
+    -v "$PWD/output:/build/output" \
+    -v "$PWD/logs:/build/logs" \
+    easyarch
+  ```
+
+> ⚠️ **If you edit `packages.x86_64` to add packages** while a full cache exists,
+> the offline build won't have the new packages and may fail. Rebuild with
+> `FORCE_ONLINE=1` (or wipe the cache first) so they get fetched. The build prints
+> a warning when it detects the package list is newer than the cache.
 
 > 💡 The build downloads several GB of packages. The `-v "$PWD/cache:/build/cache"`
 > mount keeps those downloads on your machine between runs, so a rebuild only
