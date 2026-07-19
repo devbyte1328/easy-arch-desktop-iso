@@ -74,8 +74,8 @@ def build_cache(workdir: Path, cachedir: Path, offline: bool, progress: Progress
     sudo = _sudo()
     pkg_repo = cachedir / "pkgs" / "repo"
     pkg_db = cachedir / "pkgs" / "db"
-    final_db = workdir / "airootfs/root/Easy-Arch/pacstrap-easyarch-db"
-    final_cache = workdir / "airootfs/root/Easy-Arch/pacstrap-easyarch-repo"
+    final_db = workdir / "airootfs/root/azarch/pacstrap-azarch-db"
+    final_cache = workdir / "airootfs/root/azarch/pacstrap-azarch-repo"
     gpgdir = workdir / ".pkgs-gnupg"
     dlconf = _write_download_conf(workdir / ".cache-pkgs-pacman.conf")
 
@@ -150,10 +150,10 @@ def _sync_and_download(sudo, dlconf, gpgdir, pkg_db, pkg_repo, progress) -> None
 
 
 def _reconcile_index(pkg_repo: Path, progress: ProgressCb) -> None:
-    """Incrementally reconcile pacstrap-easyarch-repo.db with the .pkg files on disk.
+    """Incrementally reconcile pacstrap-azarch-repo.db with the .pkg files on disk.
     Only new/changed packages are added; stale names removed; duplicate older
     versions pruned. Byte-for-byte equivalent to a full rebuild's db."""
-    db = pkg_repo / "pacstrap-easyarch-repo.db.tar.gz"
+    db = pkg_repo / "pacstrap-azarch-repo.db.tar.gz"
     pkgfiles = sorted(pkg_repo.glob("*.pkg.tar.zst"))
     if not pkgfiles:
         raise PackageError("no packages in cache to index")
@@ -199,9 +199,9 @@ def _reconcile_index(pkg_repo: Path, progress: ProgressCb) -> None:
 def _seed_fresh_index(pkg_repo, db, have_key, progress) -> None:
     add = [str(pkg_repo / bn) for bn in have_key.values()]
     print(f"    [+] No usable index -- building fresh from {len(add)} package(s) (one-time).")
-    for old in pkg_repo.glob("pacstrap-easyarch-repo.db*"):
+    for old in pkg_repo.glob("pacstrap-azarch-repo.db*"):
         old.unlink(missing_ok=True)
-    for old in pkg_repo.glob("pacstrap-easyarch-repo.files*"):
+    for old in pkg_repo.glob("pacstrap-azarch-repo.files*"):
         old.unlink(missing_ok=True)
     tot, chunk = len(add), 50
     for i in range(0, tot, chunk):

@@ -18,7 +18,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-# libraries/easyarch/paths.py -> repo root is three parents up.
+# libraries/azarch/paths.py -> repo root is three parents up.
 REPODIR = Path(__file__).resolve().parents[2]
 
 LIBDIR = REPODIR / "libraries"
@@ -33,8 +33,8 @@ WORKDIR = CACHEDIR / "build"
 PKG_REPO = CACHEDIR / "pkgs" / "repo"
 PKG_DB = CACHEDIR / "pkgs" / "db"
 PKG_SYNC_DB = PKG_DB / "sync"
-LOCALREPO_INDEX = PKG_REPO / "pacstrap-easyarch-repo.db"
-LOCALREPO_INDEX_TAR = PKG_REPO / "pacstrap-easyarch-repo.db.tar.gz"
+LOCALREPO_INDEX = PKG_REPO / "pacstrap-azarch-repo.db"
+LOCALREPO_INDEX_TAR = PKG_REPO / "pacstrap-azarch-repo.db.tar.gz"
 
 # pacstrap's CacheDir, injected into the profile pacman.conf so the ~1200 live-ISO
 # packages are reused across builds instead of re-downloaded.
@@ -47,7 +47,7 @@ STEPS_LOG = LOGDIR / "steps.log"
 # Verbatim data files.
 PACKAGES_FILE = DATADIR / "packages.x86_64"
 
-# Inside the archiso profile tree, the airootfs root and the Easy-Arch payload dir
+# Inside the archiso profile tree, the airootfs root and the azarch payload dir
 # baked into the live/installed system.
 AIROOTFS = WORKDIR / "work" / "x86_64" / "airootfs"
 

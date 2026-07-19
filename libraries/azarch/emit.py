@@ -1,6 +1,6 @@
 """Emit contract: write config-as-Python content out as real files in the ISO tree.
 
-The config modules (``easyarch.config.*``) hold each artifact's content as a
+The config modules (``azarch.config.*``) hold each artifact's content as a
 Python string. These helpers place that content on disk with the right mode,
 and copy the few verbatim data files. This is the seam between "config as data"
 (the strings) and "build logic" (where they go).

@@ -56,7 +56,7 @@ def run(bar: ProgressBar, offline: bool, reclaim_after_mkarchiso) -> Path:
     """Execute all steps; return the path to the built ISO. Raises on failure."""
     W = paths.WORKDIR
     airootfs = W / "airootfs"
-    ea = airootfs / "root/Easy-Arch"  # the Easy-Arch payload dir baked into the ISO
+    ea = airootfs / "root/azarch"  # the azarch payload dir baked into the ISO
     sudo = _sudo()
 
     # 1
@@ -145,8 +145,8 @@ def run(bar: ProgressBar, offline: bool, reclaim_after_mkarchiso) -> Path:
 
     # 19
     bar.step("Setting up the ISO installer autostart...")
-    emit.write_exec(home / "Desktop/easy-arch-iso-installer.sh", installer.installer_sh())
-    emit.write_text(home / ".config/autostart/easy-arch-iso-install.desktop", installer.installer_desktop())
+    emit.write_exec(home / "Desktop/azarch-iso-installer.sh", installer.installer_sh())
+    emit.write_text(home / ".config/autostart/azarch-iso-install.desktop", installer.installer_desktop())
 
     # 20
     bar.step("Copying first-boot configuration...")
@@ -166,7 +166,7 @@ def run(bar: ProgressBar, offline: bool, reclaim_after_mkarchiso) -> Path:
     # stage the installer-side payload the on-disk installer needs
     emit.copy_data("packages.x86_64", ea / "packages.x86_64")
     emit.write_text(ea / "pacman-base-conf/pacman.conf", pacman.installer_base_conf())
-    emit.write_text(ea / "pacstrap-easyarch-conf/pacman.conf", pacman.installer_pacstrap_conf())
+    emit.write_text(ea / "pacstrap-azarch-conf/pacman.conf", pacman.installer_pacstrap_conf())
     emit.write_exec(ea / "chroot-setup.sh", installer.chroot_setup_sh())
 
     # 23 (giant)
@@ -222,13 +222,13 @@ def _emit_kde(airootfs: Path, ea: Path, home: Path) -> None:
     emit.write_text(cfg / "menus/applications-kmenuedit.menu", kde.APPLICATIONS_MENU)
     emit.write_text(cfg / "kdeglobals", kde.KDEGLOBALS)
     # The two big upstream QML files stay verbatim data; the live ISO copies them
-    # into the plasmoid via setup-pkgs. They live under root/Easy-Arch and kde/.
+    # into the plasmoid via setup-pkgs. They live under root/azarch and kde/.
     emit.copy_data("kde/Footer.qml", ea / "Footer.qml")
     emit.copy_data("kde/main.qml", ea / "main.qml")
     kde_dir = ea / "kde"
     for name in ("Footer.qml", "main.qml"):
         emit.copy_data(f"kde/{name}", kde_dir / name)
-    # the on-disk installer copies these KDE configs from root/Easy-Arch/kde too
+    # the on-disk installer copies these KDE configs from root/azarch/kde too
     emit.write_text(kde_dir / "plasmashellrc", kde.PLASMASHELLRC)
     emit.write_text(kde_dir / "kwinrc", kde.KWINRC)
     emit.write_text(kde_dir / "plasma-org.kde.plasma.desktop-appletsrc", kde.APPLETSRC)
@@ -256,7 +256,7 @@ def _switch_offline(W: Path, conf: str, localrepo: Path) -> None:
         part.unlink(missing_ok=True)
     conf = pacman.switch_to_local_repo(conf, str(localrepo))
     emit.write_text(W / "pacman.conf", conf)
-    if "[pacstrap-easyarch-repo]" not in conf:
+    if "[pacstrap-azarch-repo]" not in conf:
         sys.stderr.write(
             "    [!] Offline conf rewrite did not inject the local repo -- check config/pacman.py.\n"
         )

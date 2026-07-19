@@ -2,7 +2,7 @@
 real .sh/.desktop/.conf/.service files the ISO ships.
 
   installer_desktop()        autostart .desktop that launches the installer
-  installer_sh()             easy-arch-iso-installer.sh: partition, pacstrap from
+  installer_sh()             azarch-iso-installer.sh: partition, pacstrap from
                              the offline repo, copy config, run chroot-setup
   chroot_setup_sh()          runs inside arch-chroot: locale, bootloader, services
   setup_pkgs_sh()            live-ISO oneshot: firewall + theme tweaks
@@ -23,7 +23,7 @@ def installer_desktop() -> str:
     return """\
 [Desktop Entry]
 Type=Application
-Exec=konsole -e bash -c "sudo /home/main/Desktop/easy-arch-iso-installer.sh; exec bash"
+Exec=konsole -e bash -c "sudo /home/main/Desktop/azarch-iso-installer.sh; exec bash"
 Hidden=false
 NoDisplay=false
 Name=Run Script
@@ -45,11 +45,11 @@ LIGHT_BLUE='\\033[1;34m'
 RED='\\033[1;31m'
 RESET='\\033[0m'
 
-echo -e "${LIGHT_BLUE}Welcome to Easy Arch Installation${RESET}"
+echo -e "${LIGHT_BLUE}Welcome to azarch Installation${RESET}"
 echo -e "${RED}WARNING:${RESET} This will erase everything on the targeted disk using wipefs -a, removing all filesystem, RAID, and partition-table signatures${RESET}"
 echo "Select an installation option:"
-echo "1. Automatically detect largest disk (excludes USB drives) and install Easy Arch"
-echo "2. Manually select disk to erase and install Easy Arch"
+echo "1. Automatically detect largest disk (excludes USB drives) and install azarch"
+echo "2. Manually select disk to erase and install azarch"
 read -p "Enter option (1 or 2): " choice
 
 # Convert size strings to bytes
@@ -159,15 +159,15 @@ echo "$largest_disk" > /mnt/etc/install_info/disk
 echo "$is_uefi" > /mnt/etc/install_info/is_uefi
 
 echo "Setting up local repository..."
-mkdir -p /mnt/pacstrap-easyarch-repo
-mkdir -p /tmp/pacstrap-easyarch-db
-cp -r /root/Easy-Arch/pacstrap-easyarch-repo/. /mnt/pacstrap-easyarch-repo/
-cp -r /root/Easy-Arch/pacstrap-easyarch-db/. /tmp/pacstrap-easyarch-db/
+mkdir -p /mnt/pacstrap-azarch-repo
+mkdir -p /tmp/pacstrap-azarch-db
+cp -r /root/azarch/pacstrap-azarch-repo/. /mnt/pacstrap-azarch-repo/
+cp -r /root/azarch/pacstrap-azarch-db/. /tmp/pacstrap-azarch-db/
 cp /etc/pacman.conf /etc/pacman.bak
-cp /root/Easy-Arch/pacstrap-easyarch-conf/pacman.conf /etc/pacman.conf
+cp /root/azarch/pacstrap-azarch-conf/pacman.conf /etc/pacman.conf
 
 echo "Running pacstrap..."
-pacstrap /mnt $(tr '\\n' ' ' < /root/Easy-Arch/packages.x86_64)
+pacstrap /mnt $(tr '\\n' ' ' < /root/azarch/packages.x86_64)
 
 mv /etc/pacman.bak /etc/pacman.conf
 
@@ -176,7 +176,7 @@ genfstab -U /mnt >> /mnt/etc/fstab
 
 echo "Copying chroot setup..."
 mkdir -p /mnt
-cp /root/Easy-Arch/chroot-setup.sh /mnt/chroot-setup.sh
+cp /root/azarch/chroot-setup.sh /mnt/chroot-setup.sh
 chmod +x /mnt/chroot-setup.sh
 
 echo "Setting up users and sudo config..."
@@ -203,26 +203,26 @@ cp /usr/share/xsessions/plasma.desktop /mnt/usr/share/xsessions/plasma.desktop
 
 echo "[*] Copying KDE minimal theme files..."
 mkdir -p /mnt/home/main/.config/menus
-mkdir -p /mnt/root/Easy-Arch/kde
-cp /root/Easy-Arch/kde/Footer.qml /mnt/root/Easy-Arch/Footer.qml
-cp /root/Easy-Arch/kde/main.qml /mnt/root/Easy-Arch/main.qml
-cp /root/Easy-Arch/kde/plasmashellrc /mnt/home/main/.config/plasmashellrc
-cp /root/Easy-Arch/kde/kwinrc /mnt/home/main/.config/kwinrc
-cp /root/Easy-Arch/kde/plasma-org.kde.plasma.desktop-appletsrc /mnt/home/main/.config/plasma-org.kde.plasma.desktop-appletsrc
-cp /root/Easy-Arch/kde/applications-kmenuedit.menu /mnt/home/main/.config/menus/applications-kmenuedit.menu
-cp /root/Easy-Arch/kde/kdeglobals /mnt/home/main/.config/kdeglobals
+mkdir -p /mnt/root/azarch/kde
+cp /root/azarch/kde/Footer.qml /mnt/root/azarch/Footer.qml
+cp /root/azarch/kde/main.qml /mnt/root/azarch/main.qml
+cp /root/azarch/kde/plasmashellrc /mnt/home/main/.config/plasmashellrc
+cp /root/azarch/kde/kwinrc /mnt/home/main/.config/kwinrc
+cp /root/azarch/kde/plasma-org.kde.plasma.desktop-appletsrc /mnt/home/main/.config/plasma-org.kde.plasma.desktop-appletsrc
+cp /root/azarch/kde/applications-kmenuedit.menu /mnt/home/main/.config/menus/applications-kmenuedit.menu
+cp /root/azarch/kde/kdeglobals /mnt/home/main/.config/kdeglobals
 
 echo "[*] Copying first boot configuration files..."
 mkdir -p /mnt/home/main/.config/first-boot
 mkdir -p /mnt/etc/systemd/system
 mkdir -p /mnt/etc/profile.d
-cp /root/Easy-Arch/first-boot-setup.sh /mnt/home/main/.config/first-boot/first-boot-setup.sh
-cp /root/Easy-Arch/first-boot-setup.service /mnt/etc/systemd/system/first-boot-setup.service
-cp /root/Easy-Arch/first-boot-setup.conf /mnt/home/main/.config/first-boot/first-boot-setup.conf
+cp /root/azarch/first-boot-setup.sh /mnt/home/main/.config/first-boot/first-boot-setup.sh
+cp /root/azarch/first-boot-setup.service /mnt/etc/systemd/system/first-boot-setup.service
+cp /root/azarch/first-boot-setup.conf /mnt/home/main/.config/first-boot/first-boot-setup.conf
 
 echo "[*] Copying pacman config..."
 mkdir -p /mnt/etc
-cp /root/Easy-Arch/pacman-base-conf/pacman.conf /mnt/etc/pacman.conf
+cp /root/azarch/pacman-base-conf/pacman.conf /mnt/etc/pacman.conf
 
 echo "Running chroot setup..."
 arch-chroot /mnt /bin/bash /chroot-setup.sh
@@ -262,8 +262,8 @@ fi
 grub-mkconfig -o /boot/grub/grub.cfg
 
 mkdir -p /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/
-cp /root/Easy-Arch/Footer.qml /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/Footer.qml
-cp /root/Easy-Arch/main.qml /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/main.qml
+cp /root/azarch/Footer.qml /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/Footer.qml
+cp /root/azarch/main.qml /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/main.qml
 
 systemctl enable sddm
 systemctl enable NetworkManager
@@ -284,7 +284,7 @@ chown -R main:main /home/main
 
 pacman -Sy
 
-echo -e "\\e[94mEasy Arch disk installation complete, you can reboot now.\\e[0m"
+echo -e "\\e[94mazarch disk installation complete, you can reboot now.\\e[0m"
 """
 
 
@@ -302,11 +302,11 @@ sudo ufw default allow outgoing
 
 # Apply KDE minimal theme
 sudo mkdir -p /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/
-sudo cp /root/Easy-Arch/Footer.qml /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/Footer.qml
-sudo cp /root/Easy-Arch/main.qml /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/main.qml
+sudo cp /root/azarch/Footer.qml /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/Footer.qml
+sudo cp /root/azarch/main.qml /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/main.qml
 
-# Fix easy arch iso installer permissions
-sudo chmod +x /home/main/Desktop/easy-arch-iso-installer.sh
+# Fix azarch iso installer permissions
+sudo chmod +x /home/main/Desktop/azarch-iso-installer.sh
 
 # Remove unnecesary packages
 sudo pacman -R --noconfirm discover plasma-welcome
@@ -352,8 +352,8 @@ if grep -q '^First_Boot=TRUE' "$CONFIG_FILE"; then
 
     # Create plasmoid directory and copy files
     mkdir -p /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/
-    cp /root/Easy-Arch/Footer.qml /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/Footer.qml
-    cp /root/Easy-Arch/main.qml /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/main.qml
+    cp /root/azarch/Footer.qml /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/Footer.qml
+    cp /root/azarch/main.qml /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/main.qml
 
     # Wait up to 15 seconds for internet connection
     timeout 15s bash -c "until ping -c 1 archlinux.org >/dev/null 2>&1; do sleep 1; done" || { echo "No internet connection after 15s"; }

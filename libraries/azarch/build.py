@@ -1,4 +1,4 @@
-"""Build entrypoint: `python3 -m easyarch.build`.
+"""Build entrypoint: `python3 -m azarch.build`.
 
 Invoked by the thin compile.sh shim AFTER it has set up the PTY (via util-linux
 `script`) and primed sudo. This module owns the high-level flow:

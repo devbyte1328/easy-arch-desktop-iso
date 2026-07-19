@@ -120,7 +120,7 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=/root/Easy-Arch/setup-locale.sh
+ExecStart=/root/azarch/setup-locale.sh
 StandardOutput=journal
 RemainAfterExit=yes
 
@@ -132,11 +132,11 @@ PKGS_SETUP_SERVICE = """\
 [Unit]
 Description=Configure Packages
 After=network.target
-ConditionPathExists=/root/Easy-Arch/setup-pkgs.sh
+ConditionPathExists=/root/azarch/setup-pkgs.sh
 
 [Service]
 Type=oneshot
-ExecStart=/root/Easy-Arch/setup-pkgs.sh
+ExecStart=/root/azarch/setup-pkgs.sh
 RemainAfterExit=true
 
 [Install]

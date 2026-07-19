@@ -1,9 +1,9 @@
 #!/bin/bash
 #
-# Easy Arch Linux -- ISO build entrypoint (thin shim).
+# azarch -- ISO build entrypoint (thin shim).
 #
 # The build itself is Python: everything (steps, staging, the package cache, the
-# progress bar, the ownership handback) lives in libraries/easyarch/. This shim
+# progress bar, the ownership handback) lives in libraries/azarch/. This shim
 # only does the two things that genuinely must be bash BEFORE Python starts:
 #
 #   1. Prime sudo ONCE on the real controlling terminal. After the PTY re-exec
@@ -17,7 +17,7 @@
 #      and appear frozen for minutes during big downloads). `script` also captures
 #      a faithful copy of everything to logs/full.log.
 #
-# Then it hands off to `python3 -m easyarch.build`, which does the rest.
+# Then it hands off to `python3 -m azarch.build`, which does the rest.
 
 set -o pipefail
 
@@ -47,8 +47,8 @@ if [ -z "$_COMPILE_LOGGING" ]; then
 fi
 
 # --- Under the PTY now: hand off to the Python build driver. ----------------
-# PYTHONPATH points at libraries/ so `import easyarch` resolves. -u = unbuffered,
+# PYTHONPATH points at libraries/ so `import azarch` resolves. -u = unbuffered,
 # so the bar and build output interleave correctly on the PTY and in full.log.
 export PYTHONPATH="$REPODIR/libraries${PYTHONPATH:+:$PYTHONPATH}"
 export _COMPILE_ONPTY
-exec python3 -u -m easyarch.build "$@"
+exec python3 -u -m azarch.build "$@"

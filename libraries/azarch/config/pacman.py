@@ -24,7 +24,7 @@ The variants:
                            (/etc/pacman.conf): plain Arch defaults, multilib on.
 
   installer_pacstrap_conf()the transient pacman.conf the on-disk installer swaps in
-                           during pacstrap: adds the file:// [pacstrap-easyarch-repo]
+                           during pacstrap: adds the file:// [pacstrap-azarch-repo]
                            so installation works fully offline from the ISO's repo.
 """
 
@@ -171,7 +171,7 @@ def download_conf() -> str:
 # never Includes the host mirrorlist.
 #
 # SigLevel = Never here only affects the *download* step. Final package trust is
-# re-established at pacstrap time against the file:// [pacstrap-easyarch-repo].
+# re-established at pacstrap time against the file:// [pacstrap-azarch-repo].
 #
 [options]
 Architecture      = x86_64
@@ -215,7 +215,7 @@ def switch_to_local_repo(conf: str, localrepo_path: str) -> str:
     repo instead of the network mirrors -- the fully-offline rebuild path.
 
     Drops every network repo section ([core]/[extra]/[multilib], commented or
-    not) and appends a single [pacstrap-easyarch-repo] pointing at the local repo.
+    not) and appends a single [pacstrap-azarch-repo] pointing at the local repo.
     SigLevel=Never: the cached packages have no .sig files and pacstrap runs with
     -G (no keyring copied into the target), so there is nothing to verify against.
     """
@@ -234,7 +234,7 @@ def switch_to_local_repo(conf: str, localrepo_path: str) -> str:
         out_lines.append(line)
     out = "\n".join(out_lines).rstrip("\n")
     out += (
-        "\n\n[pacstrap-easyarch-repo]\n"
+        "\n\n[pacstrap-azarch-repo]\n"
         "SigLevel = Never\n"
         f"Server = file://{localrepo_path}\n"
     )
@@ -265,8 +265,8 @@ def installer_pacstrap_conf() -> str:
     )
     conf += "\n" + _CUSTOM_EXAMPLE
     conf += (
-        "\n[pacstrap-easyarch-repo]\n"
+        "\n[pacstrap-azarch-repo]\n"
         "SigLevel = Never\n"
-        "Server = file:///mnt/pacstrap-easyarch-repo/\n"
+        "Server = file:///mnt/pacstrap-azarch-repo/\n"
     )
     return conf

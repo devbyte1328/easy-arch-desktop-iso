@@ -1,4 +1,4 @@
-# Easy Arch Linux - ISO build environment
+# azarch - ISO build environment
 #
 # This image gives compile.sh a clean, genuine Arch Linux userland with the
 # real Arch core/extra/multilib repositories. That is the whole point: the ISO
@@ -7,12 +7,12 @@
 # those repos are wrong or absent, so the build must happen inside Arch. This
 # container provides that regardless of the machine you run it on.
 #
-# Build:  docker build -t easyarch .
+# Build:  docker build -t azarch .
 # Run:    docker run --rm -it --privileged \
 #           -v "$PWD/cache:/build/cache" \
 #           -v "$PWD/output:/build/output" \
 #           -v "$PWD/logs:/build/logs" \
-#           easyarch
+#           azarch
 #         These three mounts mirror compile.sh's own directory scheme so the
 #         host keeps the persistent download cache (cache/, which also holds the
 #         disposable profile+scratch tree in cache/build/), the build output
@@ -29,7 +29,7 @@ FROM archlinux:latest
 #   go            -> building Go-based ISO components
 #   git, sudo     -> checkout tooling; the build shells out through sudo internally
 #   python        -> the build itself: compile.sh is a thin PTY/sudo shim that
-#                    hands off to `python3 -m easyarch.build` (see libraries/)
+#                    hands off to `python3 -m azarch.build` (see libraries/)
 # --noconfirm keeps the build non-interactive.
 RUN pacman -Sy --needed --noconfirm archlinux-keyring \
     && pacman -Syu --needed --noconfirm \

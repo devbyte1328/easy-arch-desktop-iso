@@ -59,7 +59,7 @@ SECONDARY_LANG=""
 PRIMARY_KB="us"
 SECONDARY_KB=""
 
-# Language mapping (generated from easyarch.config.locale.LANGUAGE_MAP)
+# Language mapping (generated from azarch.config.locale.LANGUAGE_MAP)
 LANGUAGE_MAP=$(cat <<EOF
 {_language_map_heredoc()}
 EOF

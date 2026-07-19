@@ -1,4 +1,4 @@
-# Easy Arch Linux
+# azarch
 
 
 <table width="100%">
@@ -15,14 +15,14 @@ This is a year-old, neglected, poorly put-together project that is undergoing a 
 </table>
 
 
-Easy Arch Linux is a lightweight, Arch-based distribution that stays close to upstream. It's built for ease of installation, allowing users to quickly set up and reproduce their development environment. It starts off stable, with the option to easily update to a rolling release using `sudo pacman -Syu`.
+azarch is a lightweight, Arch-based distribution that stays close to upstream. It's built for ease of installation, allowing users to quickly set up and reproduce their development environment. It starts off stable, with the option to easily update to a rolling release using `sudo pacman -Syu`.
 
 It comes with only the essential packages needed for any system. The desktop environment is a stripped-down, minimal version of KDE Plasma, designed to stay out of your way and let you get straight to work.  
 **No bloat. No distractions.**
 
 ![Screenshot](screenshot.png)
 
-## 💽 How to Install Easy Arch Linux
+## 💽 How to Install azarch
 
 1. **Download the ISO**  
    The ISO is hosted on **Google Drive** (GitHub does not allow files larger than 2 GB).
@@ -35,7 +35,7 @@ It comes with only the essential packages needed for any system. The desktop env
    - **[Rufus](https://rufus.ie/en/)** (Windows only)
    - Or use the `dd` command (Linux/macOS):
      ```bash
-     sudo dd if=easy_archlinux-2025.07.28-x86_64.iso of=/dev/sdX bs=4M status=progress && sync
+     sudo dd if=azarch-2025.07.28-x86_64.iso of=/dev/sdX bs=4M status=progress && sync
      ```
      ⚠️ Replace `/dev/sdX` with your actual USB device (this will erase the disk).
 
@@ -48,7 +48,7 @@ It comes with only the essential packages needed for any system. The desktop env
    - Use the live environment temporarily  
    - Or start the installation immediately by following the terminal prompts
 
-## 🧰 How to Compile Easy Arch Linux
+## 🧰 How to Compile azarch
 
 You can clone this repository and compile the ISO yourself. The **first** build
 needs an internet connection to download every component that goes into the ISO;
@@ -56,9 +56,9 @@ after that everything is cached and rebuilds run fully offline (see
 [Offline rebuilds from cache](#-offline-rebuilds-from-cache)).
 
 > **Project layout.** The build is Python. Everything that goes into the ISO is
-> authored in `libraries/easyarch/` (the config files are Python modules holding
+> authored in `libraries/azarch/` (the config files are Python modules holding
 > their content as variables) and emitted into the archiso profile tree by
-> `python3 -m easyarch.build`. `compile.sh` is a thin shim that sets up the PTY +
+> `python3 -m azarch.build`. `compile.sh` is a thin shim that sets up the PTY +
 > sudo and hands off to it. The two user-facing knobs are plain data files:
 > `libraries/data/packages.x86_64` (the package list) and the wallpaper/QML under
 > `libraries/data/`.
@@ -125,13 +125,13 @@ Once Docker is installed and running, the steps are the same everywhere.
 
 1. **Clone the repository and enter it**
    ```
-   git clone https://github.com/devbyte1328/easy-arch-desktop-iso.git
-   cd easy-arch-desktop-iso
+   git clone https://github.com/michaelilgiaev/azarch.git
+   cd azarch
    ```
 
 2. **Build the Docker image** (creates the Arch build environment)
    ```
-   sudo docker build -t easyarch .
+   sudo docker build -t azarch .
    ```
 
 3. **Compile the ISO.** `--privileged` is required — `mkarchiso` mounts
@@ -144,7 +144,7 @@ Once Docker is installed and running, the steps are the same everywhere.
      -v "$PWD/cache:/build/cache" \
      -v "$PWD/output:/build/output" \
      -v "$PWD/logs:/build/logs" \
-     easyarch
+     azarch
    ```
    `--init` runs the container under tini as PID 1. Without it the build's PID 1
    is the `script` logging process, and the kernel drops unhandled signals to
@@ -166,7 +166,7 @@ Once Docker is installed and running, the steps are the same everywhere.
    ls output/*.iso
    ```
    - **Windows (WSL):** the same folder is reachable from File Explorer at
-     `\\wsl$\<distro>\home\<your-username>\easy-arch-desktop-iso\output`.
+     `\\wsl$\<distro>\home\<your-username>\azarch\output`.
 
    Every run already writes its full build log to `logs/` (a complete `full.log`
    and a milestone-only `steps.log`), so there is no separate step to capture it.
@@ -196,7 +196,7 @@ The mirrors are only contacted again when you explicitly ask for it:
     -v "$PWD/cache:/build/cache" \
     -v "$PWD/output:/build/output" \
     -v "$PWD/logs:/build/logs" \
-    easyarch
+    azarch
   ```
 
 > ⚠️ **If you edit `libraries/data/packages.x86_64` to add packages** while a full cache exists,

@@ -1,5 +1,5 @@
-Copyright (c) 2025 devbyte1328
-Contact: devbyte1328@gmail.com
+Copyright (c) 2025 michaelilgiaev
+Contact: michaelilgiaev@gmail.com
 
 This project is licensed under the GNU General Public License v3.0 (GPLv3).
 You may copy, distribute, and modify this software under the terms of the GPLv3.
