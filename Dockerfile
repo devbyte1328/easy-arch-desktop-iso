@@ -23,11 +23,13 @@
 
 FROM archlinux:latest
 
-# Refresh the keyring and sync the toolchain compile.sh needs on the build host:
+# Refresh the keyring and sync the toolchain the build needs on the build host:
 #   archiso       -> mkarchiso
 #   base-devel    -> makepkg and friends
 #   go            -> building Go-based ISO components
-#   git, sudo     -> checkout tooling; compile.sh calls sudo internally
+#   git, sudo     -> checkout tooling; the build shells out through sudo internally
+#   python        -> the build itself: compile.sh is a thin PTY/sudo shim that
+#                    hands off to `python3 -m easyarch.build` (see libraries/)
 # --noconfirm keeps the build non-interactive.
 RUN pacman -Sy --needed --noconfirm archlinux-keyring \
     && pacman -Syu --needed --noconfirm \
@@ -36,6 +38,7 @@ RUN pacman -Sy --needed --noconfirm archlinux-keyring \
         go \
         git \
         sudo \
+        python \
     && pacman -Scc --noconfirm
 
 # Initialize pacman's trust database. Installing archlinux-keyring above only
@@ -61,10 +64,10 @@ RUN echo "root ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/00-root \
 # cache/build/), output/ (the finished ISO) and logs/. Bind-mount those
 # to the host to persist them:
 #   -v "$PWD/cache:/build/cache" -v "$PWD/output:/build/output" -v "$PWD/logs:/build/logs"
-# compile.sh re-execs itself on a PTY (via util-linux `script`) and draws a
-# pinned progress bar with tput. Inside a bare container there is no TERM, so
-# tput has no terminfo entry and hangs/errors, freezing the build. Give it a
-# valid terminal type (xterm terminfo ships with the base ncurses package).
+# compile.sh re-execs itself on a PTY (via util-linux `script`), then hands off
+# to the Python build driver which draws a pinned progress bar. The bar and the
+# `script` re-exec want a sane terminal type; a bare container has none, so give
+# it xterm (its terminfo ships with the base ncurses package).
 ENV TERM=xterm
 
 # Host ownership handback. Everything the (root) build writes under the bind
@@ -89,7 +92,7 @@ COPY . /build
 # already pass it). compile.sh re-execs via `exec script ...`, so without --init
 # the container's PID 1 is that `script` process; the kernel drops unhandled
 # signals to PID 1 and never reaps orphans, so Ctrl-C leaves the build hanging.
-# `--init` inserts tini as PID 1 to forward signals and reap orphans; compile.sh's
-# INT/TERM trap additionally kills the whole process group so pacman/mkarchiso die
-# immediately. tini is TTY-transparent, so the PTY logging still works.
+# `--init` inserts tini as PID 1 to forward signals and reap orphans; the Python
+# build driver's SIGINT/SIGTERM handler additionally kills the whole process group
+# so pacman/mkarchiso die immediately. tini is TTY-transparent, so PTY logging works.
 CMD ["./compile.sh"]

@@ -55,6 +55,14 @@ needs an internet connection to download every component that goes into the ISO;
 after that everything is cached and rebuilds run fully offline (see
 [Offline rebuilds from cache](#-offline-rebuilds-from-cache)).
 
+> **Project layout.** The build is Python. Everything that goes into the ISO is
+> authored in `libraries/easyarch/` (the config files are Python modules holding
+> their content as variables) and emitted into the archiso profile tree by
+> `python3 -m easyarch.build`. `compile.sh` is a thin shim that sets up the PTY +
+> sudo and hands off to it. The two user-facing knobs are plain data files:
+> `libraries/data/packages.x86_64` (the package list) and the wallpaper/QML under
+> `libraries/data/`.
+
 Packages are pulled at their latest version, so the ISO you build may contain
 bugs the pre-built download does not (that one was briefly examined before being
 uploaded).
@@ -191,7 +199,7 @@ The mirrors are only contacted again when you explicitly ask for it:
     easyarch
   ```
 
-> ⚠️ **If you edit `packages.x86_64` to add packages** while a full cache exists,
+> ⚠️ **If you edit `libraries/data/packages.x86_64` to add packages** while a full cache exists,
 > the offline build won't have the new packages and may fail. Rebuild with
 > `FORCE_ONLINE=1` (or wipe the cache first) so they get fetched. The build prints
 > a warning when it detects the package list is newer than the cache.

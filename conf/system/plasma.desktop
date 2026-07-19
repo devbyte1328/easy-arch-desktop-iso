@@ -1,8 +1,0 @@
-[Desktop Entry]
-Name=Plasma
-Comment=KDE Plasma (X11)
-Exec=startplasma-x11
-TryExec=startplasma-x11
-Type=Application
-DesktopNames=KDE
-X-KDE-SessionType=x11
