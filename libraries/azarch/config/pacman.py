@@ -127,12 +127,24 @@ _CUSTOM_EXAMPLE = """\
 """
 
 
-def _options_block(cachedir: str | None, noextract_wayland: bool) -> str:
+# Files the ISO overrides with its own airootfs copies. pacstrap must NOT extract
+# the owning package's version or it lands first and conflicts with our overlay
+# (os-release: owned by `filesystem`; the wayland session file: by plasma-workspace).
+_ISO_NOEXTRACT = [
+    "usr/lib/os-release",
+    "usr/share/wayland-sessions/plasma.desktop",
+]
+
+
+def _options_block(cachedir: str | None, noextract: list[str] | None = None) -> str:
     cachedir_line = f"CacheDir     = {cachedir}\n" if cachedir else "#CacheDir     = /var/cache/pacman/pkg/\n"
+    # A single NoExtract line takes multiple space-separated paths. We NoExtract the
+    # files the ISO overrides with its own airootfs copies so pacstrap's owning
+    # package (filesystem, plasma-workspace) does not lay down a conflicting file:
+    #   usr/lib/os-release                     -> our Az'arch branding wins
+    #   usr/share/wayland-sessions/plasma.desktop -> X11-only ISO
     noextract_line = (
-        "NoExtract   = usr/share/wayland-sessions/plasma.desktop"
-        if noextract_wayland
-        else "#NoExtract   ="
+        f"NoExtract   = {' '.join(noextract)}" if noextract else "#NoExtract   ="
     )
     return _STD_HEADER.format(cachedir_line=cachedir_line, noextract_line=noextract_line)
 
@@ -197,13 +209,14 @@ def build_profile_conf(cachedir: str | None = None) -> str:
     Standard Arch base with two build-specific tweaks folded in (this is the
     former force-x11-session hack, now just parameters):
       - NoExtract the wayland Plasma session file  -> X11-only ISO
+      - NoExtract usr/lib/os-release               -> our Az'arch branding wins
       - an injected CacheDir                        -> persistent build cache reuse
 
     Multilib is left OFF here (the old force-x11-session profile had it commented).
     The offline rewrite to a file:// repo is applied separately (see
     ``switch_to_local_repo``) so this generator stays declarative.
     """
-    conf = _options_block(cachedir=cachedir, noextract_wayland=True)
+    conf = _options_block(cachedir=cachedir, noextract=_ISO_NOEXTRACT)
     conf += _STD_TESTING_TAIL
     conf += _net_repos(multilib=False)
     conf += "\n" + _CUSTOM_EXAMPLE
@@ -244,7 +257,7 @@ def switch_to_local_repo(conf: str, localrepo_path: str) -> str:
 def installer_base_conf() -> str:
     """The /etc/pacman.conf shipped to the INSTALLED system: plain Arch defaults
     with multilib enabled and no build tweaks."""
-    conf = _options_block(cachedir=None, noextract_wayland=False)
+    conf = _options_block(cachedir=None, noextract=None)
     conf += _STD_TESTING_TAIL
     conf += _net_repos(multilib=True)
     conf += "\n" + _CUSTOM_EXAMPLE
@@ -255,7 +268,7 @@ def installer_pacstrap_conf() -> str:
     """The transient pacman.conf the on-disk installer swaps in during pacstrap:
     the standard base with the file:// offline install repo appended, and
     multilib left OFF (the installed base doesn't need it during pacstrap)."""
-    conf = _options_block(cachedir=None, noextract_wayland=True)
+    conf = _options_block(cachedir=None, noextract=_ISO_NOEXTRACT)
     conf += _STD_TESTING_TAIL
     # All network repos commented out; only the local file:// repo is active.
     conf += (

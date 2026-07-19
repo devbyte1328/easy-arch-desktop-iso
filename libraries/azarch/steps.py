@@ -116,11 +116,15 @@ def run(bar: ProgressBar, offline: bool, reclaim_after_mkarchiso) -> Path:
 
     # 10c
     bar.step("Branding os-release as Az'arch Linux...")
-    # Real file behind the /etc/os-release symlink; our airootfs copy overlays the
-    # filesystem package's stock "Arch Linux" one, so fastfetch's OS line reads the
-    # azarch name. Also drop an /etc/os-release regular file for readers that follow
-    # the symlink target literally.
+    # Live ISO: the build pacman.conf NoExtracts usr/lib/os-release (config/pacman.py)
+    # so the `filesystem` package's stock "Arch Linux" file never lands and this one
+    # -- the real file /etc/os-release symlinks to -- wins. fastfetch's OS line then
+    # reads the azarch name.
     emit.write_text(airootfs / "usr/lib/os-release", system.OS_RELEASE)
+    # Staged copy for the on-disk installer to plant on the installed system, which
+    # also NoExtracts os-release during its pacstrap (parity with the KDE/fastfetch
+    # configs).
+    emit.write_text(ea / "os-release", system.OS_RELEASE)
     # Overlay the releng `archiso` hostname with `azarch` (prompt + fastfetch title).
     emit.write_text(airootfs / "etc/hostname", system.HOSTNAME)
 

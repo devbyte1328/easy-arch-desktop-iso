@@ -217,6 +217,12 @@ mkdir -p /mnt/home/main/.config/fastfetch
 cp /root/azarch/fastfetch/config.jsonc /mnt/home/main/.config/fastfetch/config.jsonc
 cp /root/azarch/fastfetch/azarch.ansi /mnt/home/main/.config/fastfetch/azarch.ansi
 
+echo "[*] Branding os-release as Az'arch Linux..."
+# The installed-system pacstrap NoExtracts usr/lib/os-release (see pacman.py), so
+# the `filesystem` package never lays one down -- plant ours so the installed
+# system is "Az'arch Linux" and fastfetch's OS line matches the live ISO.
+cp /root/azarch/os-release /mnt/usr/lib/os-release
+
 echo "[*] Copying first boot configuration files..."
 mkdir -p /mnt/home/main/.config/first-boot
 mkdir -p /mnt/etc/systemd/system
