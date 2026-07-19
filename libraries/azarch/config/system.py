@@ -64,6 +64,27 @@ BUG_REPORT_URL="https://github.com/michaelilgiaev/azarch/issues"
 LOGO=archlinux-logo
 """
 
+# Post-pacstrap customization hook. mkarchiso runs airootfs/root/customize_airootfs.sh
+# INSIDE the pacstrapped rootfs (arch-chroot) AFTER packages are installed, then
+# deletes it -- so it never ships on the ISO. We use it purely to plant the branded
+# os-release: doing this here (post-pacstrap) avoids the file-conflict that pre-
+# placing it in the airootfs overlay triggers against the `filesystem` package (see
+# steps.py step 10c). The staged source lives at /root/azarch/os-release in the chroot.
+# NoExtract (config/pacman.py) already kept `filesystem` from writing its own
+# "Arch Linux" copy, so usr/lib/os-release is absent until this cp lands ours.
+CUSTOMIZE_AIROOTFS = """\
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Brand the live system as Az'arch Linux. /etc/os-release symlinks to this path.
+cp /root/azarch/os-release /usr/lib/os-release
+chmod 0644 /usr/lib/os-release
+
+# Plant the X11 Plasma session entry (plasma-workspace's copy was NoExtract'd so
+# this path is free of a conflicting owner).
+install -Dm0644 /root/azarch/plasma.desktop /usr/share/xsessions/plasma.desktop
+"""
+
 # System hostname. The archiso releng base ships `archiso`; we overlay `azarch`
 # so the shell prompt and fastfetch title read main@azarch instead of main@archiso.
 # (We deliberately do NOT rename the `archiso` build TOOLING or the ISO's internal

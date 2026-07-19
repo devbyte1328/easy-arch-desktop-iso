@@ -125,14 +125,21 @@ def run(bar: ProgressBar, offline: bool, reclaim_after_mkarchiso) -> Path:
     # 10c
     bar.step("Branding os-release as Az'arch Linux...")
     # Live ISO: the build pacman.conf NoExtracts usr/lib/os-release (config/pacman.py)
-    # so the `filesystem` package's stock "Arch Linux" file never lands and this one
-    # -- the real file /etc/os-release symlinks to -- wins. fastfetch's OS line then
-    # reads the azarch name.
-    emit.write_text(airootfs / "usr/lib/os-release", system.OS_RELEASE)
-    # Staged copy for the on-disk installer to plant on the installed system, which
-    # also NoExtracts os-release during its pacstrap (parity with the KDE/fastfetch
-    # configs).
+    # so the `filesystem` package's stock "Arch Linux" file never lands. We must NOT
+    # pre-place our replacement in the airootfs overlay, though: mkarchiso copies the
+    # overlay into the work root BEFORE pacstrap, and pacman's file-conflict check
+    # (which runs before extraction and is NOT suppressed by NoExtract) then aborts
+    # with "filesystem: usr/lib/os-release exists in filesystem". Instead we plant it
+    # AFTER pacstrap via customize_airootfs.sh -- the same after-pacstrap ordering the
+    # on-disk installer already uses (config/installer.py copies it into /mnt post-
+    # pacstrap). The branded file is staged read-only under root/azarch/os-release and
+    # the hook copies it into place inside the pacstrapped rootfs.
     emit.write_text(ea / "os-release", system.OS_RELEASE)
+    # X11 Plasma session entry: also owned by a package (plasma-workspace), so it hits
+    # the same pre-pacstrap conflict if overlaid directly. Stage it and let the hook
+    # plant it post-pacstrap too. (NoExtract for it lives in config/pacman.py.)
+    emit.write_text(ea / "plasma.desktop", system.PLASMA_DESKTOP)
+    emit.write_exec(airootfs / "root/customize_airootfs.sh", system.CUSTOMIZE_AIROOTFS)
     # Overlay the releng `archiso` hostname with `azarch` (prompt + fastfetch title).
     emit.write_text(airootfs / "etc/hostname", system.HOSTNAME)
 
@@ -154,7 +161,10 @@ def run(bar: ProgressBar, offline: bool, reclaim_after_mkarchiso) -> Path:
 
     # 15
     bar.step("Configuring X11 session...")
-    emit.write_text(airootfs / "usr/share/xsessions/plasma.desktop", system.PLASMA_DESKTOP)
+    # NOTE: the actual session file is planted post-pacstrap by customize_airootfs.sh
+    # (staged at root/azarch/plasma.desktop in step 10c) -- overlaying it here would
+    # collide with plasma-workspace's copy during pacstrap. This step is retained as a
+    # milestone; the SDDM autologin Session= key still points at plasma.desktop.
 
     # 16
     bar.step("Linking systemd services...")

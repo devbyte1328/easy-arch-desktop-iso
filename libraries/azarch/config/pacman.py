@@ -127,11 +127,25 @@ _CUSTOM_EXAMPLE = """\
 """
 
 
-# Files the ISO overrides with its own airootfs copies. pacstrap must NOT extract
-# the owning package's version or it lands first and conflicts with our overlay
-# (os-release: owned by `filesystem`; the wayland session file: by plasma-workspace).
+# Files the ISO overrides / suppresses. pacstrap must NOT extract the owning
+# package's version, for two distinct reasons:
+#   usr/lib/os-release                        owned by `filesystem`; we replace it
+#                                             with the Az'arch-branded file, planted
+#                                             post-pacstrap by customize_airootfs.sh.
+#   usr/share/xsessions/plasma.desktop        owned by `plasma-workspace`; we replace
+#                                             it with our X11 session entry, also
+#                                             planted post-pacstrap.
+#   usr/share/wayland-sessions/plasma.desktop owned by `plasma-workspace`; dropped
+#                                             outright (no replacement) to force the
+#                                             ISO X11-only.
+# The first two MUST be NoExtract'd (not just overlaid): pacman's file-conflict check
+# runs BEFORE extraction and is not suppressed by NoExtract, so pre-placing our copy
+# in the airootfs overlay aborts pacstrap with "exists in filesystem". NoExtract keeps
+# the package from owning the path; customize_airootfs.sh then lays our copy down after
+# pacstrap, conflict-free (see config/system.CUSTOMIZE_AIROOTFS + steps.py step 10c).
 _ISO_NOEXTRACT = [
     "usr/lib/os-release",
+    "usr/share/xsessions/plasma.desktop",
     "usr/share/wayland-sessions/plasma.desktop",
 ]
 
