@@ -101,7 +101,7 @@ X-KDE-SessionType=x11
 # %ARCHISO_UUID% are archiso placeholders substituted by mkarchiso.
 
 BOOT_UEFI_LINUX = """\
-title    Arch Linux install medium (x86_64, UEFI)
+title    Az'arch Linux install medium (x86_64, UEFI)
 sort-key 01
 linux    /%INSTALL_DIR%/boot/x86_64/vmlinuz-linux
 initrd   /%INSTALL_DIR%/boot/x86_64/initramfs-linux.img
@@ -109,7 +109,7 @@ options  archisobasedir=%INSTALL_DIR% archisosearchuuid=%ARCHISO_UUID% cow_space
 """
 
 BOOT_UEFI_SPEECH = """\
-title    Arch Linux install medium (x86_64, UEFI) with speech
+title    Az'arch Linux install medium (x86_64, UEFI) with speech
 sort-key 02
 linux    /%INSTALL_DIR%/boot/x86_64/vmlinuz-linux
 initrd   /%INSTALL_DIR%/boot/x86_64/initramfs-linux.img
@@ -119,10 +119,10 @@ options  archisobasedir=%INSTALL_DIR% archisosearchuuid=%ARCHISO_UUID% accessibi
 BOOT_BIOS_SYSLINUX = """\
 LABEL arch64
 TEXT HELP
-Boot the Arch Linux install medium on BIOS.
-It allows you to install Arch Linux or perform system maintenance.
+Boot the Az'arch Linux install medium on BIOS.
+It allows you to install Az'arch Linux or perform system maintenance.
 ENDTEXT
-MENU LABEL Arch Linux install medium (x86_64, BIOS)
+MENU LABEL Az'arch Linux install medium (x86_64, BIOS)
 LINUX /%INSTALL_DIR%/boot/x86_64/vmlinuz-linux
 INITRD /%INSTALL_DIR%/boot/x86_64/initramfs-linux.img
 APPEND archisobasedir=%INSTALL_DIR% archisosearchuuid=%ARCHISO_UUID% cow_spacesize=4G
@@ -130,13 +130,47 @@ APPEND archisobasedir=%INSTALL_DIR% archisosearchuuid=%ARCHISO_UUID% cow_spacesi
 # Accessibility boot option
 LABEL arch64speech
 TEXT HELP
-Boot the Arch Linux install medium on BIOS with speakup screen reader.
-It allows you to install Arch Linux or perform system maintenance with speech feedback.
+Boot the Az'arch Linux install medium on BIOS with speakup screen reader.
+It allows you to install Az'arch Linux or perform system maintenance with speech feedback.
 ENDTEXT
-MENU LABEL Arch Linux install medium (x86_64, BIOS) with ^speech
+MENU LABEL Az'arch Linux install medium (x86_64, BIOS) with ^speech
 LINUX /%INSTALL_DIR%/boot/x86_64/vmlinuz-linux
 INITRD /%INSTALL_DIR%/boot/x86_64/initramfs-linux.img
 APPEND archisobasedir=%INSTALL_DIR% archisosearchuuid=%ARCHISO_UUID% accessibility=on cow_spacesize=4G
+"""
+
+# syslinux (BIOS) menu chrome. The releng archiso_head.cfg sets `MENU TITLE Arch
+# Linux`; the build overlays this rebranded head so the BIOS boot screen title
+# reads Az'arch. Kept byte-faithful to releng's head.cfg except the MENU TITLE.
+BOOT_BIOS_SYSLINUX_HEAD = """\
+SERIAL 0 115200
+UI vesamenu.c32
+MENU TITLE Az'arch Linux
+MENU BACKGROUND splash.png
+
+MENU WIDTH 78
+MENU MARGIN 4
+MENU ROWS 7
+MENU VSHIFT 10
+MENU TABMSGROW 14
+MENU CMDLINEROW 14
+MENU HELPMSGROW 16
+MENU HELPMSGENDROW 29
+
+# Refer to https://wiki.syslinux.org/wiki/index.php/Comboot/menu.c32
+
+MENU COLOR border       30;44   #40ffffff #a0000000 std
+MENU COLOR title        1;36;44 #9033ccff #a0000000 std
+MENU COLOR sel          7;37;40 #e0ffffff #20ffffff all
+MENU COLOR unsel        37;44   #50ffffff #a0000000 std
+MENU COLOR help         37;40   #c0ffffff #a0000000 std
+MENU COLOR timeout_msg  37;40   #80ffffff #00000000 std
+MENU COLOR timeout      1;37;40 #c0ffffff #00000000 std
+MENU COLOR msg07        37;40   #90ffffff #a0000000 std
+MENU COLOR tabmsg       31;40   #30ffffff #00000000 std
+
+MENU CLEAR
+MENU IMMEDIATE
 """
 
 # --- systemd units ----------------------------------------------------------

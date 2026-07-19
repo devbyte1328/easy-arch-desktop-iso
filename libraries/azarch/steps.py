@@ -77,9 +77,17 @@ def run(bar: ProgressBar, offline: bool, reclaim_after_mkarchiso) -> Path:
 
     # 4
     bar.step("Adding custom bootloader entries and config files...")
-    emit.write_text(W / "efiboot/loader/entries/01-archiso-x86_64-linux.conf", system.BOOT_UEFI_LINUX)
-    emit.write_text(W / "efiboot/loader/entries/02-archiso-x86_64-speech-linux.conf", system.BOOT_UEFI_SPEECH)
+    # Overwrite the releng UEFI entries in place (same filenames) rather than adding
+    # differently-named ones alongside them -- otherwise the menu shows BOTH the stock
+    # "Arch Linux install medium" entries AND ours, i.e. duplicated rows all reading
+    # "Arch Linux". Writing over 01-archiso-linux.conf / 02-archiso-speech-linux.conf
+    # replaces them with the rebranded Az'arch entries.
+    emit.write_text(W / "efiboot/loader/entries/01-archiso-linux.conf", system.BOOT_UEFI_LINUX)
+    emit.write_text(W / "efiboot/loader/entries/02-archiso-speech-linux.conf", system.BOOT_UEFI_SPEECH)
     emit.write_text(W / "syslinux/archiso_sys-linux.cfg", system.BOOT_BIOS_SYSLINUX)
+    # Overlay the syslinux (BIOS) menu head so its `MENU TITLE` reads Az'arch instead
+    # of the releng default "Arch Linux".
+    emit.write_text(W / "syslinux/archiso_head.cfg", system.BOOT_BIOS_SYSLINUX_HEAD)
 
     # 5
     bar.step("Copying custom package list...")

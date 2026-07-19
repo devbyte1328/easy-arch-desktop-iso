@@ -14,7 +14,7 @@ from __future__ import annotations
 
 ISO_NAME = "azarch"
 ISO_PUBLISHER = "michaelilgiaev <https://github.com/michaelilgiaev/azarch>"
-ISO_APPLICATION = "azarch Installer/Arch Linux Live/Rescue DVD"
+ISO_APPLICATION = "Az'arch Installer/Az'arch Linux Live/Rescue DVD"
 INSTALL_DIR = "arch"
 
 BOOTMODES = (
