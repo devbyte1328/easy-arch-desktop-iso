@@ -1,140 +1,55 @@
 #!/usr/bin/env bash
 #
-# pull_specifications.sh -- generate a technical specification of the Az'arch
-# build system.
+# pull_specifications.sh -- generate the Az'arch DISTRIBUTION specification.
 #
-# It walks THIS repository and emits a structured, Markdown technical graph of
-# how everything is wired: the directory scheme, the Python build system's module
-# hierarchy (config-as-Python), the ISO's declared identity and layout, the
-# package manifest broken down by category, the build toolchain (both what the
-# Dockerfile guarantees and what this host actually has), and -- if a build has
-# run -- the resolved on-disk artifacts (package cache, ISOs, logs).
+# This produces documentation/SPECIFICATIONS.md: a technical spec of the operating
+# system that ships on the ISO -- its real package set and the dependency graph
+# from the base (kernel + core libraries) up to the top (leaf applications), with
+# real versions and capabilities.
 #
-# It is READ-ONLY with respect to the project: it never mutates the build, only
-# inspects it. The one thing it writes is the report itself, to
-# documentation/SPECIFICATIONS.md (override with -o), and it also prints to the
-# terminal unless told not to.
+# The dependency data is resolved from the official Arch Linux core/extra/multilib
+# package databases (the repos the ISO is actually built against), NOT from the
+# host's pacman databases -- on a non-Arch host those carry different packages and
+# versions and would produce a wrong spec. The databases are fetched once and
+# cached under cache/spec-db/; pass --offline to reuse them without network.
 #
-# The heavy lifting lives in scripts/libraries/*.sh (one module per section),
-# sourced below. This entry point only parses flags, wires the output sinks, and
-# calls the probes in order.
+# This is a thin shim: it locates the repo, checks for python3, and hands off to
+# scripts/libraries/pull_specifications.py, which orchestrates the work across
+# scripts/libraries/spec_{db,resolve,content,render}.py. All flags are passed
+# straight through.
 #
 # Usage:
 #   scripts/pull_specifications.sh [options]
 #
-# Options:
+# Options (forwarded to the Python orchestrator):
 #   -o, --output FILE   write the report here (default: documentation/SPECIFICATIONS.md)
-#       --stdout        print ONLY to the terminal; do not write the file
-#       --no-stdout     write ONLY the file; do not print to the terminal
-#       --color WHEN    auto|always|never for the terminal copy (default: auto)
-#       --no-artifacts  skip section 5 (the resolved build-state layer)
+#   -m, --manifest FILE package manifest (default: libraries/data/packages.x86_64)
+#       --db-cache DIR  where to cache the Arch .db files (default: cache/spec-db)
+#       --mirror URL    Arch mirror base URL to fetch databases from
+#       --offline       reuse cached .db files; do not download
+#       --stdout        print to stdout instead of writing the file
 #   -h, --help          show this help and exit
 #
-set -o pipefail
+set -euo pipefail
 
-# --- locate ourselves + the repo root -------------------------------------
-SPEC_SELF="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SPEC_LIBDIR="$SPEC_SELF/libraries"
-# scripts/ lives at the repo root, so the root is one dir up from here.
-SPEC_REPO_ROOT="$(cd "$SPEC_SELF/.." && pwd)"
-export SPEC_REPO_ROOT
+SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PY_ENTRY="$SELF_DIR/libraries/pull_specifications.py"
 
-# --- defaults --------------------------------------------------------------
-SPEC_OUT_FILE="$SPEC_REPO_ROOT/documentation/SPECIFICATIONS.md"
-SPEC_TO_STDOUT=1        # print to terminal as well as the file
-_write_file=1          # write the file at all
-SPEC_COLOR="auto"
-_do_artifacts=1
+case "${1:-}" in
+    -h|--help)
+        sed -n '3,36p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+        exit 0
+        ;;
+esac
 
-_usage() {
-    # Print the leading comment block (between the shebang and `set -o`) as help.
-    sed -n '3,32p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
-}
-
-# --- arg parsing -----------------------------------------------------------
-while [ $# -gt 0 ]; do
-    case "$1" in
-        -o|--output)   SPEC_OUT_FILE="$2"; shift 2 ;;
-        --stdout)      _write_file=0; SPEC_TO_STDOUT=1; shift ;;
-        --no-stdout)   SPEC_TO_STDOUT=0; shift ;;
-        --color)       SPEC_COLOR="$2"; shift 2 ;;
-        --no-color)    SPEC_COLOR="never"; shift ;;
-        --no-artifacts) _do_artifacts=0; shift ;;
-        -h|--help)     _usage; exit 0 ;;
-        *) echo "pull_specifications.sh: unknown option: $1" >&2; echo "try --help" >&2; exit 2 ;;
-    esac
-done
-
-# If we're not writing a file, point the file sink at /dev/null so the shared
-# `out` helper (which always appends to SPEC_OUT_FILE) is a no-op for the file.
-if [ "$_write_file" = 0 ]; then
-    SPEC_OUT_FILE="/dev/null"
-else
-    mkdir -p "$(dirname "$SPEC_OUT_FILE")"
-    : > "$SPEC_OUT_FILE"   # truncate: this is a regenerated artifact
+if ! command -v python3 >/dev/null 2>&1; then
+    echo "pull_specifications: python3 is required but was not found" >&2
+    exit 1
 fi
-export SPEC_OUT_FILE SPEC_TO_STDOUT SPEC_COLOR
 
-# --- load the library modules ---------------------------------------------
-# common.sh MUST come first (defines out/term/colours the probes use).
-for _mod in common.sh probe_repo.sh probe_python.sh probe_packages.sh probe_toolchain.sh probe_artifacts.sh; do
-    if [ ! -f "$SPEC_LIBDIR/$_mod" ]; then
-        echo "pull_specifications.sh: missing library: $SPEC_LIBDIR/$_mod" >&2
-        exit 1
-    fi
-    # shellcheck source=/dev/null
-    . "$SPEC_LIBDIR/$_mod"
-done
-
-# --- header ----------------------------------------------------------------
-_header() {
-    h1 "Az'arch -- Technical Specification"
-    blank
-    bullet "Auto-generated by \`scripts/pull_specifications.sh\`. Do not hand-edit; re-run to refresh."
-    # SOURCE_DATE_EPOCH keeps this reproducible if set; else stamp with `date`.
-    local when
-    if [ -n "${SOURCE_DATE_EPOCH:-}" ]; then
-        when=$(date -u -d "@$SOURCE_DATE_EPOCH" '+%Y-%m-%d %H:%M:%S UTC' 2>/dev/null)
-    else
-        when=$(date -u '+%Y-%m-%d %H:%M:%S UTC' 2>/dev/null)
-    fi
-    bullet "Generated: $when"
-    bullet "Host: $(uname -sr 2>/dev/null) ($(uname -m 2>/dev/null))"
-    rule
-    _toc
-    rule
-}
-
-_toc() {
-    h2 "Contents"
-    bullet "1. Repository -- identity, git state, directory scheme"
-    bullet "2. Build system (Python) -- module hierarchy, config-as-Python, declared ISO identity"
-    bullet "3. Package manifest -- the ISO's software set by category"
-    bullet "4. Build toolchain -- declared (Docker) vs detected (this host)"
-    [ "$_do_artifacts" = 1 ] && bullet "5. Build artifacts -- resolved on-disk state (cache, ISOs, logs)"
-}
-
-# --- footer ----------------------------------------------------------------
-_footer() {
-    rule
-    h2 "How this was produced"
-    bullet "Entry point: \`scripts/pull_specifications.sh\` (this script)."
-    bullet "Section modules: \`scripts/libraries/{common,probe_repo,probe_python,probe_packages,probe_toolchain,probe_artifacts}.sh\`."
-    bullet "Read-only: the generator inspects the repo and host; it never mutates the build."
-    bullet "Values such as the ISO identity, user table, and toolchain list are read from source, so this doc tracks the code."
-}
-
-# --- run -------------------------------------------------------------------
-_header
-probe_repo;       rule
-probe_python;     rule
-probe_packages;   rule
-probe_toolchain
-[ "$_do_artifacts" = 1 ] && { rule; probe_artifacts; }
-_footer
-
-# --- closing note to the terminal only ------------------------------------
-if [ "$_write_file" = 1 ]; then
-    term ""
-    term "${_C_GREEN}${_C_BOLD}[OK]${_C_RESET} specification written to ${_C_CYAN}$(rel "$SPEC_OUT_FILE")${_C_RESET}"
+if [ ! -f "$PY_ENTRY" ]; then
+    echo "pull_specifications: missing $PY_ENTRY" >&2
+    exit 1
 fi
+
+exec python3 "$PY_ENTRY" "$@"
