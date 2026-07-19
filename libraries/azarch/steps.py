@@ -21,8 +21,8 @@ from .config import fastfetch, installer, kde, locale, pacman, profile, system
 from .progress import ProgressBar
 
 # Weights: trivial emit steps = 1 unit; the two giants sized from real log spans.
-# 22 trivial steps + package-cache(250) + mkarchiso(270). Keep in sync with steps below.
-STEP_WEIGHTS = [0] + [1] * 22 + [250, 270]
+# 23 trivial steps + package-cache(250) + mkarchiso(270). Keep in sync with steps below.
+STEP_WEIGHTS = [0] + [1] * 23 + [250, 270]
 
 # PGID of the currently-running mkarchiso child (0 = none). mkarchiso is spawned in
 # its own session/process group so the signal handler can kill THAT group (and all
@@ -113,6 +113,16 @@ def run(bar: ProgressBar, offline: bool, reclaim_after_mkarchiso) -> Path:
     # 10b
     bar.step("Applying azarch fastfetch logo...")
     _emit_fastfetch(ea, home)
+
+    # 10c
+    bar.step("Branding os-release as Az'arch Linux...")
+    # Real file behind the /etc/os-release symlink; our airootfs copy overlays the
+    # filesystem package's stock "Arch Linux" one, so fastfetch's OS line reads the
+    # azarch name. Also drop an /etc/os-release regular file for readers that follow
+    # the symlink target literally.
+    emit.write_text(airootfs / "usr/lib/os-release", system.OS_RELEASE)
+    # Overlay the releng `archiso` hostname with `azarch` (prompt + fastfetch title).
+    emit.write_text(airootfs / "etc/hostname", system.HOSTNAME)
 
     # 11
     bar.step("Configuring pacman...")
@@ -246,11 +256,11 @@ def _emit_fastfetch(ea: Path, home: Path) -> None:
     into the installed user's ~/.config/fastfetch (parity with the KDE configs)."""
     cfg = home / ".config/fastfetch"
     emit.write_text(cfg / "config.jsonc", fastfetch.config_jsonc())
-    emit.write_text(cfg / "azarch.txt", fastfetch.logo_txt())
+    emit.write_text(cfg / fastfetch.LOGO_FILENAME, fastfetch.logo_txt())
     # staged copy for the installer to plant on the installed system
     staged = ea / "fastfetch"
     emit.write_text(staged / "config.jsonc", fastfetch.config_jsonc())
-    emit.write_text(staged / "azarch.txt", fastfetch.logo_txt())
+    emit.write_text(staged / fastfetch.LOGO_FILENAME, fastfetch.logo_txt())
 
 
 def _link_services(airootfs: Path) -> None:

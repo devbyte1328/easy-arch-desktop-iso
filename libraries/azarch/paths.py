@@ -23,6 +23,7 @@ REPODIR = Path(__file__).resolve().parents[2]
 
 LIBDIR = REPODIR / "libraries"
 DATADIR = LIBDIR / "data"
+ASSETSDIR = REPODIR / "assets"
 
 CACHEDIR = REPODIR / "cache"
 BUILDDIR = REPODIR / "output"

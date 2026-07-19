@@ -41,6 +41,37 @@ main:x:1000:
 SUDOERS_MAIN = "main ALL=(ALL) NOPASSWD: ALL\n"
 SUDOERS_ROOTPW = "Defaults rootpw\n"
 
+# --- OS branding ------------------------------------------------------------
+# What fastfetch (and any os-release reader) shows as the distro name. Written to
+# airootfs/usr/lib/os-release, the REAL file that /etc/os-release symlinks to.
+# The stock file comes from the `filesystem` package and says "Arch Linux"; our
+# airootfs copy overlays on top of the pacstrapped rootfs so it wins. mkarchiso
+# still appends IMAGE_ID / IMAGE_VERSION lines of its own after this.
+#
+# ID stays `arch` on purpose: pacman, AUR helpers, and countless scripts key on
+# ID=arch to treat the system as Arch. Only NAME/PRETTY_NAME (the human strings
+# fastfetch prints) change to the azarch brand. ID_LIKE reinforces the lineage.
+OS_RELEASE = """\
+NAME="Az'arch Linux"
+PRETTY_NAME="Az'arch Linux"
+ID=arch
+ID_LIKE=arch
+BUILD_ID=rolling
+ANSI_COLOR="38;2;6;184;253"
+HOME_URL="https://github.com/michaelilgiaev/azarch"
+SUPPORT_URL="https://github.com/michaelilgiaev/azarch"
+BUG_REPORT_URL="https://github.com/michaelilgiaev/azarch/issues"
+LOGO=archlinux-logo
+"""
+
+# System hostname. The archiso releng base ships `archiso`; we overlay `azarch`
+# so the shell prompt and fastfetch title read main@azarch instead of main@archiso.
+# (We deliberately do NOT rename the `archiso` build TOOLING or the ISO's internal
+# install_dir -- those are functional identifiers from the archiso project, not
+# branding.) The plain `azarch` here is the live-ISO hostname; the on-disk
+# installer sets the installed system's hostname separately.
+HOSTNAME = "azarch\n"
+
 # --- SDDM / session ---------------------------------------------------------
 # Autologin `main` straight into the X11 Plasma session (no Wayland — the build's
 # pacman NoExtract drops the wayland session file; see config/pacman.py).
