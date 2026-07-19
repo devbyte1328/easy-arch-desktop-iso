@@ -148,6 +148,7 @@ dialog
 ufw
 neovim
 htop
+fastfetch
 bluedevil
 breeze
 breeze-gtk

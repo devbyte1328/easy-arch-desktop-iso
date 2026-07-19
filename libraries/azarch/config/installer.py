@@ -212,6 +212,11 @@ cp /root/azarch/kde/plasma-org.kde.plasma.desktop-appletsrc /mnt/home/main/.conf
 cp /root/azarch/kde/applications-kmenuedit.menu /mnt/home/main/.config/menus/applications-kmenuedit.menu
 cp /root/azarch/kde/kdeglobals /mnt/home/main/.config/kdeglobals
 
+echo "[*] Copying azarch fastfetch config..."
+mkdir -p /mnt/home/main/.config/fastfetch
+cp /root/azarch/fastfetch/config.jsonc /mnt/home/main/.config/fastfetch/config.jsonc
+cp /root/azarch/fastfetch/azarch.txt /mnt/home/main/.config/fastfetch/azarch.txt
+
 echo "[*] Copying first boot configuration files..."
 mkdir -p /mnt/home/main/.config/first-boot
 mkdir -p /mnt/etc/systemd/system

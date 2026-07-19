@@ -17,12 +17,12 @@ from pathlib import Path
 import signal
 
 from . import emit, packages, paths
-from .config import installer, kde, locale, pacman, profile, system
+from .config import fastfetch, installer, kde, locale, pacman, profile, system
 from .progress import ProgressBar
 
 # Weights: trivial emit steps = 1 unit; the two giants sized from real log spans.
-# 21 trivial steps + package-cache(250) + mkarchiso(270). Keep in sync with steps below.
-STEP_WEIGHTS = [0] + [1] * 21 + [250, 270]
+# 22 trivial steps + package-cache(250) + mkarchiso(270). Keep in sync with steps below.
+STEP_WEIGHTS = [0] + [1] * 22 + [250, 270]
 
 # PGID of the currently-running mkarchiso child (0 = none). mkarchiso is spawned in
 # its own session/process group so the signal handler can kill THAT group (and all
@@ -109,6 +109,10 @@ def run(bar: ProgressBar, offline: bool, reclaim_after_mkarchiso) -> Path:
     # 10
     bar.step("Applying KDE minimal theme...")
     _emit_kde(airootfs, ea, home)
+
+    # 10b
+    bar.step("Applying azarch fastfetch logo...")
+    _emit_fastfetch(ea, home)
 
     # 11
     bar.step("Configuring pacman...")
@@ -234,6 +238,19 @@ def _emit_kde(airootfs: Path, ea: Path, home: Path) -> None:
     emit.write_text(kde_dir / "plasma-org.kde.plasma.desktop-appletsrc", kde.APPLETSRC)
     emit.write_text(kde_dir / "applications-kmenuedit.menu", kde.APPLICATIONS_MENU)
     emit.write_text(kde_dir / "kdeglobals", kde.KDEGLOBALS)
+
+
+def _emit_fastfetch(ea: Path, home: Path) -> None:
+    """Write the azarch fastfetch config + Az' logo for the live user, and stage
+    a copy under root/azarch/fastfetch so the on-disk installer can replant it
+    into the installed user's ~/.config/fastfetch (parity with the KDE configs)."""
+    cfg = home / ".config/fastfetch"
+    emit.write_text(cfg / "config.jsonc", fastfetch.config_jsonc())
+    emit.write_text(cfg / "azarch.txt", fastfetch.logo_txt())
+    # staged copy for the installer to plant on the installed system
+    staged = ea / "fastfetch"
+    emit.write_text(staged / "config.jsonc", fastfetch.config_jsonc())
+    emit.write_text(staged / "azarch.txt", fastfetch.logo_txt())
 
 
 def _link_services(airootfs: Path) -> None:
