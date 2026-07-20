@@ -2,10 +2,15 @@
 #
 # pull_specifications.sh -- generate the Az'arch DISTRIBUTION specification.
 #
-# This produces documentation/SPECIFICATIONS.md: a technical spec of the operating
-# system that ships on the ISO -- its real package set and the dependency graph
-# from the base (kernel + core libraries) up to the top (leaf applications), with
-# real versions and capabilities.
+# This produces two artifacts:
+#   documentation/SPECIFICATIONS.md   grep-able tables: every package tagged with
+#                                     its edition (az'arch / arch-selected /
+#                                     arch-dep) and a human-language category.
+#   documentation/SPECIFICATIONS.svg  a navigable layered image of the dependency
+#                                     graph, kernel at the bottom up to leaf apps
+#                                     at the top, boxes coloured by category and
+#                                     marked by edition.
+# Both cover the real package set and dependency graph, with real versions.
 #
 # The dependency data is resolved from the official Arch Linux core/extra/multilib
 # package databases (the repos the ISO is actually built against), NOT from the
@@ -15,19 +20,20 @@
 #
 # This is a thin shim: it locates the repo, checks for python3, and hands off to
 # scripts/libraries/pull_specifications.py, which orchestrates the work across
-# scripts/libraries/spec_{db,resolve,content,render}.py. All flags are passed
-# straight through.
+# scripts/libraries/spec_{db,resolve,classify,content,render,svg}.py. All flags
+# are passed straight through.
 #
 # Usage:
 #   scripts/pull_specifications.sh [options]
 #
 # Options (forwarded to the Python orchestrator):
-#   -o, --output FILE   write the report here (default: documentation/SPECIFICATIONS.md)
+#   -o, --output FILE   write the Markdown here (default: documentation/SPECIFICATIONS.md)
+#       --svg FILE      write the SVG diagram here (default: documentation/SPECIFICATIONS.svg)
 #   -m, --manifest FILE package manifest (default: libraries/data/packages.x86_64)
 #       --db-cache DIR  where to cache the Arch .db files (default: cache/spec-db)
 #       --mirror URL    Arch mirror base URL to fetch databases from
 #       --offline       reuse cached .db files; do not download
-#       --stdout        print to stdout instead of writing the file
+#       --stdout        print the Markdown to stdout (skips writing both files)
 #   -h, --help          show this help and exit
 #
 set -euo pipefail
@@ -37,7 +43,7 @@ PY_ENTRY="$SELF_DIR/libraries/pull_specifications.py"
 
 case "${1:-}" in
     -h|--help)
-        sed -n '3,36p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+        sed -n '3,37p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
         exit 0
         ;;
 esac

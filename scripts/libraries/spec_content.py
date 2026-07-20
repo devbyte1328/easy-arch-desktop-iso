@@ -1,100 +1,19 @@
 """
-spec_content -- the editorial, hand-authored parts of the specification.
+spec_content -- the one hand-authored part of the specification: SUBSYSTEMS.
 
-The dependency graph, tables and metrics are *computed* from real package data
-(see spec_resolve). But three things are editorial and cannot be derived from
-metadata alone:
-
-  * INTRO / GLANCE_NOTE / LAYERS_NOTE -- the framing prose.
-  * ASCII_GRAPH -- the base-to-top layered diagram.
-  * SUBSYSTEMS -- the grouping of packages by real role, plus a technical
-    capability blurb per subsystem.
+Everything else in the spec (tables, metrics, per-package edition/category tags,
+the layered SVG) is *computed* from real package data (spec_resolve, spec_classify,
+spec_svg). SUBSYSTEMS is the exception: the grouping of the key packages by real
+role, with a concrete technical capability blurb per package, which cannot be
+derived from metadata alone.
 
 Following the project's config-as-Python convention, that content lives here as
-data. The renderer stitches it together with the computed tables. Version numbers
-inside the prose are refreshed at render time against the resolved data (see
-spec_render.refresh_versions), so re-running the generator keeps them honest.
+data. The renderer pulls the real version for every listed package from the
+closure, so versions never go stale, and warns about any listed package missing
+from the closure so this file cannot silently drift from reality.
 
 To add/adjust a subsystem: edit SUBSYSTEMS. Each entry is:
     (key, title, prose, [(package_or_"a / b", capability), ...])
-The renderer validates that every listed package exists in the closure and warns
-about anything missing so this file cannot silently drift from reality.
-"""
-
-INTRO = """\
-A technical specification of the Az'arch operating system: the software that
-ships on the ISO. This describes **the distribution itself** -- its package set,
-the real dependency hierarchy from the kernel at the base up to the leaf
-applications at the top, and what each subsystem actually does.
-
-The dependency data here is **real**, not inferred from package names. It was
-resolved from the official Arch Linux `core`, `extra` and `multilib` package
-databases -- the same repositories the ISO is assembled against -- by reading
-each package's actual `%DEPENDS%` / `%PROVIDES%` fields and walking the full
-transitive closure. Every version number below is the real packaged version.\
-"""
-
-GLANCE_NOTE = """\
-> **How to read "top" and "base".** *Base* packages sit at the bottom of the
-> graph: they depend on nothing else in the set, and huge numbers of other
-> packages depend on them. *Top* (leaf) packages sit at the surface: nothing
-> depends on them, so removing a top package removes only itself (and any deps
-> that then become unused) -- nothing else in the system breaks.\
-"""
-
-# {leaves}/{bases}/{kernel_version} are filled in by the renderer.
-ASCII_GRAPH = """\
-```text
-                       Az'arch dependency graph  --  base (bottom) to top (leaves)
-
-  TOP / LEAVES ({leaves} pkgs)   nothing depends on these; remove one and nothing else breaks
-  e.g.  plasma-desktop  dolphin  gwenview  konsole  vlc  libreoffice-fresh  neovim
-        end-user desktop apps, KDE System Settings modules, the installer tools
-            |                          |                        |
-            v                          v                        v
-  FRAMEWORKS (KDE Frameworks 6, Qt6, GTK, .NET, Go std)
-     kio  kservice  kconfig  qt6-base  qt6-declarative  gtk3  gtk4  plasma-workspace
-            |                          |                        |
-            v                          v                        v
-  MID / SYSTEM LIBS
-     dbus  polkit  systemd  pipewire  networkmanager  mesa  libglvnd  cups  wayland
-            |                          |                        |
-            v                          v                        v
-  CORE LIBS
-     glibc  libgcc  libstdc++  bash  ncurses  readline  zlib  xz  openssl  libxml2
-            |                          |                        |
-            v                          v                        v
-  BASE / SINKS ({bases} pkgs, depend on nothing else in the set)
-     iana-etc  tzdata  linux-api-headers  xorgproto  xcb-proto  pambase  xkeyboard-config
-     (glibc/libgcc are near-base keystones, not sinks: they still depend on a
-      handful of these -- glibc -> linux-api-headers, tzdata, filesystem)
-
-  KERNEL:  linux {kernel_version}  (+ linux-firmware, amd-ucode, intel-ucode)
-           the kernel is a root, not a hub: only broadcom-wl and
-           virtualbox-guest-utils-nox depend on the linux package itself.
-```\
-"""
-
-LAYERS_NOTE = """\
-- Every explicit manifest entry was resolved to a real Arch package. The two
-  group entries were expanded to their members: `xorg` -> {xorg_members} packages,
-  `plasma` -> {plasma_members} packages.
-- From those roots, the full transitive dependency closure was walked using the
-  real `%DEPENDS%` fields (virtual/provides dependencies resolved via
-  `%PROVIDES%`). That closure is **{closure} packages** with **{unresolved}
-  unresolved dependency edges**.
-- *Base / sink* = out-degree 0 within the closure (depends on nothing else in
-  the set). *Top / leaf* = in-degree 0 (nothing in the set depends on it).
-- "Depended on by (transitive)" counts every package that ultimately reaches a
-  package through the dependency graph; it is the true measure of how load-
-  bearing a package is.\
-"""
-
-KEYSTONE_NOTE = """\
-Not every keystone is a sink (some have a few deps of their own), but these are
-the packages the largest share of the system ultimately rests on. `glibc` alone
-is a direct dependency of {glibc_direct} packages; the C runtime, compression
-libraries and core crypto libraries underpin essentially everything.\
 """
 
 # (key, title, prose, [(package(s), capability)])
