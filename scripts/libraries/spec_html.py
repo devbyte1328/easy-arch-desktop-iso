@@ -256,12 +256,12 @@ header{
 .main{flex:1;display:flex;min-height:0;position:relative}
 .map{flex:1;overflow:auto;padding:14px var(--map-pad) 40px}
 /* Entries flat view has no right-hand rail for the panel to overlay (unlike the
-   component bands), so when the entries panel opens we reserve the panel's width
-   as extra right padding on #emap. The flat boxes reflow into the narrower area
-   -- the last column drops to the next line instead of being hidden -- while the
-   layer bands keep their own rail and are unaffected. --map-pad is already in the
-   base padding, so we add only the remaining rail width + the 1px border. */
-.main.epanel-open #emap{padding-right:calc(var(--map-pad) + var(--rail-w) + 1px)}
+   component bands), so the panel (position:absolute) would sit on top of the last
+   column of entry boxes. To avoid that we permanently reserve the panel's width on
+   the RIGHT of the flat boxes (see .flatboxes) -- the last column always drops to
+   the next line, whether or not the panel is open, so opening it never hides or
+   reflows anything. The reservation lives on .flatboxes (flat mode only); the
+   hierarchy layer bands keep their own rail and are unaffected. */
 /* ---- bands ---- */
 /* Boxes on the LEFT, the layer-label rail on the RIGHT (flex order:2). The rail
    width matches the detail panel (--rail-w) so, when a component is clicked, the
@@ -405,7 +405,13 @@ kbd{background:var(--ink);border:1px solid var(--line);border-radius:4px;padding
 .flathead .fn{margin-left:auto;font-size:12px;font-weight:700;
   background:linear-gradient(90deg,var(--cyan),var(--blue));
   -webkit-background-clip:text;background-clip:text;color:transparent}
-.flatboxes{display:flex;flex-wrap:wrap;gap:7px}
+/* Permanently reserve the detail-panel width on the RIGHT so the last column of
+   entry boxes always drops to the next line (never hidden under the panel, never
+   reflowing when it opens), and centre the boxes so the partly-filled last row --
+   and the leftover margin the reservation creates -- sits in the middle of the
+   available area instead of hugging the left edge. */
+.flatboxes{display:flex;flex-wrap:wrap;gap:7px;justify-content:center;
+  padding-right:calc(var(--rail-w) + var(--map-pad) + 1px)}
 /* the entries detail panel groups brought-in packages into exclusive vs shared */
 .brk{margin:0 0 12px}
 .brk .h{font-size:11px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px;font-weight:700}
@@ -983,7 +989,8 @@ function openEntryPanel(tok){
     ? `Removing <b>${esc(tok)}</b> from packages.x86_64 would drop these <b>${e.exclusiveCount}</b> package(s) (${e.exclSize}) from the set &mdash; nothing else pulls them in.`
     : `Removing <b>${esc(tok)}</b> would drop nothing new: every package it brings is also brought by another entry.`;
   panel.classList.remove('hidden');
-  panel.parentElement.classList.add('epanel-open');   // reserve panel width on #emap so flat boxes reflow clear
+  // No layout reservation needed on open: .flatboxes permanently reserves the
+  // panel's width on the right, so the panel overlays empty space, not boxes.
   panel.innerHTML =
     `<div class="ph"><span class="close" title="close (Esc)">×</span>`+
       `<h2>${esc(tok)}</h2><div class="ver">manifest entry &#183; ${rootLine}</div></div>`+
@@ -1011,7 +1018,7 @@ function openEntryPanel(tok){
   // no separate '.brings' anchor (it would clash with the legend's yellow
   // "requires" colour and linger on the previously-selected box).
 }
-function closeEntryPanel(){ panel.classList.add('hidden'); panel.parentElement.classList.remove('epanel-open'); panel.innerHTML=""; clearEntryHighlight(); }
+function closeEntryPanel(){ panel.classList.add('hidden'); panel.innerHTML=""; clearEntryHighlight(); }
 
 // ---- entries controls ----
 qe.addEventListener('input',()=>{ eQuery=qe.value.trim().toLowerCase(); applyEntryFilters(); });
