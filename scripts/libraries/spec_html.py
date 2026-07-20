@@ -423,6 +423,38 @@ kbd{background:var(--ink);border:1px solid var(--line);border-radius:4px;padding
 .pill.ex:hover{border-color:#f0883e;color:#f0883e}
 .entkv{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;font-size:12px;margin-bottom:12px}
 .entkv .k{color:var(--dim)}
+/* ---- entries overview rail ---- */
+/* Fills the strip that .flatboxes reserves on the right so it is never dead
+   space. Occupies the SAME geometry as the detail .panel (same width, right-
+   aligned), so when an entry is clicked the panel (higher z-index + shadow)
+   overlays it exactly -- no layout shift. Static, so no shadow of its own. Its
+   stats are recomputed from the currently-visible entries on every filter /
+   search / sort change, so it always describes what you are looking at. */
+.erail{position:absolute;top:0;right:0;height:100%;
+  width:calc(var(--rail-w) + var(--map-pad) + 1px);
+  border-left:1px solid var(--line);background:var(--panel);
+  overflow:auto;padding:14px 16px;z-index:1}
+.erail.hidden{display:none}
+.erail h3{margin:0 0 2px;font-size:13px;font-weight:700;letter-spacing:.02em}
+.erail .rsub{color:var(--dim);font-size:11.5px;line-height:1.4;margin:0 0 12px}
+.erail .stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+.erail .stat{border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--ink)}
+.erail .stat .v{font-size:17px;font-weight:700;line-height:1.1}
+.erail .stat .v.az{color:var(--cyan)}
+.erail .stat .v.exl{color:#f0883e}
+.erail .stat .l{font-size:10.5px;color:var(--dim);margin-top:2px}
+.erail .rh{font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--dim);
+  font-weight:700;margin:0 0 6px}
+.erail .top{list-style:none;margin:0 0 14px;padding:0}
+.erail .top li{display:flex;align-items:baseline;gap:8px;padding:4px 6px;border-radius:6px;
+  cursor:pointer;font-size:12px}
+.erail .top li:hover{background:var(--ink)}
+.erail .top .tn{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.erail .top .tc{color:#f0883e;font-weight:700;font-variant-numeric:tabular-nums}
+.erail .top .ts{color:var(--dim);font-size:10.5px;font-variant-numeric:tabular-nums;min-width:52px;text-align:right}
+.erail .rkey{border-top:1px solid var(--line);padding-top:10px;font-size:11px;color:var(--dim);line-height:1.5}
+.erail .rkey b{color:var(--text);font-weight:600}
+.erail .rempty{color:var(--dim);font-size:12px;line-height:1.5}
 </style>
 </head>
 <body>
@@ -478,6 +510,7 @@ kbd{background:var(--ink);border:1px solid var(--line);border-radius:4px;padding
 <div class="main">
   <div class="map page" id="map"></div>
   <div class="map page hidden" id="emap"></div>
+  <aside class="erail hidden" id="erail"></aside>
   <aside class="panel hidden" id="panel"></aside>
 </div>
 <button class="legend-toggle down" id="legendToggle" title="Show / hide the legend (press l)">Show legend ▴</button>
@@ -825,6 +858,7 @@ const ENTRIES = DATA.entries;                       // manifest order
 const EBY = {};                                     // token -> entry record
 for(const e of ENTRIES) EBY[e.token] = e;
 const emap = document.getElementById('emap');
+const erail = document.getElementById('erail');
 const qe = document.getElementById('qe');
 let entrySelected = null;
 let eView = "flat";       // "flat" (manifest order) | "hier" (dependency layers)
@@ -931,6 +965,66 @@ function applyEntryFilters(){
     if(n) n.textContent = vis===total? `${total} entries` : `${vis} / ${total} entries`;
   }
   document.getElementById('ecount').textContent=`${shown} / ${ENTRIES.length} entries`;
+  buildERail();   // keep the overview rail in sync with what is currently visible
+}
+
+// ---- entries overview rail ----------------------------------------------- */
+// Fills the strip .flatboxes reserves on the right. Summarises the entries that
+// are CURRENTLY visible (after the block filter + search), so it always reflects
+// what is on screen, and lists the heaviest manifest lines as shortcuts.
+function fmtSize(n){
+  if(n>=1024**3) return (n/1024**3).toFixed(2)+" GiB";
+  if(n>=1024**2) return (n/1024**2).toFixed(1)+" MiB";
+  if(n>=1024)    return Math.round(n/1024)+" KiB";
+  return n+" B";
+}
+function buildERail(){
+  // The reserved right strip only exists in flat view; the hierarchy view uses
+  // full-width bands with their own rails, so hide the overview there.
+  if(currentPage!=="entries" || eView!=="flat"){ erail.classList.add('hidden'); return; }
+  erail.classList.remove('hidden');
+  const vis = ENTRIES.filter(e=>entMatches(e.token));
+  if(!vis.length){
+    erail.innerHTML =
+      `<h3>Entries overview</h3>`+
+      `<div class="rempty">No entries match the current block filter / search.</div>`;
+    return;
+  }
+  const az = vis.filter(e=>e.edition==="az'arch").length;
+  const stock = vis.length - az;
+  const brings = vis.reduce((s,e)=>s+e.bringsCount,0);
+  const exclPkgs = vis.reduce((s,e)=>s+e.exclusiveCount,0);
+  const exclBytes = vis.reduce((s,e)=>s+e.exclIsize,0);
+  // heaviest lines: those whose removal drops the most packages exclusively.
+  const top = vis.filter(e=>e.exclusiveCount>0)
+                 .sort((a,b)=> b.exclusiveCount-a.exclusiveCount || b.exclIsize-a.exclIsize)
+                 .slice(0,10);
+  const scope = eBlock==="az'arch" ? "Az'arch additions"
+              : eBlock==="stock"   ? "Stock baseline"
+              : eQuery             ? "matching entries"
+              : "all manifest entries";
+  const topRows = top.length
+    ? top.map(e=>
+        `<li data-goent="${esc(e.token)}" title="click to inspect ${esc(e.token)}">`+
+          `<span class="tn">${esc(e.token)}</span>`+
+          `<span class="tc">${e.exclusiveCount}</span>`+
+          `<span class="ts">${esc(e.exclSize)}</span></li>`).join("")
+    : `<li class="rempty" style="cursor:default">None of the visible entries pull anything exclusively.</li>`;
+  erail.innerHTML =
+    `<h3>Entries overview</h3>`+
+    `<div class="rsub">${scope} &mdash; what each line in packages.x86_64 pulls into the system.</div>`+
+    `<div class="stats">`+
+      `<div class="stat"><div class="v">${vis.length}</div><div class="l">entries shown</div></div>`+
+      `<div class="stat"><div class="v az">${az}</div><div class="l">Az'arch &middot; ${stock} stock</div></div>`+
+      `<div class="stat"><div class="v">${brings}</div><div class="l">package pulls (with overlap)</div></div>`+
+      `<div class="stat"><div class="v exl">${fmtSize(exclBytes)}</div><div class="l">${exclPkgs} exclusive pkgs</div></div>`+
+    `</div>`+
+    `<div class="rh">Most load-bearing lines</div>`+
+    `<ul class="top">${topRows}</ul>`+
+    `<div class="rkey">The <b style="color:#f0883e">orange</b> number is how many packages are <b>exclusive</b> to that `+
+      `line &mdash; drop it from packages.x86_64 and they leave the set. Click any line to inspect it.</div>`;
+  for(const li of erail.querySelectorAll('.top li[data-goent]'))
+    li.addEventListener('click',()=>selectEntry(li.dataset.goent, true));
 }
 
 // ---- entry selection + highlight ----
@@ -1046,6 +1140,7 @@ function showComponents(){
   document.getElementById('emap').classList.add('hidden');
   document.getElementById('ctlComponents').classList.remove('hidden');
   document.getElementById('ctlEntries').classList.add('hidden');
+  erail.classList.add('hidden');     // overview rail belongs to the entries page
   closeEntryPanel();                 // leaving entries clears its selection/panel
 }
 function showEntries(){
@@ -1057,7 +1152,10 @@ function showEntries(){
   document.getElementById('ctlEntries').classList.remove('hidden');
   document.getElementById('ctlComponents').classList.add('hidden');
   closePanel();                      // leaving components clears its selection/panel
-  if(!emap.childElementCount) buildEntries();   // lazy first build
+  // buildERail() (via buildEntries/applyEntryFilters, or directly) shows the rail
+  // and fills the reserved right strip; it self-gates on page + flat view.
+  if(!emap.childElementCount) buildEntries();   // lazy first build (also builds the rail)
+  else buildERail();                 // refresh rail stats on re-entry
 }
 tabC.addEventListener('click',showComponents);
 tabE.addEventListener('click',showEntries);
