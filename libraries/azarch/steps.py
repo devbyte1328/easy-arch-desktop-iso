@@ -2,9 +2,10 @@
 config-as-Python modules, cache/stage the packages, and run mkarchiso.
 
 This replaces the long body of the old compile.sh. Each `bar.step(...)` is one
-milestone. Trivial emit steps are near-instant; the two giants (package cache,
-mkarchiso) drive live sub-progress. Ownership handback and the PTY/signal
-machinery live in build.py; this module is pure build logic.
+milestone, named for the archiso/pacman/systemd artifact it produces. Trivial
+overlay-emit steps are near-instant; the two giants (package cache, mkarchiso)
+drive live sub-progress. Ownership handback and the PTY/signal machinery live in
+build.py; this module is pure build logic.
 """
 
 from __future__ import annotations
@@ -20,9 +21,12 @@ from . import emit, packages, paths
 from .config import fastfetch, installer, kde, locale, pacman, profile, system
 from .progress import ProgressBar
 
-# Weights: trivial emit steps = 1 unit; the two giants sized from real log spans.
-# 23 trivial steps + package-cache(250) + mkarchiso(270). Keep in sync with steps below.
-STEP_WEIGHTS = [0] + [1] * 23 + [250, 270]
+# Weights: setup/emit steps carry real weight so the bar visibly advances through
+# them (at weight 1 the 12 of them were ~2% of the whole bar and looked frozen); the
+# two giants are still the bulk, sized from real log spans. Keep in sync with steps
+# below: len(STEP_WEIGHTS) - 1 MUST equal the number of bar.step() calls in run(), and
+# the final two weights belong to the package-cache and mkarchiso giants, in that order.
+STEP_WEIGHTS = [0] + [8] * 12 + [250, 270]
 
 # PGID of the currently-running mkarchiso child (0 = none). mkarchiso is spawned in
 # its own session/process group so the signal handler can kill THAT group (and all
@@ -59,24 +63,24 @@ def run(bar: ProgressBar, offline: bool, reclaim_after_mkarchiso) -> Path:
     ea = airootfs / "root/azarch"  # the azarch payload dir baked into the ISO
     sudo = _sudo()
 
-    # 1
-    bar.step("Cleaning up previous build directory...")
+    # 1 -- Reset build workspace
+    bar.step("Reset build workspace")
     _unmount_worktree(sudo)
     paths.BUILDDIR.mkdir(parents=True, exist_ok=True)
     subprocess.run(sudo + ["rm", "-rf", str(W)], check=False)
     W.mkdir(parents=True, exist_ok=True)
     os.chdir(W)
 
-    # 2
-    bar.step("Checking for build-host dependencies...")
+    # 2 -- Sync host toolchain
+    bar.step("Sync host toolchain")
     _check_host_deps(sudo, offline)
 
-    # 3
-    bar.step("Copying releng base into working directory...")
+    # 3 -- Scaffold releng profile
+    bar.step("Scaffold releng profile")
     _copy_releng(W)
 
-    # 4
-    bar.step("Adding custom bootloader entries and config files...")
+    # 4 -- Brand boot menus (systemd-boot + syslinux)
+    bar.step("Brand boot menus (systemd-boot, syslinux)")
     # Overwrite the releng UEFI entries in place (same filenames) rather than adding
     # differently-named ones alongside them -- otherwise the menu shows BOTH the stock
     # "Arch Linux install medium" entries AND ours, i.e. duplicated rows all reading
@@ -89,41 +93,34 @@ def run(bar: ProgressBar, offline: bool, reclaim_after_mkarchiso) -> Path:
     # of the releng default "Arch Linux".
     emit.write_text(W / "syslinux/archiso_head.cfg", system.BOOT_BIOS_SYSLINUX_HEAD)
 
-    # 5
-    bar.step("Copying custom package list...")
+    # 5 -- Stage pacstrap package manifest
+    bar.step("Stage pacstrap package manifest")
     emit.copy_data("packages.x86_64", W / "packages.x86_64")
 
-    # 6
-    bar.step("Setting up users...")
+    # 6 -- Provision airootfs accounts (users/groups + /home/main, chowned for SDDM autologin)
+    bar.step("Provision airootfs accounts (SDDM autologin)")
     emit.write_text(airootfs / "etc/passwd", system.PASSWD)
     emit.write_text(airootfs / "etc/shadow", system.SHADOW, mode=0o600)
     emit.write_text(airootfs / "etc/gshadow", system.GSHADOW, mode=0o600)
     emit.write_text(airootfs / "etc/group", system.GROUP)
-
-    # 7
-    bar.step("Creating home directory and configuring permissions for SDDM autologin...")
     home = airootfs / "home/main"
     emit.mkdir(home)
     subprocess.run(sudo + ["chown", "-R", "1000:998", str(home)], check=False)
 
-    # 8
-    bar.step("Adding setup-locale script...")
-    emit.write_exec(ea / "setup-locale.sh", locale.setup_locale_sh())
+    # 7 -- Overlay branding, locale and Plasma theming into airootfs.
+    # One coherent overlay-population act: locale setup-script + service, the KDE/Plasma
+    # theme and plasmoid QML, the fastfetch logo, and the os-release/hostname rebrand.
+    bar.step("Overlay branding, locale and Plasma theming")
 
-    # 9
-    bar.step("Adding locale systemd service...")
+    # locale: first-run setup script + the systemd unit that runs it.
+    emit.write_exec(ea / "setup-locale.sh", locale.setup_locale_sh())
     emit.write_text(airootfs / "etc/systemd/system/locale-setup.service", system.LOCALE_SETUP_SERVICE)
 
-    # 10
-    bar.step("Applying KDE minimal theme...")
+    # Plasma theme + plasmoid QML, and the azarch fastfetch logo.
     _emit_kde(airootfs, ea, home)
-
-    # 10b
-    bar.step("Applying azarch fastfetch logo...")
     _emit_fastfetch(ea, home)
 
-    # 10c
-    bar.step("Branding os-release as Az'arch Linux...")
+    # os-release / plasma.desktop rebrand:
     # Live ISO: the build pacman.conf NoExtracts usr/lib/os-release (config/pacman.py)
     # so the `filesystem` package's stock "Arch Linux" file never lands. We must NOT
     # pre-place our replacement in the airootfs overlay, though: mkarchiso copies the
@@ -143,60 +140,54 @@ def run(bar: ProgressBar, offline: bool, reclaim_after_mkarchiso) -> Path:
     # Overlay the releng `archiso` hostname with `azarch` (prompt + fastfetch title).
     emit.write_text(airootfs / "etc/hostname", system.HOSTNAME)
 
-    # 11
-    bar.step("Configuring pacman...")
+    # 8 -- Stage installed-system pacman and pkgs service.
+    # The package-management unit of the installed system: its /etc/pacman.conf, the
+    # live-session setup-pkgs.sh, and the pkgs-setup.service that runs it.
+    bar.step("Stage installed-system pacman and pkgs service")
     emit.write_text(airootfs / "etc/pacman.conf", pacman.installer_base_conf())
-
-    # 12
-    bar.step("Adding setup-pkgs script...")
     emit.write_exec(ea / "setup-pkgs.sh", installer.setup_pkgs_sh())
-
-    # 13
-    bar.step("Adding pkgs systemd service...")
     emit.write_text(airootfs / "etc/systemd/system/pkgs-setup.service", system.PKGS_SETUP_SERVICE)
 
-    # 14
-    bar.step("Adding SDDM config...")
+    # 9 -- Configure SDDM and Plasma session.
+    # Writes /etc/sddm.conf (display-manager + autologin). The Plasma X session file
+    # (plasma.desktop) is NOT written here: it is a plasma-workspace-owned path, so it
+    # is staged in step 7 and planted post-pacstrap by customize_airootfs.sh (overlaying
+    # it now would collide during pacstrap). The SDDM autologin Session= key still points
+    # at plasma.desktop; this step is the session milestone.
+    bar.step("Configure SDDM and Plasma session")
     emit.write_text(airootfs / "etc/sddm.conf", system.SDDM_CONF)
 
-    # 15
-    bar.step("Configuring X11 session...")
-    # NOTE: the actual session file is planted post-pacstrap by customize_airootfs.sh
-    # (staged at root/azarch/plasma.desktop in step 10c) -- overlaying it here would
-    # collide with plasma-workspace's copy during pacstrap. This step is retained as a
-    # milestone; the SDDM autologin Session= key still points at plasma.desktop.
-
-    # 16
-    bar.step("Linking systemd services...")
+    # 10 -- Enable systemd units and sudoers policy.
+    # Activation/policy at profile finalization: the *.target.wants symlinks that enable
+    # the units, plus the sudoers.d drop-ins.
+    bar.step("Enable systemd units and sudoers policy")
     _link_services(airootfs)
-
-    # 17
-    bar.step("Setting up sudoers...")
     emit.write_text(airootfs / "etc/sudoers.d/00-rootpw", system.SUDOERS_ROOTPW, mode=0o440)
     emit.write_text(airootfs / "etc/sudoers.d/00-main", system.SUDOERS_MAIN, mode=0o440)
 
-    # 18
-    bar.step("Copying profile definition...")
+    # 11 -- Emit profiledef and installer payload.
+    # profiledef.sh (archiso metadata at the PROFILE ROOT, not airootfs), the Desktop
+    # installer launcher + XDG autostart entry, and the first-boot script/service/conf.
+    bar.step("Emit profiledef and installer payload")
     emit.write_exec(W / "profiledef.sh", profile.profiledef_sh())
-
-    # 19
-    bar.step("Setting up the ISO installer autostart...")
     emit.write_exec(home / "Desktop/azarch-iso-installer.sh", installer.installer_sh())
     emit.write_text(home / ".config/autostart/azarch-iso-install.desktop", installer.installer_desktop())
-
-    # 20
-    bar.step("Copying first-boot configuration...")
     emit.write_exec(ea / "first-boot-setup.sh", installer.first_boot_sh())
     emit.write_text(ea / "first-boot-setup.service", installer.first_boot_service())
     emit.write_text(ea / "first-boot-setup.conf", installer.first_boot_conf())
 
-    # 21
-    bar.step("Preparing the build pacman.conf (X11 session, cache)...")
+    # 12 -- Resolve build pacman.conf and mirrors.
+    # Writes the pacstrap/mkarchiso build pacman.conf, injects the persistent CacheDir,
+    # probes mirrors, and switches to the local file:// repo when offline. A distinct
+    # pacman-prep stage that gates the cache download below.
+    bar.step("Resolve build pacman.conf and mirrors")
     _write_build_pacman_conf(W, offline, bar)
 
-    # 22 (giant)
-    bar.step("Setting up packages for hard-drive installation...")
-    packages.build_cache(W, paths.CACHEDIR, offline, bar.sub)
+    # 13 -- Warm pacman cache and stage installer payload (GIANT, weight 250).
+    # pacman -Sw builds/indexes the local repo (drives bar.sub sub-progress), then the
+    # on-disk installer's package manifest + pacman confs + chroot-setup.sh are staged.
+    bar.step("Warm pacman cache and stage installer payload")
+    packages.build_cache(W, paths.CACHEDIR, offline, bar.sub, bar.phase)
     bar.sub_done()
     bar._arm(); bar.draw()
     # stage the installer-side payload the on-disk installer needs
@@ -205,8 +196,10 @@ def run(bar: ProgressBar, offline: bool, reclaim_after_mkarchiso) -> Path:
     emit.write_text(ea / "pacstrap-azarch-conf/pacman.conf", pacman.installer_pacstrap_conf())
     emit.write_exec(ea / "chroot-setup.sh", installer.chroot_setup_sh())
 
-    # 23 (giant)
-    bar.step("Building ISO...")
+    # 14 -- Assemble ISO (GIANT, weight 270).
+    # mkarchiso: pacstrap into airootfs, mksquashfs, checksum, build the .iso
+    # (drives bar.sub sub-progress via _drive_mkarchiso_progress).
+    bar.step("Assemble ISO (mkarchiso)")
     iso = _run_mkarchiso(sudo, W, bar, reclaim_after_mkarchiso)
     return iso
 
@@ -361,9 +354,14 @@ def _run_mkarchiso(sudo, W: Path, bar: ProgressBar, reclaim_after) -> Path:
     # start_new_session=True puts mkarchiso (and its pacstrap children) in their OWN
     # process group so a Ctrl-C can group-kill THEM without hitting our shell.
     global _ACTIVE_CHILD_PGID
+    # stdin from /dev/null: pacstrap under mkarchiso hits the `xorg`/`plasma` package
+    # groups and prints "Enter a selection (default=all):" on stdin. With no input it
+    # stalls for a minute before defaulting; feeding EOF makes it take default=all
+    # immediately instead of hanging.
     proc = subprocess.Popen(
         sudo + ["mkarchiso", "-v", "-w", str(W / "work"), "-o", str(paths.BUILDDIR), str(W)],
-        env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, start_new_session=True,
+        env=env, stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, start_new_session=True,
     )
     _ACTIVE_CHILD_PGID = proc.pid  # PID == PGID for a session leader
     try:
@@ -413,6 +411,24 @@ def _drive_mkarchiso_progress(proc, bar: ProgressBar) -> None:
     reader = io.TextIOWrapper(proc.stdout, encoding="utf-8", errors="replace", newline="")
     buf = ""
 
+    # Heartbeat: pacman/mksquashfs suppress their (N/M) progress frames when their
+    # output is not a TTY (it is a pipe here), so whole phases -- pacstrap install and
+    # the minute-long SquashFS pack -- produce many log lines but no parseable frame,
+    # and the bar froze between milestone jumps. Between two milestones we creep toward
+    # (but never reach) the next milestone, one notch per output line, so the bar keeps
+    # visibly moving even with no frames. `hb` holds (floor, ceil) for the live phase.
+    hb = {"floor": 0, "ceil": 0, "at": 0}
+
+    def creep() -> None:
+        # asymptotic: close ~1/16 of the remaining gap to the ceiling per line.
+        room = hb["ceil"] - max(hb["at"], hb["floor"])
+        if room > 0:
+            hb["at"] = max(hb["at"], hb["floor"]) + max(1, room // 16)
+            bar.sub(hb["at"])
+
+    def phase_span(floor: int, ceil: int) -> None:
+        hb["floor"], hb["ceil"], hb["at"] = floor, ceil, floor
+
     def emit_line(line: str) -> None:
         nonlocal inpac
         if not line:
@@ -422,23 +438,34 @@ def _drive_mkarchiso_progress(proc, bar: ProgressBar) -> None:
         if "Installing packages to" in line:
             inpac = True
             bar.sub(20)
+            bar.phase("pacstrap: installing packages into airootfs")
+            phase_span(20, 810)   # creep across the install phase, stop short of 820
         elif "Done! Packages installed" in line:
             inpac = False
             bar.sub(820)
+            bar.phase("pacstrap done, running customize hooks")
+            phase_span(840, 930)  # next visible work is SquashFS; creep toward it
         elif "Creating SquashFS image" in line:
             inpac = False
             bar.sub(840)
+            bar.phase("mksquashfs: compressing root filesystem (slow)")
+            phase_span(840, 925)  # the long silent pack: creep so the minute animates
         elif "Creating checksum file" in line:
             bar.sub(930)
+            bar.phase("writing SquashFS checksum")
+            phase_span(930, 958)
         elif "Creating ISO image" in line:
             bar.sub(960)
-        elif inpac:
-            m = frame.search(line)
-            if m:
-                n, mm, ph = int(m.group(1)), int(m.group(2)), m.group(3)
-                base, span = _PACMAN_BANDS[ph]
-                if mm > 0:
-                    bar.sub(base + n * span // mm)
+            bar.phase("xorriso: writing bootable ISO image")
+            phase_span(960, 995)
+        elif inpac and (m := frame.search(line)):
+            n, mm, ph = int(m.group(1)), int(m.group(2)), m.group(3)
+            base, span = _PACMAN_BANDS[ph]
+            if mm > 0:
+                bar.sub(base + n * span // mm)
+        else:
+            # no milestone, no frame -- keep the bar alive within the current phase.
+            creep()
 
     try:
         while True:

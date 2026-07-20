@@ -40,6 +40,8 @@ class ProgressBar:
             tty = sys.stdout.isatty()
         self.tty = tty
         self._armed = False
+        self._armed_rows = None  # terminal height the scroll region was last armed to
+        self._base_label = ""    # current step's label, prefixed onto phase() sub-labels
 
     # -- geometry ------------------------------------------------------------
     def _size(self) -> tuple[int, int]:
@@ -78,14 +80,26 @@ class ProgressBar:
         if not self.tty:
             return
         _, rows = self._size()
-        sys.stdout.write(f"\033[1;{rows - 1}r")
+        # Set the DECSTBM scroll region to rows 1..rows-1, reserving the last row for
+        # the pinned bar. Setting the region homes the cursor (a DECSTBM side effect),
+        # which would make the next scrolling write land at the TOP; immediately place
+        # the cursor at the bottom of the region so build output appends above the bar.
+        sys.stdout.write(f"\033[1;{rows - 1}r\033[{rows - 1};1H")
         sys.stdout.flush()
         self._armed = True
+        self._armed_rows = rows
 
     def draw(self) -> None:
         if not self.tty:
             return
         cols, rows = self._size()
+        # If the terminal was resized since the region was armed, the old scroll region
+        # and bar row are stale -- the bar would paint on the wrong row and unstick. The
+        # giant steps drive many draw()s over a long span, so a resize mid-step is likely;
+        # re-arm to the new height before painting. (\033[u below restores to a saved
+        # position that re-arming would clobber, so re-arm BEFORE saving the cursor.)
+        if getattr(self, "_armed_rows", None) != rows:
+            self._arm()
         line = self._layout(cols)
         # save cursor, jump to last row, clear, paint, restore cursor
         sys.stdout.write(f"\033[s\033[{rows};1H\033[K{line}\033[u")
@@ -103,6 +117,7 @@ class ProgressBar:
         self.done_weight = self.accum[self.current - 1]
         self.cur_weight = self.weights[self.current]
         self.subfrac = 0
+        self._base_label = label  # phase() prefixes sub-phase labels with this
         self._arm()
         # milestone line (scrolls; captured in logs)
         sys.stdout.write(f"\n[ {self.current:2d}/{self.total_steps} ] {label}\n")
@@ -115,6 +130,17 @@ class ProgressBar:
         if permille > self.subfrac:
             self.subfrac = permille
             self.draw()
+
+    def phase(self, sublabel: str) -> None:
+        """Update the pinned bar's label to a sub-phase of the current step WITHOUT
+        advancing the step counter, and drop a scrolling milestone line. Lets the two
+        giant steps (package cache, mkarchiso) narrate their internal phases so the
+        bar reports fine-grained progress instead of one static label for minutes."""
+        text = f"{self._base_label} › {sublabel}" if getattr(self, "_base_label", "") else sublabel
+        self.label = text
+        sys.stdout.write(f"    -> {sublabel}\n")
+        sys.stdout.flush()
+        self.draw()
 
     def sub_done(self) -> None:
         """Snap the current step to 100% of its slice."""

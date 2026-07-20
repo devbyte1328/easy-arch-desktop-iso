@@ -63,13 +63,15 @@ def _write_download_conf(dest: Path) -> Path:
     return dest
 
 
-def build_cache(workdir: Path, cachedir: Path, offline: bool, progress: ProgressCb) -> None:
+def build_cache(workdir: Path, cachedir: Path, offline: bool, progress: ProgressCb,
+                phase: Callable[[str], None] = lambda _s: None) -> None:
     """Sync/download (unless offline), reconcile the index, and stage the cache.
 
     workdir  : the disposable profile tree (holds the transient sync DB + gpg dir)
     cachedir : the persistent cache root (survives builds)
     offline  : BUILD_OFFLINE -- skip all network when the cache is complete
     progress : called with a permille (0..1000) as milestones are reached
+    phase    : called with a short sub-phase label to narrate the bar (optional)
     """
     sudo = _sudo()
     pkg_repo = cachedir / "pkgs" / "repo"
@@ -90,13 +92,14 @@ def build_cache(workdir: Path, cachedir: Path, offline: bool, progress: Progress
 
     if offline:
         print("[*] Complete cache present -- skipping DB sync and download (fully offline).")
+        phase("cache complete, using offline packages")
         if not any((pkg_db / "sync").iterdir()):
             raise PackageError(
                 "BUILD_OFFLINE set but no cached sync DB -- wipe cache/ and rebuild online."
             )
         progress(20)
     else:
-        _sync_and_download(sudo, dlconf, gpgdir, pkg_db, pkg_repo, progress)
+        _sync_and_download(sudo, dlconf, gpgdir, pkg_db, pkg_repo, progress, phase)
 
     # hand the cache subtree back so the later unprivileged steps here can read it.
     own_uid = os.environ.get("HOST_UID") or str(os.getuid())
@@ -104,10 +107,12 @@ def build_cache(workdir: Path, cachedir: Path, offline: bool, progress: Progress
     _run(sudo + ["chown", "-R", f"{own_uid}:{own_gid}", str(pkg_repo), str(pkg_db)], check=False)
 
     print("[*] Reconciling local repository index with the cache...")
+    phase("reconciling local repo index")
     progress(440)
     _reconcile_index(pkg_repo, progress)
 
     print("[*] Staging cached packages into the ISO working tree...")
+    phase("staging cache into ISO tree")
     progress(880)
     final_db.mkdir(parents=True, exist_ok=True)
     final_cache.mkdir(parents=True, exist_ok=True)
@@ -121,7 +126,8 @@ def build_cache(workdir: Path, cachedir: Path, offline: bool, progress: Progress
     print("[✓] Package cache is complete and staged (offline-ready, resumable).")
 
 
-def _sync_and_download(sudo, dlconf, gpgdir, pkg_db, pkg_repo, progress) -> None:
+def _sync_and_download(sudo, dlconf, gpgdir, pkg_db, pkg_repo, progress, phase=lambda _s: None) -> None:
+    phase("syncing package databases")
     print("[*] Syncing package databases...")
     r = subprocess.run(
         sudo + ["pacman", "-Sy", "--config", str(dlconf), "--gpgdir", str(gpgdir),
@@ -144,10 +150,12 @@ def _sync_and_download(sudo, dlconf, gpgdir, pkg_db, pkg_repo, progress) -> None
             if (tok := line.split("#", 1)[0].strip())]
 
     print("[*] Downloading missing packages into the persistent cache (resumable)...")
+    phase(f"downloading {len(pkgs)} packages into cache")
     progress(20)
     r = subprocess.run(
         sudo + ["pacman", "-Sw", "--config", str(dlconf), "--gpgdir", str(gpgdir),
                 "--noconfirm", "--cachedir", str(pkg_repo), "--dbpath", str(pkg_db)] + pkgs,
+        stdin=subprocess.DEVNULL,
         check=False,
     )
     if r.returncode != 0:
