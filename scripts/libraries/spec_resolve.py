@@ -120,6 +120,99 @@ def stock_reachable(stock_tokens, azarch_closure, packages, provides, groups):
     return stock["closure"] & azarch_closure
 
 
+def _reach_from(seeds, edges, closure):
+    """Every package in `closure` reachable from `seeds` by following `edges`
+    (dependency direction), including the seeds themselves. Iterative BFS."""
+    seen = set()
+    stack = [s for s in seeds if s in closure]
+    while stack:
+        p = stack.pop()
+        if p in seen:
+            continue
+        seen.add(p)
+        for d in edges.get(p, ()):  # edges are already intersected with closure
+            if d not in seen:
+                stack.append(d)
+    return seen
+
+
+def attribute_entries(resolved):
+    """Answer "which manifest entry is responsible for each component, and what
+    does each entry pull into the system?" purely from the resolved graph.
+
+    A manifest ENTRY is one line the author wrote in packages.x86_64 (a package,
+    or a group like `xorg`/`plasma` that expands to its members). Each entry has a
+    set of ROOTS (itself, or the group's members). An entry "brings" every package
+    reachable from its roots along the dependency edges -- its transitive closure
+    contribution. Because dependency graphs share heavily, one package is usually
+    brought by several entries; we record all of them (attribution) and single out
+    the ones a given entry brings ALONE.
+
+    A package is EXCLUSIVE to an entry when that entry is the only one that reaches
+    it: remove the entry from the manifest and the package leaves the set. That is
+    exactly the "what do I lose if I cut this" signal for pruning the manifest.
+    (Group members are treated as one entry: dropping the group drops them all, so
+    a package only they reach is exclusive to the group entry.)
+
+    Returns a dict:
+      entries      -- ordered list (manifest order) of per-entry records:
+                        {token, kind, roots, brings (sorted), exclusive (sorted),
+                         shared (sorted), sharedCount}
+      broughtBy    -- {pkg: [entry_token, ...]}  every entry that reaches pkg
+      exclusiveTo  -- {pkg: entry_token}  the sole entry, when pkg has exactly one
+      order        -- the entry tokens in manifest order
+    """
+    manifest_map = resolved["manifest_map"]
+    edges = resolved["edges"]
+    closure = resolved["closure"]
+
+    # roots per entry (skip tokens that resolved to nothing -- they bring nothing)
+    entry_roots = {}
+    for token, info in manifest_map.items():
+        if info["kind"] == "group":
+            entry_roots[token] = [m for m in info["members"] if m in closure]
+        elif info["kind"] == "package":
+            r = info["resolved"]
+            entry_roots[token] = [r] if r in closure else []
+        else:  # unresolved
+            entry_roots[token] = []
+
+    reach = {tok: _reach_from(roots, edges, closure)
+             for tok, roots in entry_roots.items()}
+
+    # attribution: for each package, which entries reach it
+    brought_by = defaultdict(list)
+    for tok in manifest_map:                       # manifest order preserved
+        for p in reach[tok]:
+            brought_by[p].append(tok)
+
+    exclusive_to = {p: toks[0] for p, toks in brought_by.items() if len(toks) == 1}
+
+    entries = []
+    order = []
+    for tok, info in manifest_map.items():
+        order.append(tok)
+        brings = reach[tok]
+        excl = sorted(p for p in brings if len(brought_by[p]) == 1)
+        shared = sorted(p for p in brings if len(brought_by[p]) > 1)
+        entries.append({
+            "token": tok,
+            "kind": info["kind"],
+            "roots": sorted(entry_roots[tok]),
+            "brings": sorted(brings),
+            "exclusive": excl,
+            "shared": shared,
+            "sharedCount": len(shared),
+        })
+
+    return {
+        "entries": entries,
+        "broughtBy": {p: toks for p, toks in brought_by.items()},
+        "exclusiveTo": exclusive_to,
+        "order": order,
+    }
+
+
 def _strongly_connected_components(closure, edges):
     """Tarjan's SCC algorithm (iterative, so deep dependency graphs don't blow
     the Python stack). Returns (comp_id_of_node, list_of_components).

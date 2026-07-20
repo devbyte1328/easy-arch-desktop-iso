@@ -17,7 +17,7 @@ General and developer-facing spec of the Az'arch distribution. The full base->to
 
 | Metric | Value |
 |---|---:|
-| Explicit manifest entries | 242 (243 lines; `unzip` listed twice) |
+| Explicit manifest entries | 242 (242 non-comment lines) |
 | Explicit entries incl. group members (`xorg`+`plasma`) | 300 |
 | **Full package set (transitive closure)** | **1325** |
 | &nbsp;&nbsp;from `core` / `extra` / `multilib` | 228 / 986 / 111 |

@@ -26,6 +26,8 @@ import json
 
 import spec_classify as K
 import spec_svg as S
+import spec_resolve as R
+import spec_stock_baseline as B
 
 # Same seven layers as the SVG, bottom (0) -> top (6).
 LAYER_DEFS = S.LAYER_DEFS
@@ -47,12 +49,19 @@ EDITION_LABEL = {
 }
 
 
-def _build_payload(packages, resolved, tiers, tags, glance):
-    """Assemble the JSON payload the page's JavaScript renders from."""
+def _build_payload(packages, resolved, tiers, tags, glance, attr):
+    """Assemble the JSON payload the page's JavaScript renders from.
+
+    `attr` is spec_resolve.attribute_entries(resolved): the manifest-entry
+    attribution that powers the second ("Entries") page and the "brought into the
+    set by" line on every component.
+    """
     closure = resolved["closure"]
     heights = tiers["heights"]
     edges = resolved["edges"]
     rev = tiers["rev"]
+    brought_by = attr["broughtBy"]
+    exclusive_to = attr["exclusiveTo"]
 
     comps = {}
     for p in sorted(closure):
@@ -79,6 +88,12 @@ def _build_payload(packages, resolved, tiers, tags, glance):
             "transDeps": tiers["trans_deps"][p],
             "transDependents": tiers["trans_dependents"][p],
             "optdepends": rec.get("optdepends", []) or [],
+            # attribution: which manifest entries pull this package into the set,
+            # and whether it is exclusive to a single entry (a manifest root, so
+            # brought by nothing, has itself as its own sole entry).
+            "broughtBy": brought_by.get(p, []),
+            "exclusiveTo": exclusive_to.get(p, ""),
+            "isRoot": bool(rec) and p in resolved["roots"],
         }
 
     # Per-category colour + canonical order, straight from spec_classify so the
@@ -90,9 +105,63 @@ def _build_payload(packages, resolved, tiers, tags, glance):
     layers = [{"idx": i, "title": t, "subtitle": st}
               for i, (t, st) in enumerate(LAYER_DEFS)]
 
+    # ----- manifest entries (the second page) -----
+    # One record per line the author wrote in packages.x86_64, IN MANIFEST ORDER
+    # (attr["entries"] preserves it). Each carries what it brings into the set, how
+    # much of that is exclusive to it, its installed footprint, and -- for the
+    # hierarchy view -- the layer/category of its primary root package so entries
+    # can be grouped the same way components are.
+    # An entry's edition is decided by the MANIFEST BLOCK it lives in, not by its
+    # anchor package: a line the author wrote is "stock" iff it is one of the
+    # baseline archiso releng package names, else it is an Az'arch addition. This
+    # is exactly the Stock/Az'arch delimiter in packages.x86_64.
+    stock_tokens = set(B.STOCK_PACKAGES)
+    entries = []
+    for e in attr["entries"]:
+        tok = e["token"]
+        roots = e["roots"]
+        brings = e["brings"]
+        excl = e["exclusive"]
+        # A group entry has no single package of its own; anchor its layer/category
+        # on its deepest (highest-layer) root so it sorts near what it installs.
+        anchor = None
+        if roots:
+            anchor = max(roots, key=lambda r: (comps[r]["layer"], r)) \
+                if e["kind"] == "group" else roots[0]
+        excl_isize = sum(comps[p]["isize"] for p in excl)
+        brings_isize = sum(comps[p]["isize"] for p in brings)
+        edition = "stock" if tok in stock_tokens else "az'arch"
+        entries.append({
+            "token": tok,
+            "kind": e["kind"],
+            "roots": roots,
+            "brings": brings,
+            "exclusive": excl,
+            "shared": e["shared"],
+            "bringsCount": len(brings),
+            "exclusiveCount": len(excl),
+            "sharedCount": e["sharedCount"],
+            "exclSize": _fmt_size(excl_isize),
+            "exclIsize": excl_isize,
+            "bringsSize": _fmt_size(brings_isize),
+            "bringsIsize": brings_isize,
+            "edition": edition,
+            "editionLabel": EDITION_LABEL[edition],
+            # display anchoring for the hierarchy view (None-safe: an unresolved
+            # token anchors nowhere)
+            "layer": comps[anchor]["layer"] if anchor else 0,
+            "category": comps[anchor]["category"] if anchor else "System",
+            "resolved": anchor or "",
+        })
+
+    # split point in manifest order, for the entries page header/legend.
+    stock_entry_count = sum(1 for e in entries if e["edition"] == "stock")
+
     return {
         "components": comps,
         "order": sorted(comps),
+        "entries": entries,
+        "entriesStockCount": stock_entry_count,
         "layers": layers,
         "categories": present_cats,
         "catColors": cat_colors,
@@ -116,7 +185,8 @@ def _build_payload(packages, resolved, tiers, tags, glance):
 
 def render_html(packages, resolved, tiers, tags, glance):
     """Return the complete self-contained HTML document text."""
-    payload = _build_payload(packages, resolved, tiers, tags, glance)
+    attr = R.attribute_entries(resolved)
+    payload = _build_payload(packages, resolved, tiers, tags, glance, attr)
     data_json = json.dumps(payload, separators=(",", ":"), ensure_ascii=False)
     # Guard against an accidental </script> inside data breaking the tag.
     data_json = data_json.replace("</", "<\\/")
@@ -291,15 +361,68 @@ header{
 .legend .grp.how>span{white-space:nowrap}
 .legend .cats{display:flex;gap:10px;flex-wrap:wrap}
 kbd{background:var(--ink);border:1px solid var(--line);border-radius:4px;padding:1px 5px;font-size:11px}
+/* ---- page tabs (Components / Entries) ---- */
+.tabs{display:flex;gap:4px;margin-right:6px}
+.tab{background:var(--ink);border:1px solid var(--line);color:var(--dim);
+  border-radius:7px;padding:6px 12px;cursor:pointer;font-size:12.5px;font-weight:600}
+.tab:hover{border-color:var(--cyan);color:var(--text)}
+.tab.active{color:var(--text);border-color:var(--cyan);
+  background:color-mix(in srgb,var(--cyan) 14%,transparent)}
+/* only one page's controls / view are in the DOM flow at a time */
+.page.hidden,.pagectl.hidden{display:none}
+/* ---- entries view ---- */
+/* Reuses the .map / .band / .rail scaffolding, but each box is an ENTRY (a line
+   from packages.x86_64) rather than a component. Flat mode drops the rail and
+   lays entries out in manifest order under two headers; hierarchy mode reuses the
+   layered bands. */
+.ent{position:relative;width:190px;border-radius:7px;padding:7px 9px;cursor:pointer;
+  border:1px solid var(--bc,#555);background:color-mix(in srgb,var(--bc,#555) 14%,transparent);
+  transition:transform .05s ease, box-shadow .1s ease, opacity .1s ease}
+.ent:hover{transform:translateY(-1px);box-shadow:0 3px 12px rgba(0,0,0,.5)}
+.ent .en{font-weight:600;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ent .em{font-size:10px;color:var(--dim);margin-top:2px;display:flex;gap:8px;flex-wrap:wrap}
+.ent .em b{color:var(--text);font-weight:600}
+.ent .em .exl{color:#f0883e}
+.ent .mark{position:absolute;top:5px;right:7px;font-size:11px;line-height:1}
+.ent .grp-badge{font-size:9px;text-transform:uppercase;letter-spacing:.04em;color:var(--dim);
+  border:1px solid var(--line);border-radius:4px;padding:0 4px;margin-left:5px;vertical-align:1px}
+.ent.selected{outline:2px solid var(--cyan);outline-offset:1px}
+.ent.hidden{display:none}
+.ent.dim{opacity:.16}
+/* flat manifest-order layout: two labelled sections, boxes flow left-to-right */
+.flatsec{margin:0 0 10px}
+.flathead{display:flex;align-items:baseline;gap:10px;margin:4px 2px 10px;
+  padding-bottom:6px;border-bottom:1px solid var(--line)}
+.flathead .ft{font-size:14px;font-weight:700}
+.flathead .fs{font-size:11.5px;color:var(--dim)}
+.flathead .fn{margin-left:auto;font-size:12px;font-weight:700;
+  background:linear-gradient(90deg,var(--cyan),var(--blue));
+  -webkit-background-clip:text;background-clip:text;color:transparent}
+.flatboxes{display:flex;flex-wrap:wrap;gap:7px}
+/* the entries detail panel groups brought-in packages into exclusive vs shared */
+.brk{margin:0 0 12px}
+.brk .h{font-size:11px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px;font-weight:700}
+.brk .h.excl{color:#f0883e}
+.brk .h.shar{color:var(--dim)}
+.brk .lead{font-size:12px;color:var(--dim);line-height:1.45;margin:0 0 10px}
+.brk .lead b{color:var(--text)}
+.pill.ex{border-color:color-mix(in srgb,#f0883e 55%,var(--line))}
+.pill.ex:hover{border-color:#f0883e;color:#f0883e}
+.entkv{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;font-size:12px;margin-bottom:12px}
+.entkv .k{color:var(--dim)}
 </style>
 </head>
 <body>
 <header>
   <span class="brand">Az&#39;arch</span>
-  <span class="sub">interactive component map</span>
+  <div class="tabs">
+    <button class="tab active" id="tabComponents" title="The layered dependency map of every component (press c)">Components</button>
+    <button class="tab" id="tabEntries" title="What each packages.x86_64 entry pulls into the system (press e)">Entries</button>
+  </div>
+  <span class="sub" id="pageSub">interactive component map</span>
   <div class="glance" id="glance"></div>
 </header>
-<div class="controls">
+<div class="controls pagectl" id="ctlComponents">
   <input type="search" id="q" placeholder="Search components&hellip;  (press /)" autocomplete="off"/>
   <label>Jump to layer</label><select id="jump" title="Scroll to a layer (press 1-7; 1 = top)"></select>
   <label>Category</label><select id="fcat"></select>
@@ -318,8 +441,30 @@ kbd{background:var(--ink);border:1px solid var(--line);border-radius:4px;padding
   <button class="btn" id="reset">Reset</button>
   <span class="count" id="count"></span>
 </div>
+<div class="controls pagectl hidden" id="ctlEntries">
+  <input type="search" id="qe" placeholder="Search manifest entries&hellip;  (press /)" autocomplete="off"/>
+  <label>View</label><select id="eview" title="How the manifest entries are laid out">
+    <option value="flat" selected>Manifest order (flat)</option>
+    <option value="hier">Dependency hierarchy</option>
+  </select>
+  <label>Block</label><select id="eblock" title="Stock archiso baseline vs Az'arch additions">
+    <option value="">all</option>
+    <option value="az'arch">Az'arch additions</option>
+    <option value="stock">Stock Arch baseline</option>
+  </select>
+  <label>Sort</label><select id="esort" title="How entries are ordered">
+    <option value="manifest" selected>Manifest order</option>
+    <option value="excl">Most exclusive pulls</option>
+    <option value="brings">Most brought in</option>
+    <option value="exclsize">Exclusive size</option>
+    <option value="name">Name (A-Z)</option>
+  </select>
+  <button class="btn" id="ereset">Reset</button>
+  <span class="count" id="ecount"></span>
+</div>
 <div class="main">
-  <div class="map" id="map"></div>
+  <div class="map page" id="map"></div>
+  <div class="map page hidden" id="emap"></div>
   <aside class="panel hidden" id="panel"></aside>
 </div>
 <button class="legend-toggle down" id="legendToggle" title="Show / hide the legend (press l)">Show legend ▴</button>
@@ -393,6 +538,7 @@ function idxFromDisp(n){ return NLAYERS - n; }    // shown number -> internal id
     `<div class="grp"><span style="color:#eab308">■ requires</span>`+
     `<span style="color:#22c55e">■ required by</span></div>`+
     `<div class="grp" style="margin-left:auto">Keys: `+
+    `<kbd>c</kbd>/<kbd>e</kbd> components / entries `+
     `<kbd>/</kbd> search <kbd>1</kbd>&ndash;<kbd>7</kbd> jump to layer `+
     `<kbd>z</kbd> collapse all <kbd>l</kbd> legend <kbd>Esc</kbd> close</div>`;
 })();
@@ -505,12 +651,27 @@ function applyFilters(){
 // the panel): scroll the newly-selected box into view since it may be off-screen.
 function select(name, reveal){
   selected = name;
+  if(reveal) ensureBoxVisible(name);   // clear filters / expand band BEFORE painting
   openPanel(name);
   highlight(name);
   if(reveal){
     const el = map.querySelector(`.box[data-name="${cssEsc(name)}"]`);
     if(el && el.scrollIntoView) el.scrollIntoView({block:'nearest',behavior:'smooth'});
   }
+}
+// A jump target (a pill click) may be filtered out (.box.hidden) or inside a
+// collapsed/empty band -- both display:none, so scrollIntoView would land on
+// nothing. If the active filters hide it, drop them (and sync the controls); then
+// expand its band so the selection is actually visible.
+function ensureBoxVisible(name){
+  if(!matches(name)){
+    filterCat=filterEd=query="";
+    q.value=""; document.getElementById('fcat').value=""; document.getElementById('fed').value="";
+    applyFilters();
+  }
+  const el = map.querySelector(`.box[data-name="${cssEsc(name)}"]`);
+  const band = el && el.closest ? el.closest('.band') : null;
+  if(band) band.classList.remove('collapsed');
 }
 function cssEsc(s){ return (window.CSS && CSS.escape)? CSS.escape(s) : s.replace(/["\\]/g,'\\$&'); }
 
@@ -530,6 +691,7 @@ function clearHighlight(){
   selected=null;
   for(const b of map.querySelectorAll('.box'))
     b.classList.remove('selected','req','reqby','dim');
+  clearEntryHighlight();
 }
 
 // ---- detail panel ----
@@ -562,6 +724,7 @@ function openPanel(name){
         `<span class="k">Pulls in below</span><span>${c.transDeps} packages (transitively)</span>`+
         `<span class="k">Relied on by above</span><span>${c.transDependents} packages (transitively)</span>`+
       `</div>`+
+      broughtBySection(c)+
       `<div class="dl"><div class="h req">Requires ↓ (${c.requires.length}) &mdash; direct dependencies</div>${reqPills}</div>`+
       `<div class="dl"><div class="h reqby">Required by ↑ (${c.requiredBy.length}) &mdash; things that need it</div>${reqbyPills}</div>`+
       opt+
@@ -569,6 +732,29 @@ function openPanel(name){
   panel.querySelector('.close').addEventListener('click',closePanel);
   for(const p of panel.querySelectorAll('.pill[data-go]'))
     p.addEventListener('click',()=>select(p.dataset.go, true));
+  for(const p of panel.querySelectorAll('.pill[data-goentry]'))
+    p.addEventListener('click',()=>{ showEntries(); selectEntry(p.dataset.goentry, true); });
+}
+
+// "Brought into the set by": the manifest ent(y/ies) responsible for this package
+// being present. Exactly one -> exclusive (cut that entry and this leaves too);
+// several -> shared. A manifest root is its own entry. Clicking a pill jumps to
+// that entry on the Entries page.
+function broughtBySection(c){
+  const bb = c.broughtBy || [];
+  const excl = c.exclusiveTo || "";
+  const pill = t => `<span class="pill${t===excl?' ex':''}" data-goentry="${esc(t)}" title="${t===excl?'this package is exclusive to this entry':'one of the entries that pull this package in'}">${esc(t)}</span>`;
+  let lead;
+  if(bb.length===0){
+    lead = `Not reachable from any manifest entry (should not happen).`;
+  } else if(excl){
+    lead = `<b>Exclusive</b> to a single entry &mdash; remove <b>${esc(excl)}</b> from packages.x86_64 and this package leaves the set.`;
+  } else {
+    lead = `Pulled in by <b>${bb.length}</b> manifest entries &mdash; it stays as long as <b>any one</b> of them is present.`;
+  }
+  return `<div class="dl"><div class="h" style="color:#f0883e">Brought into the set by (${bb.length})</div>`+
+    `<div class="brk"><div class="lead" style="margin-bottom:7px">${lead}</div>`+
+    `<div class="pill-wrap">${bb.map(pill).join("")}</div></div></div>`;
 }
 function pills(names, kind){
   if(!names.length) return `<div class="pill-wrap"><span class="pill none">none &mdash; ${kind==='req'?'a base / sink package':'a top / leaf package'}</span></div>`;
@@ -619,14 +805,267 @@ document.getElementById('reset').addEventListener('click',()=>{
   applyFilters(); closePanel();
 });
 
+/* ======================================================================== */
+/* SECOND PAGE -- Entries: what each packages.x86_64 line pulls into the set. */
+/* ======================================================================== */
+const ENTRIES = DATA.entries;                       // manifest order
+const EBY = {};                                     // token -> entry record
+for(const e of ENTRIES) EBY[e.token] = e;
+const emap = document.getElementById('emap');
+const qe = document.getElementById('qe');
+let entrySelected = null;
+let eView = "flat";       // "flat" (manifest order) | "hier" (dependency layers)
+let eBlock = "";          // "" | "az'arch" | "stock"
+let eSort = "manifest";
+let eQuery = "";
+
+const ESORTS = {
+  manifest:(a,b)=> EBY[a].__i - EBY[b].__i,
+  excl:    (a,b)=> EBY[b].exclusiveCount-EBY[a].exclusiveCount || (a<b?-1:1),
+  brings:  (a,b)=> EBY[b].bringsCount-EBY[a].bringsCount || (a<b?-1:1),
+  exclsize:(a,b)=> EBY[b].exclIsize-EBY[a].exclIsize || (a<b?-1:1),
+  name:    (a,b)=> a<b?-1:(a>b?1:0),
+};
+ENTRIES.forEach((e,i)=>{ e.__i=i; });               // stable manifest index
+
+function makeEnt(tok){
+  const e = EBY[tok];
+  const color = CATCOLORS[e.category] || "#8892a0";
+  const b = document.createElement('div');
+  b.className='ent'; b.dataset.token=tok; b.style.setProperty('--bc',color);
+  const mark = EDITION_MARK[e.edition];
+  const markColor = e.edition==="az'arch" ? "var(--cyan)" : "var(--text)";
+  const grp = e.kind==="group" ? `<span class="grp-badge" title="an Arch package group; expands to ${e.roots.length} members">group</span>` : "";
+  b.innerHTML =
+    `<div class="en">${esc(tok)}${grp}</div>`+
+    `<div class="em"><span>brings <b>${e.bringsCount}</b></span>`+
+      `<span class="exl">${e.exclusiveCount} exclusive</span>`+
+      `<span>${e.exclSize}</span></div>`+
+    (mark?`<div class="mark" style="color:${markColor}">${mark}</div>`:``);
+  b.addEventListener('click',()=>selectEntry(tok));
+  return b;
+}
+
+// ---- build the entries view (rebuilt on view/sort change) ----
+function buildEntries(){
+  emap.innerHTML="";
+  const toks = ENTRIES.map(e=>e.token).slice().sort(ESORTS[eSort]);
+  if(eView==="flat"){
+    // Two manifest sections: Stock baseline, then Az'arch additions. Within each,
+    // honour the chosen sort (default = manifest order).
+    const secs = [
+      ["stock","Stock Arch baseline","archiso releng packages Az'arch inherits"],
+      ["az'arch","Az'arch additions","lines Az'arch adds on top of the baseline"],
+    ];
+    for(const [ed,title,sub] of secs){
+      const list = toks.filter(t=>EBY[t].edition===ed);
+      if(!list.length) continue;
+      const sec = document.createElement('div'); sec.className='flatsec'; sec.dataset.block=ed;
+      const head = document.createElement('div'); head.className='flathead';
+      head.innerHTML = `<span class="ft">${esc(title)}</span><span class="fs">${esc(sub)}</span>`+
+        `<span class="fn" data-en>${list.length} entries</span>`;
+      const bx = document.createElement('div'); bx.className='flatboxes';
+      for(const t of list) bx.appendChild(makeEnt(t));
+      sec.appendChild(head); sec.appendChild(bx); emap.appendChild(sec);
+    }
+  } else {
+    // Hierarchy: reuse the component layer bands, placing each entry in the band
+    // of its anchor package (deepest root for a group). Top layer first.
+    const byLayer = DATA.layers.map(()=>[]);
+    for(const t of toks) byLayer[EBY[t].layer].push(t);
+    for(let i=DATA.layers.length-1;i>=0;i--){
+      const L=DATA.layers[i], names=byLayer[i];
+      const band=document.createElement('div'); band.className='band'; band.dataset.elayer=i;
+      const rail=document.createElement('div'); rail.className='rail';
+      rail.innerHTML=`<div class="t" title="click to collapse / expand">${esc(L.title)}</div>`+
+        `<div class="s">${esc(L.subtitle)}</div>`+
+        `<div class="n" data-en>${names.length} entries</div>`+
+        (i>0?`<div class="arrow">anchored deeper than layer(s) below ↓</div>`:``);
+      rail.querySelector('.t').addEventListener('click',()=>band.classList.toggle('collapsed'));
+      const boxes=document.createElement('div'); boxes.className='boxes';
+      for(const t of names) boxes.appendChild(makeEnt(t));
+      band.appendChild(rail); band.appendChild(boxes); emap.appendChild(band);
+    }
+  }
+  applyEntryFilters();
+  if(entrySelected) highlightEntry(entrySelected);
+}
+
+function entMatches(tok){
+  const e=EBY[tok];
+  if(eBlock && e.edition!==eBlock) return false;
+  if(eQuery && !tok.toLowerCase().includes(eQuery)) return false;
+  return true;
+}
+function applyEntryFilters(){
+  let shown=0;
+  for(const b of emap.querySelectorAll('.ent')){
+    const ok=entMatches(b.dataset.token);
+    b.classList.toggle('hidden',!ok);
+    if(ok) shown++;
+  }
+  // per-section / per-band counts + hide empties
+  for(const sec of emap.querySelectorAll('.flatsec')){
+    const vis=sec.querySelectorAll('.ent:not(.hidden)').length;
+    sec.style.display = vis? "" : "none";
+    const n=sec.querySelector('[data-en]'); if(n) n.textContent=`${vis} entries`;
+  }
+  for(const band of emap.querySelectorAll('.band[data-elayer]')){
+    const vis=band.querySelectorAll('.ent:not(.hidden)').length;
+    band.classList.toggle('empty',vis===0);
+    const n=band.querySelector('[data-en]');
+    const total=band.querySelectorAll('.ent').length;
+    if(n) n.textContent = vis===total? `${total} entries` : `${vis} / ${total} entries`;
+  }
+  document.getElementById('ecount').textContent=`${shown} / ${ENTRIES.length} entries`;
+}
+
+// ---- entry selection + highlight ----
+function selectEntry(tok, reveal){
+  if(!EBY[tok]) return;
+  entrySelected=tok;
+  if(reveal) ensureEntVisible(tok);    // clear filters / expand band BEFORE painting
+  openEntryPanel(tok);
+  highlightEntry(tok);
+  if(reveal){
+    const el=emap.querySelector(`.ent[data-token="${cssEsc(tok)}"]`);
+    if(el && el.scrollIntoView) el.scrollIntoView({block:'nearest',behavior:'smooth'});
+  }
+}
+// Mirror of ensureBoxVisible for the Entries page: an entry reached from a
+// component's "Brought into the set by" pill may be filtered out by the block
+// filter / search, or (hierarchy view) inside a collapsed band.
+function ensureEntVisible(tok){
+  if(!entMatches(tok)){
+    eBlock=eQuery="";
+    qe.value=""; document.getElementById('eblock').value="";
+    applyEntryFilters();
+  }
+  const el = emap.querySelector(`.ent[data-token="${cssEsc(tok)}"]`);
+  const band = el && el.closest ? el.closest('.band') : null;
+  if(band) band.classList.remove('collapsed');
+}
+function highlightEntry(tok){
+  // dim every entry except the selected one (entries don't depend on each other,
+  // so there's no requires/required-by graph to paint -- the panel carries that).
+  for(const b of emap.querySelectorAll('.ent')){
+    b.classList.remove('selected','dim');
+    b.classList.toggle('selected', b.dataset.token===tok);
+    if(b.dataset.token!==tok) b.classList.add('dim');
+  }
+}
+function clearEntryHighlight(){
+  entrySelected=null;
+  for(const b of emap.querySelectorAll('.ent')) b.classList.remove('selected','dim','brings');
+}
+
+// ---- entry detail panel: exclusive vs shared breakdown ----
+function openEntryPanel(tok){
+  const e=EBY[tok];
+  const edClass = e.edition==="az'arch"?"ed-az":"ed-sel";
+  const rootLine = e.kind==="group"
+    ? `group of ${e.roots.length}: ${e.roots.slice(0,6).map(esc).join(", ")}${e.roots.length>6?" &hellip;":""}`
+    : (e.resolved && e.resolved!==tok ? `resolves to ${esc(e.resolved)}` : `package`);
+  const exclPills = e.exclusive.length
+    ? `<div class="pill-wrap">`+e.exclusive.map(n=>`<span class="pill ex" data-go="${esc(n)}">${esc(n)}</span>`).join("")+`</div>`
+    : `<div class="pill-wrap"><span class="pill none">none &mdash; everything it brings is also brought by another entry</span></div>`;
+  const sharedPills = e.shared.length
+    ? `<div class="pill-wrap">`+e.shared.map(n=>`<span class="pill" data-go="${esc(n)}">${esc(n)}</span>`).join("")+`</div>`
+    : `<div class="pill-wrap"><span class="pill none">none</span></div>`;
+  const exclLead = e.exclusiveCount
+    ? `Removing <b>${esc(tok)}</b> from packages.x86_64 would drop these <b>${e.exclusiveCount}</b> package(s) (${e.exclSize}) from the set &mdash; nothing else pulls them in.`
+    : `Removing <b>${esc(tok)}</b> would drop nothing new: every package it brings is also brought by another entry.`;
+  panel.classList.remove('hidden');
+  panel.innerHTML =
+    `<div class="ph"><span class="close" title="close (Esc)">×</span>`+
+      `<h2>${esc(tok)}</h2><div class="ver">manifest entry &#183; ${rootLine}</div></div>`+
+    `<div class="body">`+
+      `<div class="chips">`+
+        `<span class="chip cat" style="border-color:${CATCOLORS[e.category]};color:${CATCOLORS[e.category]}">${esc(e.category)}</span>`+
+        `<span class="chip ${edClass}">${EDITION_MARK[e.edition]||''} ${esc(e.editionLabel)}</span>`+
+        `<span class="chip">${e.kind==="group"?"group":"package"}</span>`+
+      `</div>`+
+      `<div class="entkv">`+
+        `<span class="k">Brings into the set</span><span><b>${e.bringsCount}</b> packages &#183; ${e.bringsSize} installed</span>`+
+        `<span class="k">Exclusive to this entry</span><span><b style="color:#f0883e">${e.exclusiveCount}</b> packages &#183; ${e.exclSize}</span>`+
+        `<span class="k">Shared with others</span><span>${e.sharedCount} packages</span>`+
+      `</div>`+
+      `<div class="brk"><div class="h excl">Exclusive &mdash; lost if removed (${e.exclusiveCount})</div>`+
+        `<div class="lead">${exclLead}</div>${exclPills}</div>`+
+      `<div class="brk"><div class="h shar">Shared &mdash; also brought by other entries (${e.sharedCount})</div>`+
+        `<div class="lead">These stay even if <b>${esc(tok)}</b> is removed, because another entry also reaches them.</div>${sharedPills}</div>`+
+    `</div>`;
+  panel.querySelector('.close').addEventListener('click',closeEntryPanel);
+  // clicking a brought-in package jumps to it on the Components page
+  for(const p of panel.querySelectorAll('.pill[data-go]'))
+    p.addEventListener('click',()=>{ showComponents(); select(p.dataset.go, true); });
+  // the entry's own box is marked by highlightEntry's cyan '.selected' outline --
+  // no separate '.brings' anchor (it would clash with the legend's yellow
+  // "requires" colour and linger on the previously-selected box).
+}
+function closeEntryPanel(){ panel.classList.add('hidden'); panel.innerHTML=""; clearEntryHighlight(); }
+
+// ---- entries controls ----
+qe.addEventListener('input',()=>{ eQuery=qe.value.trim().toLowerCase(); applyEntryFilters(); });
+document.getElementById('eview').addEventListener('change',e=>{ eView=e.target.value; buildEntries(); });
+document.getElementById('eblock').addEventListener('change',e=>{ eBlock=e.target.value; applyEntryFilters(); });
+document.getElementById('esort').addEventListener('change',e=>{ eSort=e.target.value; buildEntries(); });
+document.getElementById('ereset').addEventListener('click',()=>{
+  eQuery=""; qe.value=""; eBlock=""; document.getElementById('eblock').value="";
+  eSort="manifest"; document.getElementById('esort').value="manifest";
+  eView="flat"; document.getElementById('eview').value="flat";
+  buildEntries(); closeEntryPanel();
+});
+
+/* ======================================================================== */
+/* PAGE SWITCHING (Components <-> Entries)                                   */
+/* ======================================================================== */
+let currentPage = "components";
+const tabC = document.getElementById('tabComponents');
+const tabE = document.getElementById('tabEntries');
+const pageSub = document.getElementById('pageSub');
+function showComponents(){
+  if(currentPage==="components") return;
+  currentPage="components";
+  tabC.classList.add('active'); tabE.classList.remove('active');
+  document.getElementById('map').classList.remove('hidden');
+  document.getElementById('emap').classList.add('hidden');
+  document.getElementById('ctlComponents').classList.remove('hidden');
+  document.getElementById('ctlEntries').classList.add('hidden');
+  pageSub.textContent="interactive component map";
+  closeEntryPanel();                 // leaving entries clears its selection/panel
+}
+function showEntries(){
+  if(currentPage==="entries") return;
+  currentPage="entries";
+  tabE.classList.add('active'); tabC.classList.remove('active');
+  document.getElementById('emap').classList.remove('hidden');
+  document.getElementById('map').classList.add('hidden');
+  document.getElementById('ctlEntries').classList.remove('hidden');
+  document.getElementById('ctlComponents').classList.add('hidden');
+  pageSub.textContent="what each manifest entry pulls in";
+  closePanel();                      // leaving components clears its selection/panel
+  if(!emap.childElementCount) buildEntries();   // lazy first build
+}
+tabC.addEventListener('click',showComponents);
+tabE.addEventListener('click',showEntries);
+
 document.addEventListener('keydown',e=>{
-  const typing = document.activeElement===q;
-  if(e.key==='/' && !typing){ e.preventDefault(); q.focus(); }
-  else if(e.key==='Escape'){ if(!panel.classList.contains('hidden')) closePanel(); else if(typing){ q.blur(); } }
+  const typing = document.activeElement===q || document.activeElement===qe;
+  if(e.key==='/' && !typing){ e.preventDefault(); (currentPage==="entries"?qe:q).focus(); }
+  else if(e.key==='Escape'){
+    if(!panel.classList.contains('hidden')){ currentPage==="entries"?closeEntryPanel():closePanel(); }
+    else if(typing){ document.activeElement.blur(); }
+  }
   else if(typing){ /* let the search field keep other keys */ }
-  else if(e.key>='1' && e.key<=String(NLAYERS)){ jumpToLayer(idxFromDisp(+e.key)); }
-  else if(e.key==='z'){ setCollapsed(!allCollapsed); }
+  else if(e.key==='c'){ showComponents(); }
+  else if(e.key==='e'){ showEntries(); }
+  // 'l' (legend) is global; check it BEFORE the entries short-circuit so it works
+  // on both pages. 'z' (collapse-all) only means anything on the Components map.
   else if(e.key==='l'){ setLegend(legendEl.classList.contains('hidden')); }
+  else if(e.key==='z'){ if(currentPage!=="entries") setCollapsed(!allCollapsed); }
+  else if(currentPage==="entries"){ /* entries page has no layer-jump (1-7) keys */ }
+  else if(e.key>='1' && e.key<=String(NLAYERS)){ jumpToLayer(idxFromDisp(+e.key)); }
 });
 
 buildMap();

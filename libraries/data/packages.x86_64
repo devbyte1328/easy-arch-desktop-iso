@@ -1,3 +1,26 @@
+# Az'arch package manifest (packages.x86_64)
+#
+# This file is consumed VERBATIM by the ISO build. It is organised in two
+# blocks, split by the delimiter below:
+#
+#   1. STOCK ARCH  -- the packages the official Arch install medium (archiso
+#      `releng`) already ships, in archiso's own order. Treat this block as
+#      fixed upstream baseline: do not reorder or edit it by hand. To refresh
+#      after an archiso bump, re-sync from /usr/share/archiso/configs/releng/
+#      packages.x86_64 and bump ARCHISO_VERSION in
+#      scripts/libraries/spec_stock_baseline.py.
+#
+#   2. AZ'ARCH ADDITIONS -- everything Az'arch adds on top of that baseline.
+#      THIS is the block to edit when adding or removing components. Anything
+#      pulled in only as a transitive dependency of these entries is an
+#      "Az'arch Component" in the specification.
+#
+# Baseline: archiso releng 88-1. Note: dhcpcd (shipped by stock archiso) is
+# intentionally NOT included -- Az'arch manages networking via NetworkManager.
+
+# ============================================================================
+# STOCK ARCH -- archiso releng 88-1 baseline (upstream order; do not edit)
+# ============================================================================
 alsa-utils
 amd-ucode
 arch-install-scripts
@@ -125,6 +148,10 @@ xdg-utils
 xfsprogs
 xl2tpd
 zsh
+
+# ============================================================================
+# AZ'ARCH ADDITIONS -- everything below is added by Az'arch (edit here)
+# ============================================================================
 os-prober
 linux-headers
 networkmanager
@@ -229,7 +256,6 @@ libreoffice-fresh
 xclip
 go
 zip
-unzip
 kdialog
 jq
 gnome-screenshot

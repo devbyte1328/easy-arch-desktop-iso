@@ -90,8 +90,10 @@ def render(packages, resolved, tiers, tags, glance, svg_rel):
     d.w()
     d.w("| Metric | Value |")
     d.w("|---|---:|")
+    dupes = glance['raw_lines'] - glance['tokens']
+    dup_note = f"; {dupes} duplicate line{'s' if dupes != 1 else ''} de-duped" if dupes else ""
     d.w(f"| Explicit manifest entries | {glance['tokens']} "
-        f"({glance['raw_lines']} lines; `unzip` listed twice) |")
+        f"({glance['raw_lines']} non-comment lines{dup_note}) |")
     d.w(f"| Explicit entries incl. group members (`xorg`+`plasma`) | {len(roots)} |")
     d.w(f"| **Full package set (transitive closure)** | **{len(closure)}** |")
     d.w(f"| &nbsp;&nbsp;from `core` / `extra` / `multilib` | "

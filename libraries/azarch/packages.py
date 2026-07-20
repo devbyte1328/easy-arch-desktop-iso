@@ -135,7 +135,13 @@ def _sync_and_download(sudo, dlconf, gpgdir, pkg_db, pkg_repo, progress) -> None
             raise PackageError("Could not sync package databases and no cached DB to fall back on.")
 
     print("[*] Preparing package list...")
-    pkgs = paths.PACKAGES_FILE.read_text().split()
+    # Parse the manifest the SAME way mkarchiso does (and the on-disk installer):
+    # drop full-line and trailing `# ...` comments and blank lines, keeping only
+    # package names. packages.x86_64 carries a header + a Stock/Az'arch delimiter,
+    # so a bare .split() would feed those comment words to `pacman -Sw` as bogus
+    # targets and fail the cache download. (Package names never contain '#'.)
+    pkgs = [tok for line in paths.PACKAGES_FILE.read_text().splitlines()
+            if (tok := line.split("#", 1)[0].strip())]
 
     print("[*] Downloading missing packages into the persistent cache (resumable)...")
     progress(20)

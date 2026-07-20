@@ -167,7 +167,11 @@ cp /etc/pacman.conf /etc/pacman.bak
 cp /root/azarch/pacstrap-azarch-conf/pacman.conf /etc/pacman.conf
 
 echo "Running pacstrap..."
-pacstrap /mnt $(tr '\\n' ' ' < /root/azarch/packages.x86_64)
+# Strip comments (full-line and trailing) and blank lines the SAME way mkarchiso
+# parses packages.x86_64, so the on-disk installer pacstraps the identical set the
+# live medium was built from -- the manifest carries a Stock/Az'arch delimiter and
+# a header, none of which are package names.
+pacstrap /mnt $(sed '/^[[:blank:]]*#.*/d;s/#.*//;/^[[:blank:]]*$/d' /root/azarch/packages.x86_64)
 
 mv /etc/pacman.bak /etc/pacman.conf
 
