@@ -3,14 +3,15 @@
 # pull_specifications.sh -- generate the Az'arch DISTRIBUTION specification.
 #
 # This produces two artifacts:
-#   documentation/SPECIFICATIONS.md   grep-able tables: every package tagged with
-#                                     its edition (az'arch / arch-selected /
-#                                     arch-dep) and a human-language category.
-#   documentation/SPECIFICATIONS.svg  a navigable layered image of the dependency
-#                                     graph, kernel at the bottom up to leaf apps
-#                                     at the top, boxes coloured by category and
-#                                     marked by edition.
-# Both cover the real package set and dependency graph, with real versions.
+#   documentation/SPECIFICATIONS_GENERAL.md  the general / developer view:
+#                                     at-a-glance facts, what Az'arch changes on
+#                                     top of Arch, and the subsystem breakdown.
+#                                     No dependency-graph tables (those are below).
+#   documentation/SPECIFICATIONS_COMPONENTS.svg  a navigable layered image of the
+#                                     dependency graph, kernel at the bottom up to
+#                                     leaf apps at the top, boxes coloured by
+#                                     category and marked by edition.
+# Both are computed from the real package set, with real versions.
 #
 # The dependency data is resolved from the official Arch Linux core/extra/multilib
 # package databases (the repos the ISO is actually built against), NOT from the
@@ -27,8 +28,8 @@
 #   scripts/pull_specifications.sh [options]
 #
 # Options (forwarded to the Python orchestrator):
-#   -o, --output FILE   write the Markdown here (default: documentation/SPECIFICATIONS.md)
-#       --svg FILE      write the SVG diagram here (default: documentation/SPECIFICATIONS.svg)
+#   -o, --output FILE   write the general Markdown here (default: documentation/SPECIFICATIONS_GENERAL.md)
+#       --svg FILE      write the components graph SVG here (default: documentation/SPECIFICATIONS_COMPONENTS.svg)
 #   -m, --manifest FILE package manifest (default: libraries/data/packages.x86_64)
 #       --db-cache DIR  where to cache the Arch .db files (default: cache/spec-db)
 #       --mirror URL    Arch mirror base URL to fetch databases from

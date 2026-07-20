@@ -32,8 +32,8 @@ import spec_svg
 # scripts/libraries/ -> repo root is two levels up.
 REPO_ROOT = os.path.abspath(os.path.join(_SELF_DIR, "..", ".."))
 DEFAULT_MANIFEST = os.path.join(REPO_ROOT, "libraries", "data", "packages.x86_64")
-DEFAULT_OUTPUT = os.path.join(REPO_ROOT, "documentation", "SPECIFICATIONS.md")
-DEFAULT_SVG = os.path.join(REPO_ROOT, "documentation", "SPECIFICATIONS.svg")
+DEFAULT_OUTPUT = os.path.join(REPO_ROOT, "documentation", "SPECIFICATIONS_GENERAL.md")
+DEFAULT_SVG = os.path.join(REPO_ROOT, "documentation", "SPECIFICATIONS_COMPONENTS.svg")
 DEFAULT_CACHE = os.path.join(REPO_ROOT, "cache", "spec-db")
 PROFILE_PY = os.path.join(REPO_ROOT, "libraries", "azarch", "config", "profile.py")
 
