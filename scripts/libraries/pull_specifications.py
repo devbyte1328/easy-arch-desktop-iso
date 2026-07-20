@@ -28,12 +28,18 @@ import spec_resolve
 import spec_classify
 import spec_render
 import spec_svg
+import spec_fulltext
+import spec_html
 
 # scripts/libraries/ -> repo root is two levels up.
 REPO_ROOT = os.path.abspath(os.path.join(_SELF_DIR, "..", ".."))
 DEFAULT_MANIFEST = os.path.join(REPO_ROOT, "libraries", "data", "packages.x86_64")
 DEFAULT_OUTPUT = os.path.join(REPO_ROOT, "documentation", "SPECIFICATIONS_GENERAL.md")
 DEFAULT_SVG = os.path.join(REPO_ROOT, "documentation", "SPECIFICATIONS_COMPONENTS.svg")
+DEFAULT_FULLTEXT = os.path.join(REPO_ROOT, "documentation",
+                                "SPECIFICATIONS_COMPONENTS_FULL.txt")
+DEFAULT_HTML = os.path.join(REPO_ROOT, "documentation",
+                            "SPECIFICATIONS_COMPONENTS.html")
 DEFAULT_CACHE = os.path.join(REPO_ROOT, "cache", "spec-db")
 CONFIG_DIR = os.path.join(REPO_ROOT, "libraries", "azarch", "config")
 PROFILE_PY = os.path.join(CONFIG_DIR, "profile.py")
@@ -124,6 +130,13 @@ def parse_args(argv):
     p.add_argument("--svg", default=DEFAULT_SVG,
                    help=f"output SVG diagram (default: {DEFAULT_SVG}); "
                         "the Markdown links to it")
+    p.add_argument("--fulltext", default=DEFAULT_FULLTEXT,
+                   help=f"output full component listing text file "
+                        f"(default: {DEFAULT_FULLTEXT}); every component, "
+                        "fully expanded, with human-language descriptions")
+    p.add_argument("--html", default=DEFAULT_HTML,
+                   help=f"output interactive HTML component map "
+                        f"(default: {DEFAULT_HTML}); the SVG map, but navigable")
     p.add_argument("-m", "--manifest", default=DEFAULT_MANIFEST,
                    help=f"package manifest (default: {DEFAULT_MANIFEST})")
     p.add_argument("--db-cache", default=DEFAULT_CACHE,
@@ -169,8 +182,9 @@ def _build_glance(packages, resolved, tiers, tags):
     }
 
 
-def build(manifest_path, db_cache, mirror, offline, svg_rel="SPECIFICATIONS.svg"):
-    """Run the full pipeline. Return (markdown_text, svg_text)."""
+def build(manifest_path, db_cache, mirror, offline, svg_rel="SPECIFICATIONS.svg",
+          general_rel="SPECIFICATIONS_GENERAL.md"):
+    """Run the full pipeline. Return (markdown, svg, fulltext, html)."""
     db_paths = spec_db.fetch_databases(db_cache, mirror=mirror, offline=offline)
     packages, provides, groups = spec_db.load_databases(db_paths)
     print(f"[spec] indexed {len(packages)} packages from core/extra/multilib",
@@ -201,14 +215,23 @@ def build(manifest_path, db_cache, mirror, offline, svg_rel="SPECIFICATIONS.svg"
     glance = _build_glance(packages, resolved, tiers, tags)
     md = spec_render.render(packages, resolved, tiers, tags, glance, svg_rel)
     svg = spec_svg.render_svg(packages, resolved, tiers, tags, glance)
-    return md, svg
+    full = spec_fulltext.render_fulltext(packages, resolved, tiers, tags, glance,
+                                         svg_rel, general_rel)
+    page = spec_html.render_html(packages, resolved, tiers, tags, glance)
+    return md, svg, full, page
 
 
 def main(argv=None):
     args = parse_args(argv if argv is not None else sys.argv[1:])
     svg_rel = os.path.relpath(args.svg, os.path.dirname(args.output))
-    md, svg = build(args.manifest, args.db_cache, args.mirror, args.offline,
-                    svg_rel=svg_rel)
+    # cross-link inside the full-text file points back to the general Markdown,
+    # relative to the full-text file's own directory (the SVG link reuses svg_rel;
+    # all three artifacts are co-located in documentation/)
+    ft_dir = os.path.dirname(args.fulltext)
+    general_rel_ft = os.path.relpath(args.output, ft_dir)
+    md, svg, full, page = build(args.manifest, args.db_cache, args.mirror,
+                                args.offline, svg_rel=svg_rel,
+                                general_rel=general_rel_ft)
 
     if args.stdout:
         sys.stdout.write(md)
@@ -224,6 +247,17 @@ def main(argv=None):
     with open(args.svg, "w") as f:
         f.write(svg)
     print(f"[spec] wrote {args.svg} ({len(svg)} bytes)", file=sys.stderr)
+
+    os.makedirs(os.path.dirname(args.fulltext), exist_ok=True)
+    with open(args.fulltext, "w") as f:
+        f.write(full)
+    print(f"[spec] wrote {args.fulltext} "
+          f"({full.count(chr(10)) + 1} lines, {len(full)} bytes)", file=sys.stderr)
+
+    os.makedirs(os.path.dirname(args.html), exist_ok=True)
+    with open(args.html, "w") as f:
+        f.write(page)
+    print(f"[spec] wrote {args.html} ({len(page)} bytes)", file=sys.stderr)
     return 0
 
 

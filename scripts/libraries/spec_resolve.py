@@ -102,24 +102,97 @@ def resolve_closure(manifest_tokens, packages, provides, groups):
     }
 
 
-def _longest_height(closure, edges):
-    """Longest chain of dependencies below each package (0 = sink)."""
-    memo = {}
+def _strongly_connected_components(closure, edges):
+    """Tarjan's SCC algorithm (iterative, so deep dependency graphs don't blow
+    the Python stack). Returns (comp_id_of_node, list_of_components).
 
-    def height(p, stack):
-        if p in memo:
-            return memo[p]
+    Real package graphs contain dependency cycles; grouping cyclic packages into
+    one component is what lets the height below be computed deterministically.
+    """
+    index_of = {}
+    low = {}
+    on_stack = set()
+    stack = []
+    comp_of = {}
+    comps = []
+    counter = 0
+
+    for root in sorted(closure):
+        if root in index_of:
+            continue
+        # work stack of (node, iterator-position) frames
+        work = [(root, 0)]
+        while work:
+            node, pi = work[-1]
+            if pi == 0:
+                index_of[node] = low[node] = counter
+                counter += 1
+                stack.append(node)
+                on_stack.add(node)
+            children = sorted(edges.get(node, ()))
+            if pi < len(children):
+                work[-1] = (node, pi + 1)
+                child = children[pi]
+                if child not in index_of:
+                    work.append((child, 0))
+                elif child in on_stack:
+                    low[node] = min(low[node], index_of[child])
+            else:
+                if low[node] == index_of[node]:
+                    comp = []
+                    while True:
+                        w = stack.pop()
+                        on_stack.discard(w)
+                        comp_of[w] = len(comps)
+                        comp.append(w)
+                        if w == node:
+                            break
+                    comps.append(comp)
+                work.pop()
+                if work:
+                    parent = work[-1][0]
+                    low[parent] = min(low[parent], low[node])
+    return comp_of, comps
+
+
+def _longest_height(closure, edges):
+    """Longest chain of dependencies below each package (0 = sink).
+
+    Computed on the SCC condensation so it is deterministic and cycle-safe: a
+    dependency cycle is one tier (its members share a height), and the height is
+    1 + the deepest height among the *other* components it depends on. This
+    avoids the order-dependent result a naive recursive cycle-cut produces.
+    """
+    comp_of, comps = _strongly_connected_components(closure, edges)
+
+    # Edges between distinct components, in the condensation DAG.
+    comp_edges = defaultdict(set)
+    for a, deps in edges.items():
+        ca = comp_of[a]
+        for d in deps:
+            cd = comp_of[d]
+            if cd != ca:
+                comp_edges[ca].add(cd)
+
+    # Longest path in the condensation DAG via memoized recursion. No cycles
+    # remain, so the memo is unconditional and the result is order-independent.
+    comp_h = {}
+
+    def cheight(c):
+        if c in comp_h:
+            return comp_h[c]
         best = 0
-        for d in edges.get(p, ()):
-            if d in stack or d == p:
-                continue
-            h = height(d, stack | {p}) + 1
+        for nxt in comp_edges.get(c, ()):
+            h = cheight(nxt) + 1
             if h > best:
                 best = h
-        memo[p] = best
+        comp_h[c] = best
         return best
 
-    return {p: height(p, frozenset()) for p in closure}
+    for c in range(len(comps)):
+        cheight(c)
+
+    return {p: comp_h[comp_of[p]] for p in closure}
 
 
 def compute_tiers(resolved):

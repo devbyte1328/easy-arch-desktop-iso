@@ -24,7 +24,7 @@ General and developer-facing spec of the Az'arch distribution. The full base->to
 | Edition: Az'arch-modified / selected / dependency | 16 / 288 / 1021 |
 | Top / leaf packages (nothing depends on them) | 203 |
 | Base / sink packages (depend on nothing else in the set) | 71 |
-| Deepest dependency chain (leaf -> base) | 45 hops |
+| Deepest dependency chain (leaf -> base) | 44 hops |
 | Total installed size of the package set | 7.61 GiB |
 
 **Edition tags** (used throughout, and marked on the SVG):

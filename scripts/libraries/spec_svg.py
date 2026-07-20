@@ -72,6 +72,31 @@ def _esc(s):
     return html.escape(str(s), quote=True)
 
 
+# Approximate width of a string at a given font size for the SVG sans stack.
+# 0.55 is a safe average glyph-width factor for mixed-case Inter/Segoe text; we
+# use it to keep left-rail labels inside the rail so they never run onto the
+# component boxes.
+def _text_w(s, size, factor=0.55):
+    return len(s) * size * factor
+
+
+def _wrap(text, max_w, size, factor=0.55):
+    """Greedy word-wrap `text` into lines that each fit within max_w px."""
+    words = text.split()
+    lines = []
+    cur = ""
+    for w in words:
+        trial = w if not cur else cur + " " + w
+        if _text_w(trial, size, factor) <= max_w or not cur:
+            cur = trial
+        else:
+            lines.append(cur)
+            cur = w
+    if cur:
+        lines.append(cur)
+    return lines
+
+
 def _representatives(pkgs, layer_idx, tiers, per_layer):
     """Pick which packages to actually draw in a layer.
 
@@ -117,9 +142,16 @@ def render_svg(packages, resolved, tiers, tags, glance):
     band_gap = 14
     band_h = 150
     inner_w = W - 2 * margin
-    per_layer = 22            # boxes drawn per band
+    # Left rail: holds each layer's title, subtitle and pkg count. Made wide
+    # enough (and the labels wrapped to fit) so the text never overlaps the
+    # component boxes, which begin at margin + RAIL_W.
+    rail_w = 250
+    rail_pad = 16            # inset of rail text from the band's left edge
+    rail_text_w = rail_w - rail_pad - 12   # usable width for wrapped rail text
+    per_layer = 30            # boxes drawn per band
     box_w, box_h, box_gap = 128, 40, 8
-    cols = max(1, (inner_w - 220) // (box_w + box_gap))
+    boxes_x0 = margin + rail_w
+    cols = max(1, (W - margin - boxes_x0) // (box_w + box_gap))
 
     total_h = header_h + len(LAYER_DEFS) * (band_h + band_gap) + legend_h + margin
     H = total_h
@@ -177,21 +209,32 @@ def render_svg(packages, resolved, tiers, tags, glance):
         # band background
         a(f'<rect x="{margin}" y="{y}" width="{inner_w}" height="{band_h}" '
           f'rx="10" fill="{PANEL}" stroke="{PANEL_LINE}"/>')
-        # layer index chip + title on the left rail
-        a(f'<text x="{margin+16}" y="{y+34}" font-size="18" font-weight="700" '
-          f'fill="{TEXT}">{_esc(title)}</text>')
-        a(f'<text x="{margin+16}" y="{y+54}" font-size="11" fill="{TEXT_DIM}">'
-          f'{_esc(subtitle)}</text>')
-        a(f'<text x="{margin+16}" y="{y+86}" font-size="13" font-weight="700" '
-          f'fill="url(#brand)">{len(band_pkgs)} pkgs</text>')
+        # vertical divider separating the left rail from the boxes area
+        a(f'<line x1="{margin+rail_w-8}" y1="{y+10}" x2="{margin+rail_w-8}" '
+          f'y2="{y+band_h-10}" stroke="{PANEL_LINE}"/>')
+        # layer title on the left rail; shrink if it would exceed the rail
+        rail_x = margin + rail_pad
+        title_size = 18
+        if _text_w(title, title_size) > rail_text_w:
+            title_size = 15
+        a(f'<text x="{rail_x}" y="{y+32}" font-size="{title_size}" '
+          f'font-weight="700" fill="{TEXT}">{_esc(title)}</text>')
+        # subtitle: word-wrapped so it stays inside the rail
+        sy = y + 52
+        for line in _wrap(subtitle, rail_text_w, 11)[:3]:
+            a(f'<text x="{rail_x}" y="{sy}" font-size="11" '
+              f'fill="{TEXT_DIM}">{_esc(line)}</text>')
+            sy += 14
+        a(f'<text x="{rail_x}" y="{y+band_h-30}" font-size="13" '
+          f'font-weight="700" fill="url(#brand)">{len(band_pkgs)} pkgs</text>')
         # arrow hint (deps flow downward)
         if idx > 0:
-            a(f'<text x="{margin+16}" y="{y+band_h-14}" font-size="10" '
+            a(f'<text x="{rail_x}" y="{y+band_h-14}" font-size="10" '
               f'fill="{TEXT_DIM}">depends on layer(s) below ↓</text>')
 
         # boxes
         reps = _representatives(band_pkgs, idx, tiers, per_layer)
-        bx0 = margin + 200
+        bx0 = boxes_x0
         by0 = y + 16
         for i, p in enumerate(reps):
             r = i // cols

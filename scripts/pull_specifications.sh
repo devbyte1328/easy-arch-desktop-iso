@@ -2,7 +2,7 @@
 #
 # pull_specifications.sh -- generate the Az'arch DISTRIBUTION specification.
 #
-# This produces two artifacts:
+# This produces four artifacts:
 #   documentation/SPECIFICATIONS_GENERAL.md  the general / developer view:
 #                                     at-a-glance facts, what Az'arch changes on
 #                                     top of Arch, and the subsystem breakdown.
@@ -11,7 +11,16 @@
 #                                     dependency graph, kernel at the bottom up to
 #                                     leaf apps at the top, boxes coloured by
 #                                     category and marked by edition.
-# Both are computed from the real package set, with real versions.
+#   documentation/SPECIFICATIONS_COMPONENTS.html  the interactive twin of the SVG:
+#                                     the same layered map, but click any component
+#                                     to inspect it and highlight its dependencies.
+#                                     Open it with scripts/view_specifications.sh.
+#   documentation/SPECIFICATIONS_COMPONENTS_FULL.txt  the exhaustive listing:
+#                                     EVERY component, nothing collapsed, each with
+#                                     a plain-language purpose (the official Arch
+#                                     package description), its layer, and its full
+#                                     requires / required-by edges.
+# All are computed from the real package set, with real versions.
 #
 # The dependency data is resolved from the official Arch Linux core/extra/multilib
 # package databases (the repos the ISO is actually built against), NOT from the
@@ -30,6 +39,8 @@
 # Options (forwarded to the Python orchestrator):
 #   -o, --output FILE   write the general Markdown here (default: documentation/SPECIFICATIONS_GENERAL.md)
 #       --svg FILE      write the components graph SVG here (default: documentation/SPECIFICATIONS_COMPONENTS.svg)
+#       --html FILE     write the interactive HTML map here (default: documentation/SPECIFICATIONS_COMPONENTS.html)
+#       --fulltext FILE write the full component listing here (default: documentation/SPECIFICATIONS_COMPONENTS_FULL.txt)
 #   -m, --manifest FILE package manifest (default: libraries/data/packages.x86_64)
 #       --db-cache DIR  where to cache the Arch .db files (default: cache/spec-db)
 #       --mirror URL    Arch mirror base URL to fetch databases from
@@ -44,7 +55,7 @@ PY_ENTRY="$SELF_DIR/libraries/pull_specifications.py"
 
 case "${1:-}" in
     -h|--help)
-        sed -n '3,37p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+        sed -n '3,49p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
         exit 0
         ;;
 esac
