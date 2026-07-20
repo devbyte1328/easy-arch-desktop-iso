@@ -65,7 +65,10 @@ header{
   background:linear-gradient(90deg,var(--cyan),var(--blue));
   -webkit-background-clip:text;background-clip:text;color:transparent}
 .rail .arrow{margin-top:6px;font-size:10px;color:var(--dim)}
-.boxes{flex:1;padding:12px;display:flex;flex-wrap:wrap;gap:7px;align-content:flex-start}
+/* centre the boxes horizontally so a partly-filled row sits in the middle of the
+   band instead of hugging the left edge and leaving dead space on the right. */
+.boxes{flex:1;padding:12px;display:flex;flex-wrap:wrap;gap:7px;align-content:flex-start;
+  justify-content:center}
 /* ---- component box ---- */
 .box{position:relative;width:150px;border-radius:7px;padding:7px 9px;cursor:pointer;
   border:1px solid var(--bc,#555);background:color-mix(in srgb,var(--bc,#555) 16%,transparent);
@@ -144,7 +147,12 @@ header{
 .legend.hidden{display:none}
 .legend .sw{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px}
 .legend .grp{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
-.legend .grp.how{flex-basis:100%;color:var(--text)}
+/* The intro + edition key are ONE full-width row (flex-basis:100%) that never
+   shares space with the category swatches / keys group below it. nowrap keeps
+   the whole line -- the "Foundation ... inspect it" text, "Edition:", and all
+   three marks -- on a single line, and each mark's text stays intact. */
+.legend .grp.how{flex-basis:100%;color:var(--text);white-space:nowrap}
+.legend .grp.how>span{white-space:nowrap}
 .legend .cats{display:flex;gap:10px;flex-wrap:wrap}
 kbd{background:var(--ink);border:1px solid var(--line);border-radius:4px;padding:1px 5px;font-size:11px}
 </style>
@@ -242,8 +250,8 @@ function idxFromDisp(n){ return NLAYERS - n; }    // shown number -> internal id
   ).join("");
   el.innerHTML =
     `<div class="grp how">Foundation / sinks (bottom) &#8594; leaf apps (top) `+
-    `&#183; click any component to inspect it</div>`+
-    `<div class="grp"><b style="color:var(--text)">Edition:</b>`+
+    `&#183; click any component to inspect it `+
+    `&#183; <b style="color:var(--text)">Edition:</b>`+
     `<span><span style="color:var(--cyan)">★</span> Az'arch-modified</span>`+
     `<span>● Explicitly selected</span>`+
     `<span style="opacity:.7">(no mark) dependency</span></div>`+
