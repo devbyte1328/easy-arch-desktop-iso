@@ -30,15 +30,15 @@ import spec_render
 import spec_svg
 import spec_fulltext
 import spec_html
+import spec_stock_baseline
 
 # scripts/libraries/ -> repo root is two levels up.
 REPO_ROOT = os.path.abspath(os.path.join(_SELF_DIR, "..", ".."))
 DEFAULT_MANIFEST = os.path.join(REPO_ROOT, "libraries", "data", "packages.x86_64")
-# The stock archiso `releng` baseline: the ground truth for the "Stock Arch"
-# edition. Everything in the final set NOT reachable from this list is an
-# "Az'arch Component". See spec_classify / spec_resolve.stock_reachable.
-DEFAULT_STOCK_MANIFEST = os.path.join(REPO_ROOT, "libraries", "data",
-                                      "packages.x86_64.stock")
+# The stock archiso `releng` baseline (the ground truth for the "Stock Arch"
+# edition) lives in code as spec_stock_baseline.STOCK_PACKAGES, not as a data
+# file, so it is not mistaken for an editable manifest. --stock-manifest can
+# still point at a file to override it; None means "use the module".
 DEFAULT_OUTPUT = os.path.join(REPO_ROOT, "documentation", "SPECIFICATIONS_GENERAL.md")
 DEFAULT_SVG = os.path.join(REPO_ROOT, "documentation", "SPECIFICATIONS_COMPONENTS_OVERVIEW.svg")
 DEFAULT_FULLTEXT = os.path.join(REPO_ROOT, "documentation",
@@ -144,9 +144,10 @@ def parse_args(argv):
                         f"(default: {DEFAULT_HTML}); the SVG map, but navigable")
     p.add_argument("-m", "--manifest", default=DEFAULT_MANIFEST,
                    help=f"package manifest (default: {DEFAULT_MANIFEST})")
-    p.add_argument("--stock-manifest", default=DEFAULT_STOCK_MANIFEST,
-                   help=f"stock archiso releng baseline used to split the two "
-                        f"editions (default: {DEFAULT_STOCK_MANIFEST})")
+    p.add_argument("--stock-manifest", default=None,
+                   help="optional file to override the built-in stock archiso "
+                        "releng baseline (spec_stock_baseline.STOCK_PACKAGES) "
+                        "used to split the two editions")
     p.add_argument("--db-cache", default=DEFAULT_CACHE,
                    help=f"where to store the fetched Arch .db files "
                         f"(default: {DEFAULT_CACHE})")
@@ -193,8 +194,12 @@ def _build_glance(packages, resolved, tiers, tags):
 
 def build(manifest_path, db_cache, mirror, offline, svg_rel="SPECIFICATIONS.svg",
           general_rel="SPECIFICATIONS_GENERAL.md",
-          stock_manifest_path=DEFAULT_STOCK_MANIFEST):
-    """Run the full pipeline. Return (markdown, svg, fulltext, html)."""
+          stock_manifest_path=None):
+    """Run the full pipeline. Return (markdown, svg, fulltext, html).
+
+    stock_manifest_path=None uses the built-in baseline
+    (spec_stock_baseline.STOCK_PACKAGES); pass a path to override it from a file.
+    """
     db_paths = spec_db.fetch_databases(db_cache, mirror=mirror, offline=offline)
     packages, provides, groups = spec_db.load_databases(db_paths)
     print(f"[spec] indexed {len(packages)} packages from core/extra/multilib",
@@ -207,8 +212,12 @@ def build(manifest_path, db_cache, mirror, offline, svg_rel="SPECIFICATIONS.svg"
 
     # Split the closure into the two editions by walking the STOCK archiso releng
     # baseline: anything that baseline already pulls in is "Stock Arch", the rest
-    # is an "Az'arch Component". The baseline is committed alongside the manifest.
-    stock_tokens, _ = spec_resolve.load_manifest(stock_manifest_path)
+    # is an "Az'arch Component". The baseline is the built-in list in
+    # spec_stock_baseline, unless a file override is supplied.
+    if stock_manifest_path:
+        stock_tokens, _ = spec_resolve.load_manifest(stock_manifest_path)
+    else:
+        stock_tokens = list(spec_stock_baseline.STOCK_PACKAGES)
     stock_reach = spec_resolve.stock_reachable(
         stock_tokens, resolved["closure"], packages, provides, groups)
     tags = spec_classify.classify(packages, resolved["closure"], stock_reach)

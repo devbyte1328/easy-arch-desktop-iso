@@ -11,8 +11,9 @@ but that are not in the raw Arch metadata:
 
 Both are derived deterministically from real signals:
   * EDITION (two values) -- grounded in the real dependency graph. Az'arch starts
-    from the stock archiso `releng` package list (libraries/data/packages.x86_64
-    .stock, the ground-truth baseline) and adds packages on top. A package is
+    from the stock archiso `releng` package list (held in code as
+    spec_stock_baseline.STOCK_PACKAGES, the ground-truth baseline) and adds
+    packages on top. A package is
     `stock` if the stock releng closure already contains it, and `az'arch`
     (an "Az'arch Component") if it is in the set ONLY because of an Az'arch
     addition -- i.e. it is not reachable from any stock releng root. This is
