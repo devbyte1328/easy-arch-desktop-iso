@@ -35,19 +35,83 @@ DEFAULT_MANIFEST = os.path.join(REPO_ROOT, "libraries", "data", "packages.x86_64
 DEFAULT_OUTPUT = os.path.join(REPO_ROOT, "documentation", "SPECIFICATIONS_GENERAL.md")
 DEFAULT_SVG = os.path.join(REPO_ROOT, "documentation", "SPECIFICATIONS_COMPONENTS.svg")
 DEFAULT_CACHE = os.path.join(REPO_ROOT, "cache", "spec-db")
-PROFILE_PY = os.path.join(REPO_ROOT, "libraries", "azarch", "config", "profile.py")
+CONFIG_DIR = os.path.join(REPO_ROOT, "libraries", "azarch", "config")
+PROFILE_PY = os.path.join(CONFIG_DIR, "profile.py")
+PACMAN_PY = os.path.join(CONFIG_DIR, "pacman.py")
+LOCALE_PY = os.path.join(CONFIG_DIR, "locale.py")
+INSTALLER_PY = os.path.join(CONFIG_DIR, "installer.py")
+
+
+def _read(path):
+    try:
+        with open(path) as f:
+            return f.read()
+    except OSError:
+        return ""
 
 
 def read_cow_spacesize():
     """Read the live-session writable-RAM size (cow_spacesize) from the real build
     config, so the spec reports the actual configured value, not a hardcoded one."""
-    try:
-        with open(PROFILE_PY) as f:
-            text = f.read()
-    except OSError:
-        return "unknown"
-    m = re.search(r'cow_spacesize\s*=\s*["\']([^"\']+)["\']', text)
+    m = re.search(r'cow_spacesize\s*=\s*["\']([^"\']+)["\']', _read(PROFILE_PY))
     return m.group(1) if m else "unknown"
+
+
+def read_endpoints():
+    """Extract the external network endpoints the distro contacts, live from the
+    real config modules. Returns a list of (endpoint, purpose, context) rows so the
+    spec stays honest if a mirror / service URL is changed.
+
+    Everything here is read from libraries/azarch/config/*.py -- the same strings
+    baked into the ISO -- so this is not a hand-maintained list that can drift.
+    """
+    rows = []
+
+    # Package mirrors: any 'Server = http(s)://...' in the pacman config.
+    pac = _read(PACMAN_PY)
+    seen = set()
+    for url in re.findall(r'Server\s*=\s*(https?://[^\s"\'\\]+)', pac):
+        host = re.sub(r'^https?://', '', url).split('/')[0]
+        if host in seen:
+            continue
+        seen.add(host)
+        rows.append((host, "Package download mirror (build-time, hard-coded)",
+                     "pacman.py -- used by the cache/download step; host-independent"))
+    if "Include = /etc/pacman.d/mirrorlist" in pac:
+        rows.append(("/etc/pacman.d/mirrorlist",
+                     "Package download mirrors (installed system + live ISO)",
+                     "pacman.py -- the standard Arch mirrorlist on the running OS"))
+    file_seen = set()
+    for m in re.findall(r'Server\s*=\s*(file://[^\s"\'\\]+)', pac):
+        # Skip the commented example and unformatted f-string templates ({...}).
+        if "custompkgs" in m or "{" in m or m in file_seen:
+            continue
+        file_seen.add(m)
+        rows.append((m, "Offline package install from the baked-in local repo",
+                     "pacman.py -- the fully-offline install path"))
+
+    # Geo-IP locale/timezone service: curl https://host/... in locale.py.
+    loc = _read(LOCALE_PY)
+    geo_hosts = set()
+    for url in re.findall(r'curl[^\n]*?(https?://[^\s"\'\\)]+)', loc):
+        host = re.sub(r'^https?://', '', url).split('/')[0]
+        geo_hosts.add(host)
+    for host in sorted(geo_hosts):
+        rows.append((host, "Geo-IP lookup -> timezone, country, locale, keyboard",
+                     "locale.py -- queried on first boot to auto-detect region"))
+
+    # Connectivity probe + NTP in the installer.
+    inst = _read(INSTALLER_PY)
+    for host in re.findall(r'ping\s+-c\s*\d+\s+([A-Za-z0-9.\-]+)', inst):
+        rows.append((host, "Connectivity probe before enabling time sync",
+                     "installer.py -- pinged for up to 15s on first boot"))
+    if "set-ntp true" in inst:
+        rows.append(("systemd-timesyncd (NTP)",
+                     "Network time sync once connectivity is confirmed",
+                     "installer.py -- `timedatectl set-ntp true`; uses systemd's "
+                     "default NTP servers"))
+
+    return rows
 
 
 def parse_args(argv):
@@ -101,6 +165,7 @@ def _build_glance(packages, resolved, tiers, tags):
         "azarch": ed_counts.get("az'arch", 0),
         "max_height": tiers["max_height"],
         "size": f"{total_isize / 1024 ** 3:.2f} GiB",
+        "endpoints": read_endpoints(),
     }
 
 

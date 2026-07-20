@@ -31,13 +31,35 @@ General and developer-facing spec of the Az'arch distribution. The full base->to
 
 | Tag | Meaning |
 |---|---|
-| `az'arch` | Az'arch modifies this package: ships config, rebrands, themes, or removes it. See section 2. |
+| `az'arch` | Az'arch modifies this package: ships config, rebrands, themes, or removes it. See section 3. |
 | `arch-sel` | Stock Arch package, but **explicitly listed** in `packages.x86_64` -- an Az'arch curation choice. |
 | `arch-dep` | Stock Arch package pulled in **only** as a transitive dependency; not chosen directly. |
 
 ---
 
-## 2. What Az'arch changes on top of Arch
+## 2. Network endpoints -- what the distro contacts
+
+Every external host and service the distribution talks to: where it downloads packages from, how it resolves the timezone and locale, and what it pings. Read live from the build config (`libraries/azarch/config/*.py`), so this list cannot drift from what the ISO actually does. The system is designed to work fully offline; these are the endpoints used **when a network is available**.
+
+| Endpoint | Purpose | Where / notes |
+|---|---|---|
+| `geo.mirror.pkgbuild.com` | Package download mirror (build-time, hard-coded) | pacman.py -- used by the cache/download step; host-independent |
+| `mirror.rackspace.com` | Package download mirror (build-time, hard-coded) | pacman.py -- used by the cache/download step; host-independent |
+| `/etc/pacman.d/mirrorlist` | Package download mirrors (installed system + live ISO) | pacman.py -- the standard Arch mirrorlist on the running OS |
+| `file:///mnt/pacstrap-azarch-repo/` | Offline package install from the baked-in local repo | pacman.py -- the fully-offline install path |
+| `ipapi.co` | Geo-IP lookup -> timezone, country, locale, keyboard | locale.py -- queried on first boot to auto-detect region |
+| `archlinux.org` | Connectivity probe before enabling time sync | installer.py -- pinged for up to 15s on first boot |
+| `systemd-timesyncd (NTP)` | Network time sync once connectivity is confirmed | installer.py -- `timedatectl set-ntp true`; uses systemd's default NTP servers |
+
+Notes for a developer:
+
+- **Package mirrors** are hard-coded for the *build* (host-independent so the ISO builds identically on Arch, Manjaro or Docker); the *installed* system uses the standard Arch `mirrorlist`. The offline `file://` repo is the baked-in package cache used when no mirror is reachable.
+- **Timezone / locale / keyboard** are auto-detected on first boot from a geo-IP lookup; if that host is unreachable the defaults (`en_US.UTF-8`, `us`) apply. Change the provider in `libraries/azarch/config/locale.py`.
+- **Time sync** uses systemd-timesyncd's default NTP servers, enabled only after the connectivity probe succeeds.
+
+---
+
+## 3. What Az'arch changes on top of Arch
 
 Every package is stock Arch from the official repos; Az'arch's identity is *curation* (which packages ship, chosen in `libraries/data/packages.x86_64`) plus *configuration and branding* on the packages below. These are the only packages that carry Az'arch-specific changes -- grounded in the build's own config modules (`libraries/azarch/config/*.py`).
 
@@ -62,7 +84,7 @@ Every package is stock Arch from the official repos; Az'arch's identity is *cura
 
 ---
 
-## 3. Subsystems -- what the software actually is
+## 4. Subsystems -- what the software actually is
 
 The key packages grouped by real function, with concrete technical capabilities and real versions. (The full base->top dependency graph and the complete package list are in the companion graph image, not here.)
 
@@ -105,7 +127,7 @@ The minimal Unix userland the desktop and installer sit on. `systemd` is the ini
 | `less` | 1:704-1 | Terminal pager |
 | `man-db` / `man-pages` | 2.13.1-2 / 6.18-1 | Manual page reader + Linux man pages |
 | `mc` | 4.8.33-1 | Norton-Commander-style file manager |
-| `htop` | 3.5.1-1 | Interactive process viewer |
+| `htop` | 3.5.2-1 | Interactive process viewer |
 | `tmux` / `screen` | 3.7_b-1 / 5.0.1-3 | Terminal multiplexers |
 | `rsync` | 3.4.4-1 | Fast local/remote file sync |
 | `bc` / `pv` / `diffutils` | 1.08.2-1 / 1.11.0-1 / 3.12-2 | Calculator, pipe meter, patch tools |
@@ -260,7 +282,7 @@ Bluetooth is provided by the `bluez` stack with the `bluedevil` KDE integration;
 | `open-vm-tools` | 6:13.1.0-2 | VMware guest integration |
 | `qemu-guest-agent` | 11.0.2-3 | QEMU/KVM guest agent |
 | `virtualbox-guest-utils-nox` | 7.2.12-1 | VirtualBox guest utilities |
-| `hyperv` | 7.1.3-1 | Hyper-V guest tools |
+| `hyperv` | 7.1.4-1 | Hyper-V guest tools |
 | `usbutils` / `usb_modeswitch` | 019-1 / 2.6.2.20251207-1 | USB inspection + mode switching |
 | `dmidecode` | 3.7-1 | DMI/SMBIOS hardware table dump |
 | `bolt` / `plasma-thunderbolt` | 0.9.11-1 / 6.7.3-1 | Thunderbolt device management |

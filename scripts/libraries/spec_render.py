@@ -110,7 +110,7 @@ def render(packages, resolved, tiers, tags, glance, svg_rel):
     d.w("| Tag | Meaning |")
     d.w("|---|---|")
     d.w("| `az'arch` | Az'arch modifies this package: ships config, rebrands, "
-        "themes, or removes it. See section 2. |")
+        "themes, or removes it. See section 3. |")
     d.w("| `arch-sel` | Stock Arch package, but **explicitly listed** in "
         "`packages.x86_64` -- an Az'arch curation choice. |")
     d.w("| `arch-dep` | Stock Arch package pulled in **only** as a transitive "
@@ -119,8 +119,38 @@ def render(packages, resolved, tiers, tags, glance, svg_rel):
     d.w("---")
     d.w()
 
-    # 2. Az'arch modifications ----------------------------------------------
-    d.w("## 2. What Az'arch changes on top of Arch")
+    # 2. Network endpoints ---------------------------------------------------
+    d.w("## 2. Network endpoints -- what the distro contacts")
+    d.w()
+    d.w("Every external host and service the distribution talks to: where it "
+        "downloads packages from, how it resolves the timezone and locale, and "
+        "what it pings. Read live from the build config "
+        "(`libraries/azarch/config/*.py`), so this list cannot drift from what the "
+        "ISO actually does. The system is designed to work fully offline; these "
+        "are the endpoints used **when a network is available**.")
+    d.w()
+    d.w("| Endpoint | Purpose | Where / notes |")
+    d.w("|---|---|---|")
+    for endpoint, purpose, context in glance["endpoints"]:
+        d.w(f"| `{endpoint}` | {purpose} | {context} |")
+    d.w()
+    d.w("Notes for a developer:")
+    d.w()
+    d.w("- **Package mirrors** are hard-coded for the *build* (host-independent so "
+        "the ISO builds identically on Arch, Manjaro or Docker); the *installed* "
+        "system uses the standard Arch `mirrorlist`. The offline `file://` repo is "
+        "the baked-in package cache used when no mirror is reachable.")
+    d.w("- **Timezone / locale / keyboard** are auto-detected on first boot from a "
+        "geo-IP lookup; if that host is unreachable the defaults (`en_US.UTF-8`, "
+        "`us`) apply. Change the provider in `libraries/azarch/config/locale.py`.")
+    d.w("- **Time sync** uses systemd-timesyncd's default NTP servers, enabled only "
+        "after the connectivity probe succeeds.")
+    d.w()
+    d.w("---")
+    d.w()
+
+    # 3. Az'arch modifications ----------------------------------------------
+    d.w("## 3. What Az'arch changes on top of Arch")
     d.w()
     d.w("Every package is stock Arch from the official repos; Az'arch's identity "
         "is *curation* (which packages ship, chosen in `libraries/data/"
@@ -141,8 +171,8 @@ def render(packages, resolved, tiers, tags, glance, svg_rel):
     d.w("---")
     d.w()
 
-    # 3. Subsystems ---------------------------------------------------------
-    d.w("## 3. Subsystems -- what the software actually is")
+    # 4. Subsystems ---------------------------------------------------------
+    d.w("## 4. Subsystems -- what the software actually is")
     d.w()
     d.w("The key packages grouped by real function, with concrete technical "
         "capabilities and real versions. (The full base->top dependency graph and "

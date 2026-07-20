@@ -107,7 +107,7 @@
 <rect x="32" y="374" width="1536" height="150" rx="10" fill="#161b22" stroke="#30363d"/>
 <text x="48" y="408" font-size="18" font-weight="700" fill="#e6edf3">Desktop &amp; session</text>
 <text x="48" y="428" font-size="11" fill="#9da7b3">Plasma shell, compositor, session services</text>
-<text x="48" y="460" font-size="13" font-weight="700" fill="url(#brand)">249 pkgs</text>
+<text x="48" y="460" font-size="13" font-weight="700" fill="url(#brand)">250 pkgs</text>
 <text x="48" y="510" font-size="10" fill="#9da7b3">depends on layer(s) below ↓</text>
 <rect x="232" y="390" width="128" height="40" rx="6" fill="#78716c" fill-opacity="0.22" stroke="#78716c" stroke-width="1.4"/>
 <text x="240" y="407" font-size="11.5" font-weight="600" fill="#e6edf3">p11-kit</text>
@@ -168,7 +168,7 @@
 <rect x="1320" y="438" width="128" height="40" rx="6" fill="#94a3b8" fill-opacity="0.22" stroke="#94a3b8" stroke-width="1.4"/>
 <text x="1328" y="455" font-size="11.5" font-weight="600" fill="#e6edf3">libsecret</text>
 <text x="1328" y="469" font-size="9" fill="#9da7b3">0.21.7</text>
-<text x="1556" y="512" font-size="11" text-anchor="end" fill="#9da7b3">+231 more in this layer</text>
+<text x="1556" y="512" font-size="11" text-anchor="end" fill="#9da7b3">+232 more in this layer</text>
 <rect x="32" y="538" width="1536" height="150" rx="10" fill="#161b22" stroke="#30363d"/>
 <text x="48" y="572" font-size="18" font-weight="700" fill="#e6edf3">Frameworks &amp; toolkits</text>
 <text x="48" y="592" font-size="11" fill="#9da7b3">Qt6, KDE Frameworks, GTK, language runtimes</text>
@@ -354,7 +354,7 @@
 <rect x="32" y="1030" width="1536" height="150" rx="10" fill="#161b22" stroke="#30363d"/>
 <text x="48" y="1064" font-size="18" font-weight="700" fill="#e6edf3">Base / sinks</text>
 <text x="48" y="1084" font-size="11" fill="#9da7b3">depend on nothing else in the set</text>
-<text x="48" y="1116" font-size="13" font-weight="700" fill="url(#brand)">67 pkgs</text>
+<text x="48" y="1116" font-size="13" font-weight="700" fill="url(#brand)">66 pkgs</text>
 <text x="48" y="1166" font-size="10" fill="#9da7b3">depends on layer(s) below ↓</text>
 <rect x="232" y="1046" width="128" height="40" rx="6" fill="#78716c" fill-opacity="0.22" stroke="#78716c" stroke-width="1.4"/>
 <text x="240" y="1063" font-size="11.5" font-weight="600" fill="#e6edf3">iana-etc</text>
@@ -411,7 +411,7 @@
 <rect x="1320" y="1094" width="128" height="40" rx="6" fill="#a16207" fill-opacity="0.22" stroke="#a16207" stroke-width="1.4"/>
 <text x="1328" y="1111" font-size="11.5" font-weight="600" fill="#e6edf3">adwaita-fonts</text>
 <text x="1328" y="1125" font-size="9" fill="#9da7b3">50.0</text>
-<text x="1556" y="1168" font-size="11" text-anchor="end" fill="#9da7b3">+49 more in this layer</text>
+<text x="1556" y="1168" font-size="11" text-anchor="end" fill="#9da7b3">+48 more in this layer</text>
 <rect x="32" y="1194" width="1536" height="150" rx="10" fill="#161b22" stroke="#30363d"/>
 <text x="48" y="1228" font-size="18" font-weight="700" fill="#e6edf3">Kernel &amp; firmware</text>
 <text x="48" y="1248" font-size="11" fill="#9da7b3">the floor: linux + microcode + firmware</text>
