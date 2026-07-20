@@ -255,6 +255,13 @@ header{
    pushing it -- opening a component must NOT resize/reflow the graph. */
 .main{flex:1;display:flex;min-height:0;position:relative}
 .map{flex:1;overflow:auto;padding:14px var(--map-pad) 40px}
+/* Entries flat view has no right-hand rail for the panel to overlay (unlike the
+   component bands), so when the entries panel opens we reserve the panel's width
+   as extra right padding on #emap. The flat boxes reflow into the narrower area
+   -- the last column drops to the next line instead of being hidden -- while the
+   layer bands keep their own rail and are unaffected. --map-pad is already in the
+   base padding, so we add only the remaining rail width + the 1px border. */
+.main.epanel-open #emap{padding-right:calc(var(--map-pad) + var(--rail-w) + 1px)}
 /* ---- bands ---- */
 /* Boxes on the LEFT, the layer-label rail on the RIGHT (flex order:2). The rail
    width matches the detail panel (--rail-w) so, when a component is clicked, the
@@ -976,6 +983,7 @@ function openEntryPanel(tok){
     ? `Removing <b>${esc(tok)}</b> from packages.x86_64 would drop these <b>${e.exclusiveCount}</b> package(s) (${e.exclSize}) from the set &mdash; nothing else pulls them in.`
     : `Removing <b>${esc(tok)}</b> would drop nothing new: every package it brings is also brought by another entry.`;
   panel.classList.remove('hidden');
+  panel.parentElement.classList.add('epanel-open');   // reserve panel width on #emap so flat boxes reflow clear
   panel.innerHTML =
     `<div class="ph"><span class="close" title="close (Esc)">×</span>`+
       `<h2>${esc(tok)}</h2><div class="ver">manifest entry &#183; ${rootLine}</div></div>`+
@@ -1003,7 +1011,7 @@ function openEntryPanel(tok){
   // no separate '.brings' anchor (it would clash with the legend's yellow
   // "requires" colour and linger on the previously-selected box).
 }
-function closeEntryPanel(){ panel.classList.add('hidden'); panel.innerHTML=""; clearEntryHighlight(); }
+function closeEntryPanel(){ panel.classList.add('hidden'); panel.parentElement.classList.remove('epanel-open'); panel.innerHTML=""; clearEntryHighlight(); }
 
 // ---- entries controls ----
 qe.addEventListener('input',()=>{ eQuery=qe.value.trim().toLowerCase(); applyEntryFilters(); });
@@ -1023,7 +1031,6 @@ document.getElementById('ereset').addEventListener('click',()=>{
 let currentPage = "components";
 const tabC = document.getElementById('tabComponents');
 const tabE = document.getElementById('tabEntries');
-const pageSub = document.getElementById('pageSub');
 function showComponents(){
   if(currentPage==="components") return;
   currentPage="components";
@@ -1032,7 +1039,6 @@ function showComponents(){
   document.getElementById('emap').classList.add('hidden');
   document.getElementById('ctlComponents').classList.remove('hidden');
   document.getElementById('ctlEntries').classList.add('hidden');
-  pageSub.textContent="interactive component map";
   closeEntryPanel();                 // leaving entries clears its selection/panel
 }
 function showEntries(){
@@ -1043,7 +1049,6 @@ function showEntries(){
   document.getElementById('map').classList.add('hidden');
   document.getElementById('ctlEntries').classList.remove('hidden');
   document.getElementById('ctlComponents').classList.add('hidden');
-  pageSub.textContent="what each manifest entry pulls in";
   closePanel();                      // leaving components clears its selection/panel
   if(!emap.childElementCount) buildEntries();   // lazy first build
 }
