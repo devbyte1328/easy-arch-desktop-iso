@@ -6,15 +6,15 @@ Every single component of the distribution, fully expanded -- nothing
 collapsed. For each package: what it is (in plain language), which
 layer of the stack it sits in, what it depends on, and what depends on
 it. This is the exhaustive companion to:
-  - SPECIFICATIONS_COMPONENTS.svg   (the at-a-glance layered graph)
+  - SPECIFICATIONS_COMPONENTS_OVERVIEW.svg   (the at-a-glance layered graph)
   - SPECIFICATIONS_GENERAL.md   (prose + subsystem breakdown)
 
 The plain-language 'purpose' of each component is the official Arch
 package description (the %DESC% field from the core/extra/multilib
 package databases -- the same text archlinux.org and `pacman -Si` show),
 with the upstream project URL. It is read straight from the package data,
-so it is real and never drifts. Browse this file interactively with
-scripts/view_specifications.sh.
+so it is real and never drifts. For an interactive, clickable version of
+this data, open SPECIFICATIONS_COMPONENTS_NAVIGATE_FULL.html in a browser.
 
 ------------------------------------------------------------------------------
 AT A GLANCE

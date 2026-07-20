@@ -16,8 +16,9 @@ deterministic, and can never drift from the package set.
 
 The layout is designed to be pleasant to read directly AND trivially machine-
 parseable: each component is a block introduced by a `### name` header and a set
-of `key: value` lines with stable keys, so scripts/view_specifications.py can read
-this same file back and drive an interactive browser without a second data source.
+of `key: value` lines with stable keys, so the file can be grep'd or parsed back
+into structured records without a second data source. The interactive twin of
+this listing is the browsable HTML map (spec_html).
 """
 
 import textwrap
@@ -215,8 +216,8 @@ def render_fulltext(packages, resolved, tiers, tags, glance, svg_rel, general_re
     w("package description (the %DESC% field from the core/extra/multilib")
     w("package databases -- the same text archlinux.org and `pacman -Si` show),")
     w("with the upstream project URL. It is read straight from the package data,")
-    w("so it is real and never drifts. Browse this file interactively with")
-    w("scripts/view_specifications.sh.")
+    w("so it is real and never drifts. For an interactive, clickable version of")
+    w("this data, open SPECIFICATIONS_COMPONENTS_NAVIGATE_FULL.html in a browser.")
     w("")
 
     # ---- at a glance ---------------------------------------------------- #

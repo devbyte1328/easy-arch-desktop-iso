@@ -7,14 +7,14 @@
 #                                     at-a-glance facts, what Az'arch changes on
 #                                     top of Arch, and the subsystem breakdown.
 #                                     No dependency-graph tables (those are below).
-#   documentation/SPECIFICATIONS_COMPONENTS.svg  a navigable layered image of the
-#                                     dependency graph, kernel at the bottom up to
-#                                     leaf apps at the top, boxes coloured by
-#                                     category and marked by edition.
-#   documentation/SPECIFICATIONS_COMPONENTS.html  the interactive twin of the SVG:
-#                                     the same layered map, but click any component
+#   documentation/SPECIFICATIONS_COMPONENTS_OVERVIEW.svg  a navigable layered
+#                                     image of the dependency graph, kernel at the
+#                                     bottom up to leaf apps at the top, boxes
+#                                     coloured by category and marked by edition.
+#   documentation/SPECIFICATIONS_COMPONENTS_NAVIGATE_FULL.html  the interactive
+#                                     twin of the SVG: the same layered map, but
+#                                     open it in a browser and click any component
 #                                     to inspect it and highlight its dependencies.
-#                                     Open it with scripts/view_specifications.sh.
 #   documentation/SPECIFICATIONS_COMPONENTS_FULL.txt  the exhaustive listing:
 #                                     EVERY component, nothing collapsed, each with
 #                                     a plain-language purpose (the official Arch
@@ -38,8 +38,8 @@
 #
 # Options (forwarded to the Python orchestrator):
 #   -o, --output FILE   write the general Markdown here (default: documentation/SPECIFICATIONS_GENERAL.md)
-#       --svg FILE      write the components graph SVG here (default: documentation/SPECIFICATIONS_COMPONENTS.svg)
-#       --html FILE     write the interactive HTML map here (default: documentation/SPECIFICATIONS_COMPONENTS.html)
+#       --svg FILE      write the components graph SVG here (default: documentation/SPECIFICATIONS_COMPONENTS_OVERVIEW.svg)
+#       --html FILE     write the interactive HTML map here (default: documentation/SPECIFICATIONS_COMPONENTS_NAVIGATE_FULL.html)
 #       --fulltext FILE write the full component listing here (default: documentation/SPECIFICATIONS_COMPONENTS_FULL.txt)
 #   -m, --manifest FILE package manifest (default: libraries/data/packages.x86_64)
 #       --db-cache DIR  where to cache the Arch .db files (default: cache/spec-db)

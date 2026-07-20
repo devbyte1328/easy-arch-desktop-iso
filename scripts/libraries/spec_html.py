@@ -1,6 +1,6 @@
 """
 spec_html -- render the Az'arch component set as ONE self-contained, interactive
-HTML page (documentation/SPECIFICATIONS_COMPONENTS.html).
+HTML page (documentation/SPECIFICATIONS_COMPONENTS_NAVIGATE_FULL.html).
 
 This is the interactive twin of the SVG (spec_svg): the same layered map -- seven
 horizontal bands from the kernel at the bottom up to the leaf applications at the
@@ -172,7 +172,9 @@ header{
   border-radius:7px;padding:6px 10px;cursor:pointer;font-size:12px}
 .btn:hover{border-color:var(--cyan)}
 /* ---- layout ---- */
-.main{flex:1;display:flex;min-height:0}
+/* position:relative so the detail panel can overlay the map instead of
+   pushing it -- opening a component must NOT resize/reflow the graph. */
+.main{flex:1;display:flex;min-height:0;position:relative}
 .map{flex:1;overflow:auto;padding:14px 16px 40px}
 /* ---- bands ---- */
 .band{border:1px solid var(--line);border-radius:12px;background:var(--panel);
@@ -201,7 +203,11 @@ header{
 .band.empty{display:none}
 .emptynote{color:var(--dim);font-size:12px;padding:6px 2px}
 /* ---- detail panel ---- */
-.panel{width:410px;flex:none;border-left:1px solid var(--line);background:var(--panel2);
+/* Overlays the right edge of the map (position:absolute) so opening it dims the
+   boxes but does NOT resize or reflow the graph. */
+.panel{position:absolute;top:0;right:0;height:100%;width:410px;z-index:5;
+  border-left:1px solid var(--line);background:var(--panel2);
+  box-shadow:-8px 0 24px rgba(0,0,0,.45);
   overflow:auto;padding:0;display:flex;flex-direction:column}
 .panel.hidden{display:none}
 .panel .ph{padding:14px 16px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--panel2)}
@@ -233,9 +239,24 @@ header{
 .pill.none:hover{border-color:var(--line);color:var(--dim)}
 .opt{font-size:11.5px;color:var(--dim);line-height:1.5}
 .opt b{color:var(--text);font-weight:600}
-/* ---- legend ---- */
+/* ---- collapsible bands ---- */
+.rail .t{cursor:pointer;user-select:none}
+.rail .t::before{content:"▾ ";color:var(--dim);font-size:12px}
+.band.collapsed .rail .t::before{content:"▸ ";}
+.band.collapsed .boxes{display:none}
+.band.collapsed{min-height:0}
+.band.collapsed .rail{border-right:none;width:100%;display:flex;align-items:baseline;gap:14px}
+.band.collapsed .rail .s{margin-top:0}
+.band.collapsed .rail .n{margin-top:0}
+.band.collapsed .rail .arrow{display:none}
+/* ---- legend (collapsible footer) ---- */
+.legend-toggle{position:fixed;right:14px;bottom:10px;z-index:6;
+  background:var(--ink);border:1px solid var(--line);color:var(--dim);
+  border-radius:7px;padding:5px 10px;font-size:11.5px;cursor:pointer}
+.legend-toggle:hover{border-color:var(--cyan);color:var(--text)}
 .legend{border-top:1px solid var(--line);background:var(--panel);padding:8px 16px;
   display:flex;gap:16px;flex-wrap:wrap;align-items:center;font-size:11.5px;color:var(--dim)}
+.legend.hidden{display:none}
 .legend .sw{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px}
 .legend .grp{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
 .legend .cats{display:flex;gap:10px;flex-wrap:wrap}
@@ -245,11 +266,12 @@ kbd{background:var(--ink);border:1px solid var(--line);border-radius:4px;padding
 <body>
 <header>
   <span class="brand">Az&#39;arch</span>
-  <span class="sub">interactive component map &#183; kernel (bottom) &#8594; apps (top) &#183; colour = category &#183; click a component to inspect it</span>
+  <span class="sub">interactive component map &#183; kernel (bottom) &#8594; apps (top) &#183; colour = category &#183; click a component to inspect it &#183; press <kbd>0</kbd>&ndash;<kbd>6</kbd> to jump layers</span>
   <div class="glance" id="glance"></div>
 </header>
 <div class="controls">
   <input type="search" id="q" placeholder="Search components&hellip;  (press /)" autocomplete="off"/>
+  <label>Jump to layer</label><select id="jump" title="Scroll to a layer (press 0-6)"></select>
   <label>Category</label><select id="fcat"></select>
   <label>Edition</label><select id="fed">
     <option value="">all</option>
@@ -257,6 +279,13 @@ kbd{background:var(--ink);border:1px solid var(--line);border-radius:4px;padding
     <option value="arch-selected">Explicitly selected</option>
     <option value="arch-dep">Dependency</option>
   </select>
+  <label>Sort</label><select id="sort" title="How boxes are ordered within each layer">
+    <option value="load">Most load-bearing</option>
+    <option value="name">Name (A-Z)</option>
+    <option value="size">Installed size</option>
+    <option value="deps">Most dependencies</option>
+  </select>
+  <button class="btn" id="collapse" title="Collapse / expand all layers (press z)">Collapse all</button>
   <button class="btn" id="reset">Reset</button>
   <span class="count" id="count"></span>
 </div>
@@ -264,6 +293,7 @@ kbd{background:var(--ink);border:1px solid var(--line);border-radius:4px;padding
   <div class="map" id="map"></div>
   <aside class="panel hidden" id="panel"></aside>
 </div>
+<button class="legend-toggle" id="legendToggle" title="Show / hide the legend (press l)">Hide legend ▾</button>
 <div class="legend" id="legend"></div>
 
 <script id="data" type="application/json">/*__DATA__*/</script>
@@ -298,6 +328,16 @@ let filterCat = "", filterEd = "", query = "";
     DATA.categories.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join("");
 })();
 
+// ---- layer jump options (top layer first, matching the on-screen order) ----
+(function(){
+  const sel = document.getElementById('jump');
+  const opts = ['<option value="">go to&hellip;</option>'];
+  for(let i=DATA.layers.length-1;i>=0;i--){
+    opts.push(`<option value="${i}">${i} &middot; ${esc(DATA.layers[i].title)}</option>`);
+  }
+  sel.innerHTML = opts.join("");
+})();
+
 // ---- legend ----
 (function(){
   const el = document.getElementById('legend');
@@ -310,11 +350,23 @@ let filterCat = "", filterEd = "", query = "";
     `<span>● Explicitly selected</span>`+
     `<span style="opacity:.7">(no mark) dependency</span></div>`+
     `<div class="cats">${cats}</div>`+
-    `<div class="grp" style="margin-left:auto"><span style="color:#eab308">■ requires</span>`+
-    `<span style="color:#22c55e">■ required by</span></div>`;
+    `<div class="grp"><span style="color:#eab308">■ requires</span>`+
+    `<span style="color:#22c55e">■ required by</span></div>`+
+    `<div class="grp" style="margin-left:auto">Keys: `+
+    `<kbd>/</kbd> search <kbd>0</kbd>&ndash;<kbd>6</kbd> jump to layer `+
+    `<kbd>z</kbd> collapse all <kbd>l</kbd> legend <kbd>Esc</kbd> close</div>`;
 })();
 
 function esc(s){return String(s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));}
+
+// within-layer ordering strategies for the Sort control
+const SORTS = {
+  load: (a,b)=> C[b].transDependents-C[a].transDependents || (a<b?-1:1),
+  name: (a,b)=> a<b?-1:(a>b?1:0),
+  size: (a,b)=> C[b].isize-C[a].isize || (a<b?-1:1),
+  deps: (a,b)=> C[b].requires.length-C[a].requires.length || (a<b?-1:1),
+};
+let sortMode = "load";
 
 // ---- build the bands + boxes once ----
 function buildMap(){
@@ -322,22 +374,47 @@ function buildMap(){
   // group components by layer
   const byLayer = DATA.layers.map(()=>[]);
   for(const name of ORDER){ byLayer[C[name].layer].push(name); }
-  // within a layer, most load-bearing first (like the SVG)
-  for(const arr of byLayer){ arr.sort((a,b)=> C[b].transDependents-C[a].transDependents || (a<b?-1:1)); }
+  for(const arr of byLayer){ arr.sort(SORTS[sortMode]); }
   // draw top layer first (6 -> 0)
   for(let i=DATA.layers.length-1;i>=0;i--){
     const L = DATA.layers[i], names = byLayer[i];
     const band = document.createElement('div'); band.className='band'; band.dataset.layer=i;
+    band.id = 'layer-'+i;
     const rail = document.createElement('div'); rail.className='rail';
-    rail.innerHTML = `<div class="t">${esc(L.title)}</div>`+
+    rail.innerHTML = `<div class="t" title="click to collapse / expand this layer">${esc(L.title)}</div>`+
       `<div class="s">${esc(L.subtitle)}</div>`+
       `<div class="n" data-n>${names.length} pkgs</div>`+
       (i>0?`<div class="arrow">depends on layer(s) below ↓</div>`:``);
+    rail.querySelector('.t').addEventListener('click',()=>band.classList.toggle('collapsed'));
     const boxes = document.createElement('div'); boxes.className='boxes';
     for(const name of names){ boxes.appendChild(makeBox(name)); }
     band.appendChild(rail); band.appendChild(boxes);
     map.appendChild(band);
   }
+}
+
+// re-sort boxes in place without losing the current filter/selection state
+function resort(){
+  const byLayer = DATA.layers.map(()=>[]);
+  for(const name of ORDER){ byLayer[C[name].layer].push(name); }
+  for(let i=0;i<DATA.layers.length;i++){
+    byLayer[i].sort(SORTS[sortMode]);
+    const band = document.getElementById('layer-'+i);
+    if(!band) continue;
+    const boxes = band.querySelector('.boxes');
+    for(const name of byLayer[i]){
+      const el = boxes.querySelector(`.box[data-name="${cssEsc(name)}"]`);
+      if(el) boxes.appendChild(el); // appendChild moves it to the new position
+    }
+  }
+  applyFilters();
+  if(selected) highlight(selected);
+}
+
+// scroll a given layer into view (used by the Jump control + number keys)
+function jumpToLayer(i){
+  const band = document.getElementById('layer-'+i);
+  if(band){ band.classList.remove('collapsed'); band.scrollIntoView({behavior:'smooth',block:'start'}); }
 }
 
 function makeBox(name){
@@ -382,12 +459,17 @@ function applyFilters(){
 }
 
 // ---- selection + dependency highlight ----
-function select(name){
+// reveal=false (a direct click on a box): keep the map exactly where it is --
+// just dim the others and open the side panel. reveal=true (following a pill in
+// the panel): scroll the newly-selected box into view since it may be off-screen.
+function select(name, reveal){
   selected = name;
   openPanel(name);
   highlight(name);
-  const el = map.querySelector(`.box[data-name="${cssEsc(name)}"]`);
-  if(el && el.scrollIntoView) el.scrollIntoView({block:'nearest',behavior:'smooth'});
+  if(reveal){
+    const el = map.querySelector(`.box[data-name="${cssEsc(name)}"]`);
+    if(el && el.scrollIntoView) el.scrollIntoView({block:'nearest',behavior:'smooth'});
+  }
 }
 function cssEsc(s){ return (window.CSS && CSS.escape)? CSS.escape(s) : s.replace(/["\\]/g,'\\$&'); }
 
@@ -445,7 +527,7 @@ function openPanel(name){
     `</div>`;
   panel.querySelector('.close').addEventListener('click',closePanel);
   for(const p of panel.querySelectorAll('.pill[data-go]'))
-    p.addEventListener('click',()=>select(p.dataset.go));
+    p.addEventListener('click',()=>select(p.dataset.go, true));
 }
 function pills(names, kind){
   if(!names.length) return `<div class="pill-wrap"><span class="pill none">none &mdash; ${kind==='req'?'a base / sink package':'a top / leaf package'}</span></div>`;
@@ -455,17 +537,48 @@ function closePanel(){ panel.classList.add('hidden'); panel.innerHTML=""; clearH
 
 // ---- controls wiring ----
 const q = document.getElementById('q');
+const jumpSel = document.getElementById('jump');
+const sortSel = document.getElementById('sort');
+const collapseBtn = document.getElementById('collapse');
+const legendEl = document.getElementById('legend');
+const legendBtn = document.getElementById('legendToggle');
+let allCollapsed = false;
+
 q.addEventListener('input',()=>{ query=q.value.trim().toLowerCase(); applyFilters(); });
 document.getElementById('fcat').addEventListener('change',e=>{ filterCat=e.target.value; applyFilters(); });
 document.getElementById('fed').addEventListener('change',e=>{ filterEd=e.target.value; applyFilters(); });
+jumpSel.addEventListener('change',e=>{ if(e.target.value!=="") jumpToLayer(+e.target.value); e.target.value=""; });
+sortSel.addEventListener('change',e=>{ sortMode=e.target.value; resort(); });
+
+function setCollapsed(state){
+  allCollapsed = state;
+  for(const band of map.querySelectorAll('.band')) band.classList.toggle('collapsed', state);
+  collapseBtn.textContent = state ? 'Expand all' : 'Collapse all';
+}
+collapseBtn.addEventListener('click',()=>setCollapsed(!allCollapsed));
+
+function setLegend(show){
+  legendEl.classList.toggle('hidden', !show);
+  legendBtn.textContent = show ? 'Hide legend ▾' : 'Show legend ▴';
+}
+legendBtn.addEventListener('click',()=>setLegend(legendEl.classList.contains('hidden')));
+
 document.getElementById('reset').addEventListener('click',()=>{
   filterCat=filterEd=query=""; q.value="";
   document.getElementById('fcat').value=""; document.getElementById('fed').value="";
+  sortMode="load"; sortSel.value="load"; resort();
+  setCollapsed(false);
   applyFilters(); closePanel();
 });
+
 document.addEventListener('keydown',e=>{
-  if(e.key==='/' && document.activeElement!==q){ e.preventDefault(); q.focus(); }
-  else if(e.key==='Escape'){ if(!panel.classList.contains('hidden')) closePanel(); else if(document.activeElement===q){ q.blur(); } }
+  const typing = document.activeElement===q;
+  if(e.key==='/' && !typing){ e.preventDefault(); q.focus(); }
+  else if(e.key==='Escape'){ if(!panel.classList.contains('hidden')) closePanel(); else if(typing){ q.blur(); } }
+  else if(typing){ /* let the search field keep other keys */ }
+  else if(e.key>='0' && e.key<='6'){ jumpToLayer(+e.key); }
+  else if(e.key==='z'){ setCollapsed(!allCollapsed); }
+  else if(e.key==='l'){ setLegend(legendEl.classList.contains('hidden')); }
 });
 
 buildMap();
