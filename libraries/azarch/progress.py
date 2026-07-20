@@ -51,29 +51,49 @@ class ProgressBar:
             cols, rows = 80, 24
         return cols, rows
 
+    def _clip(self, text: str) -> str:
+        """Truncate a scrolling line to the terminal width so long labels/output do
+        not wrap onto a second row (which desyncs the pinned scroll region and looks
+        like text 'escaping' the screen). Non-TTY: no clipping (logs keep full text)."""
+        if not self.tty:
+            return text
+        cols, _ = self._size()
+        if cols > 1 and len(text) > cols:
+            return text[: cols - 1] + "…"
+        return text
+
     def _layout(self, cols: int) -> str:
+        # Left-aligned, hard-clamped to `cols`: [bar] pct% label. Every visible-width
+        # term is budgeted from `cols` up front and the label is truncated to whatever
+        # room is left, so the printed line NEVER exceeds the terminal width (no
+        # centering pad that could push the tail off the right edge). Color codes are
+        # added last and are zero-width, so they don't affect the budget.
+        cols = max(cols, 1)
         eff = self.done_weight * 1000 + self.cur_weight * min(max(self.subfrac, 0), 1000)
         pct = min(eff // 10 // self.total_weight, 100) if self.total_weight else 0
-        pctstr = f" {pct:3d}% "
-        fixed = len(pctstr)
-        avail = cols - fixed
-        barw = max(8, avail * 55 // 100)
-        if barw > avail:
-            barw = avail
-        barw = max(barw, 0)
+        pctstr = f" {pct:3d}% "                       # e.g. "  24% " -> 6 visible cols
+        # Reserve the pct field; give the bar ~45% of what's left, rest to the label.
+        room = max(cols - len(pctstr), 0)
+        barw = min(room, max(0, room * 45 // 100))
+        barw = min(barw, max(0, cols - len(pctstr)))  # never let bar+pct exceed cols
         filled = (eff * barw // (1000 * self.total_weight)) if self.total_weight else 0
         filled = min(max(filled, 0), barw)
         bar = "█" * filled + "░" * (barw - filled)
-        budget = cols - fixed - barw - 1
+        # Remaining columns for the label (minus one separating space).
+        budget = cols - barw - len(pctstr) - 1
         label = self.label
         if budget <= 0:
-            label = ""
-        elif len(label) > budget:
-            label = (label[: budget - 1] + "…") if budget >= 2 else label[:budget]
-        sep = " " if label else ""
-        width = barw + len(pctstr) + (1 + len(label) if label else 0)
-        pad = max((cols - width) // 2, 0)
-        return " " * pad + f"\033[36m{bar}\033[0m\033[1m{pctstr}\033[0m{sep}{label}"
+            label, sep = "", ""
+        else:
+            if len(label) > budget:
+                label = (label[: budget - 1] + "…") if budget >= 2 else label[:budget]
+            sep = " " if label else ""
+        # Final safety: assert the visible width fits, then colorize (zero-width codes).
+        visible_w = barw + len(pctstr) + len(sep) + len(label)
+        if visible_w > cols:  # should never trigger, but clamp defensively
+            overflow = visible_w - cols
+            label = label[: max(0, len(label) - overflow)]
+        return f"\033[36m{bar}\033[0m\033[1m{pctstr}\033[0m{sep}{label}"
 
     # -- pinning -------------------------------------------------------------
     def _arm(self) -> None:
@@ -119,8 +139,9 @@ class ProgressBar:
         self.subfrac = 0
         self._base_label = label  # phase() prefixes sub-phase labels with this
         self._arm()
-        # milestone line (scrolls; captured in logs)
-        sys.stdout.write(f"\n[ {self.current:2d}/{self.total_steps} ] {label}\n")
+        # milestone line (scrolls; captured in logs). Clip to width so a long label
+        # does not wrap and break the pinned scroll region.
+        sys.stdout.write("\n" + self._clip(f"[ {self.current:2d}/{self.total_steps} ] {label}") + "\n")
         sys.stdout.flush()
         self.draw()
 
@@ -138,7 +159,7 @@ class ProgressBar:
         bar reports fine-grained progress instead of one static label for minutes."""
         text = f"{self._base_label} › {sublabel}" if getattr(self, "_base_label", "") else sublabel
         self.label = text
-        sys.stdout.write(f"    -> {sublabel}\n")
+        sys.stdout.write(self._clip(f"    -> {sublabel}") + "\n")
         sys.stdout.flush()
         self.draw()
 

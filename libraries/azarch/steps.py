@@ -433,8 +433,8 @@ def _drive_mkarchiso_progress(proc, bar: ProgressBar) -> None:
         nonlocal inpac
         if not line:
             return
-        log.write(line + "\n")
-        sys.stdout.write(line + "\n")
+        log.write(line + "\n")           # full line to the log
+        sys.stdout.write(bar._clip(line) + "\n")  # clipped echo so it fits the screen
         if "Installing packages to" in line:
             inpac = True
             bar.sub(20)
