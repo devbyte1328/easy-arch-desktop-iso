@@ -5,8 +5,9 @@ The SVG is the navigable, at-a-glance view the Markdown tables cannot be: seven
 horizontal layers stacked from the kernel at the bottom to the leaf applications
 at the top. Each layer is a labelled band; inside it sit the most load-bearing
 packages of that layer as boxes, coloured by their human-language category and
-marked with their edition (stock-Arch dep, Arch package Az'arch selected, or a
-package Az'arch itself modifies).
+marked with their edition -- a star marks an Az'arch Component (in the set only
+because Az'arch added it), while Stock Arch packages (already on the stock
+archiso releng medium) are left unmarked.
 
 No external tooling (no Graphviz, no rsvg): we emit plain SVG text, so it renders
 in any browser/IDE and diffs in git. The full 1300-package detail lives in the
@@ -51,11 +52,12 @@ LAYER_DEFS = [
     ("Leaves (34+)", "top; the deepest chains -- nothing depends on these"),
 ]
 
-# Edition marker glyphs drawn on each box corner.
+# Edition marker glyphs drawn on each box corner. Two editions only: an Az'arch
+# Component (in the set only because Az'arch added it) gets a star; Stock Arch
+# (already on the stock archiso releng medium) is unmarked.
 EDITION_MARK = {
-    "az'arch":       ("★", BRAND_CYAN),   # Az'arch modifies this package
-    "arch-selected": ("●", "#e6edf3"),    # explicitly chosen into the manifest
-    "arch-dep":      ("",  None),          # pulled in as a dependency
+    "az'arch": ("★", BRAND_CYAN),   # Az'arch Component
+    "stock":   ("",  None),          # Stock Arch (baseline archiso)
 }
 
 
@@ -204,7 +206,7 @@ def render_svg(packages, resolved, tiers, tags, glance):
         ("ISO version scheme", glance["iso_version"]),
         ("Live-session RAM (cow_spacesize)", glance["ram"]),
         ("Packages (full closure)", str(glance["closure"])),
-        ("Explicitly selected / Az'arch-modified", f'{glance["selected"]} / {glance["azarch"]}'),
+        ("Az'arch Component / Stock Arch", f'{glance["azarch"]} / {glance["stock"]}'),
         ("Deepest chain (leaf -> base)", f'{glance["max_height"]} hops'),
         ("Installed size", glance["size"]),
     ]
@@ -307,12 +309,10 @@ def render_svg(packages, resolved, tiers, tags, glance):
     a(f'<text x="{ex}" y="{ey+4}" font-size="14" font-weight="700" '
       f'fill="{TEXT}">Edition</text>')
     items = [
-        (f'{EDITION_MARK["az\'arch"][0]} az’arch',
-         "package Az’arch modifies (config / branding / theme / removed)", BRAND_CYAN),
-        (f'{EDITION_MARK["arch-selected"][0]} arch-selected',
-         "stock Arch, explicitly listed in the Az’arch manifest", TEXT),
-        ("arch-dep",
-         "stock Arch, pulled in only as a transitive dependency", TEXT_DIM),
+        (f'{EDITION_MARK["az\'arch"][0]} Az’arch Component',
+         "in the set only because Az’arch added it (a chosen app or its support)", BRAND_CYAN),
+        ("Stock Arch",
+         "already on the stock archiso releng medium; Az’arch inherits it", TEXT_DIM),
     ]
     exx = margin + 90
     for label, desc, col in items:

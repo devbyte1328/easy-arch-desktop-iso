@@ -2,19 +2,26 @@
 spec_classify -- tag every package in the closure with two things the graph needs
 but that are not in the raw Arch metadata:
 
-  edition  -- is this stock Arch pulled in as a dependency, stock Arch that Az'arch
-              explicitly selected into its manifest, or a package Az'arch actually
-              modifies (config / branding / theme / removal)?
+  edition  -- is this Stock Arch (something the stock archiso `releng` medium
+              already pulls in), or an Az'arch Component (something in the set
+              ONLY because Az'arch added it on top of that stock baseline)?
   category -- a single human-language role ("Desktop compositor", "File manager",
               "Network manager", ...) so the graph can be read and coloured by what
               each package *is*, not by its name.
 
 Both are derived deterministically from real signals:
-  * AZARCH_CONFIGURED  -- packages Az'arch demonstrably customises. This set is
-    grounded in the build's own config modules (libraries/azarch/config/*.py):
-    each entry says which package is touched and how. It is the source of truth
-    for the `az'arch` edition tag; if the build stops theming a package, drop it
-    here and the tag disappears.
+  * EDITION (two values) -- grounded in the real dependency graph. Az'arch starts
+    from the stock archiso `releng` package list (libraries/data/packages.x86_64
+    .stock, the ground-truth baseline) and adds packages on top. A package is
+    `stock` if the stock releng closure already contains it, and `az'arch`
+    (an "Az'arch Component") if it is in the set ONLY because of an Az'arch
+    addition -- i.e. it is not reachable from any stock releng root. This is
+    computed by spec_resolve from the edges, not guessed from names.
+  * AZARCH_CONFIGURED  -- the subset of Az'arch Components the build demonstrably
+    customises. Grounded in the build's own config modules (libraries/azarch/
+    config/*.py): each entry says which package is touched and how. It no longer
+    defines a separate edition; it is surfaced as a per-package sub-note on the
+    Az'arch-Component packages that carry Az'arch-specific changes.
   * CATEGORY cascade   -- curated role map first (highest confidence), then Arch
     group membership, then name patterns, then a shared-library / description
     fallback. Every package lands in exactly one category; nothing is left blank.
@@ -26,7 +33,9 @@ math) so the "what is this package, editorially" logic lives in one auditable pl
 import re
 
 # --------------------------------------------------------------------------- #
-# Edition: which packages Az'arch modifies on top of stock Arch.
+# Az'arch modifications: the subset of Az'arch Components the build brands or
+# reconfigures. This is NOT an edition -- it is a per-package sub-note shown on
+# top of the `az'arch` (Az'arch-Component) edition.
 #
 # Source of truth: the build's own config modules. Each package here is one that
 # libraries/azarch/config/*.py demonstrably brands, configures, themes, replaces
@@ -57,18 +66,21 @@ AZARCH_CONFIGURED = {
 AZARCH_REMOVED = {"discover", "plasma-welcome"}
 
 
-def edition_of(pkg, roots):
-    """Return one of: 'az'arch', 'arch-selected', 'arch-dep'.
+def edition_of(pkg, stock_reachable):
+    """Return one of exactly two editions: 'stock' or 'az'arch'.
 
-    az'arch      -- Az'arch modifies/brands/removes this package (AZARCH_CONFIGURED).
-    arch-selected-- stock Arch, but explicitly listed in the Az'arch manifest (a root).
-    arch-dep     -- stock Arch, pulled in purely as a transitive dependency.
+    stock   -- "Stock Arch": the package is already in the stock archiso `releng`
+               closure (reachable from a stock releng root). Az'arch inherits it;
+               it is on the medium whether Az'arch adds anything or not.
+    az'arch -- "Az'arch Component": the package is in the set ONLY because of an
+               Az'arch addition -- it is NOT reachable from any stock releng root.
+               These are the packages Az'arch brings to the table (a chosen app,
+               or a dependency that exists purely to support one).
+
+    `stock_reachable` is the set of packages reachable from the stock releng
+    manifest, computed once by spec_resolve over the real dependency edges.
     """
-    if pkg in AZARCH_CONFIGURED:
-        return "az'arch"
-    if pkg in roots:
-        return "arch-selected"
-    return "arch-dep"
+    return "stock" if pkg in stock_reachable else "az'arch"
 
 
 # --------------------------------------------------------------------------- #
@@ -493,12 +505,16 @@ def category_of(pkg, packages):
     return "System"
 
 
-def classify(packages, closure, roots):
+def classify(packages, closure, stock_reachable):
     """Return {pkg: {"edition": ..., "category": ..., "azarch_note": str|None}}
-    for every package in the closure."""
+    for every package in the closure.
+
+    `stock_reachable` is the set of packages reachable from the stock archiso
+    `releng` manifest (from spec_resolve.stock_reachable); it splits the closure
+    into the two editions -- see edition_of."""
     out = {}
     for pkg in closure:
-        ed = edition_of(pkg, roots)
+        ed = edition_of(pkg, stock_reachable)
         out[pkg] = {
             "edition": ed,
             "category": category_of(pkg, packages),

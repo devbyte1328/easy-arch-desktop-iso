@@ -29,14 +29,13 @@ import spec_svg
 # Stable one-line explanation of each edition tag, shown in the legend and used
 # as the long form when a component is displayed on its own.
 EDITION_LABEL = {
-    "az'arch": "az'arch  (Az'arch modifies/brands/themes/removes this package)",
-    "arch-selected": "arch-sel (stock Arch, explicitly listed in the manifest)",
-    "arch-dep": "arch-dep (stock Arch, pulled in only as a dependency)",
+    "az'arch": "az'arch  (Az'arch Component: in the set only because Az'arch "
+               "added it on top of stock archiso)",
+    "stock": "stock    (Stock Arch: already on the stock archiso releng medium)",
 }
 EDITION_SHORT = {
     "az'arch": "az'arch",
-    "arch-selected": "arch-sel",
-    "arch-dep": "arch-dep",
+    "stock": "stock",
 }
 
 # Human-language, one-line role for each dependency layer, so the reader
@@ -227,8 +226,8 @@ def render_fulltext(packages, resolved, tiers, tags, glance, svg_rel, general_re
         ("  from core / extra / multilib",
          f'{glance["by_repo"]["core"]} / {glance["by_repo"]["extra"]} / '
          f'{glance["by_repo"]["multilib"]}'),
-        ("Az'arch-modified / selected / dependency",
-         f'{glance["azarch"]} / {glance["selected"]} / {glance["dep"]}'),
+        ("Az'arch Component / Stock Arch",
+         f'{glance["azarch"]} / {glance["stock"]}'),
         ("Deepest dependency chain", f'{glance["max_height"]} hops (leaf -> base)'),
         ("Total installed size", glance["size"]),
     ]
@@ -244,7 +243,7 @@ def render_fulltext(packages, resolved, tiers, tags, glance, svg_rel, general_re
     w("  purpose:     what it is, in plain language (from the Arch package DB)")
     w("  upstream:    the project's home page")
     w("  edition:     one of --")
-    for ed in ("az'arch", "arch-selected", "arch-dep"):
+    for ed in ("az'arch", "stock"):
         w(f"                 {EDITION_LABEL[ed]}")
     w("  category:    a single human-language role")
     w("  layer:       0 (sinks) .. 6 (leaf apps) -- real dependency depth")

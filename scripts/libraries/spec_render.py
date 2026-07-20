@@ -97,8 +97,8 @@ def render(packages, resolved, tiers, tags, glance, svg_rel):
     d.w(f"| &nbsp;&nbsp;from `core` / `extra` / `multilib` | "
         f"{glance['by_repo']['core']} / {glance['by_repo']['extra']} / "
         f"{glance['by_repo']['multilib']} |")
-    d.w(f"| Edition: Az'arch-modified / selected / dependency | "
-        f"{glance['azarch']} / {glance['selected']} / {glance['dep']} |")
+    d.w(f"| Edition: Az'arch Component / Stock Arch | "
+        f"{glance['azarch']} / {glance['stock']} |")
     d.w(f"| Top / leaf packages (nothing depends on them) | {len(tiers['leaves'])} |")
     d.w(f"| Base / sink packages (depend on nothing else in the set) | "
         f"{len(tiers['bases'])} |")
@@ -109,12 +109,14 @@ def render(packages, resolved, tiers, tags, glance, svg_rel):
     d.w()
     d.w("| Tag | Meaning |")
     d.w("|---|---|")
-    d.w("| `az'arch` | Az'arch modifies this package: ships config, rebrands, "
-        "themes, or removes it. See section 3. |")
-    d.w("| `arch-sel` | Stock Arch package, but **explicitly listed** in "
-        "`packages.x86_64` -- an Az'arch curation choice. |")
-    d.w("| `arch-dep` | Stock Arch package pulled in **only** as a transitive "
-        "dependency; not chosen directly. |")
+    d.w("| `az'arch` | **Az'arch Component** -- in the package set **only** "
+        "because Az'arch added it on top of the stock archiso `releng` baseline "
+        "(a chosen application, or a dependency that exists purely to support "
+        "one). The subset Az'arch also rebrands/themes/removes is called out in "
+        "section 3. |")
+    d.w("| `stock` | **Stock Arch** -- already pulled in by the stock archiso "
+        "`releng` install medium; Az'arch inherits it whether it adds anything "
+        "or not. |")
     d.w()
     d.w("---")
     d.w()
@@ -152,12 +154,16 @@ def render(packages, resolved, tiers, tags, glance, svg_rel):
     # 3. Az'arch modifications ----------------------------------------------
     d.w("## 3. What Az'arch changes on top of Arch")
     d.w()
-    d.w("Every package is stock Arch from the official repos; Az'arch's identity "
-        "is *curation* (which packages ship, chosen in `libraries/data/"
-        "packages.x86_64`) plus *configuration and branding* on the packages "
-        "below. These are the only packages that carry Az'arch-specific changes "
-        "-- grounded in the build's own config modules "
-        "(`libraries/azarch/config/*.py`).")
+    d.w("Every package comes unmodified from the official Arch repos; Az'arch's "
+        "identity is *curation* (which packages ship, chosen in `libraries/data/"
+        "packages.x86_64` on top of the stock archiso baseline) plus "
+        "*configuration and branding* on the packages below. Note this is a "
+        "narrower set than the **Az'arch Component** edition: a package can be an "
+        "Az'arch Component (added by Az'arch) without being reconfigured, and a "
+        "**Stock Arch** package (e.g. `pacman`, `systemd`) can still carry an "
+        "Az'arch config change. The table below lists only the packages that "
+        "carry Az'arch-specific changes -- grounded in the build's own config "
+        "modules (`libraries/azarch/config/*.py`).")
     d.w()
     d.w("| Package | Version | Category | What Az'arch does | Shipped? |")
     d.w("|---|---|---|---|---|")

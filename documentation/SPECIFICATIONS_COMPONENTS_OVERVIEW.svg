@@ -20,8 +20,8 @@
 <text x="1060" y="148" font-size="13" font-weight="600" fill="#e6edf3">4G writable overlay held in RAM</text>
 <text x="32" y="168" font-size="13" fill="#9da7b3">Packages (full closure):</text>
 <text x="292" y="168" font-size="13" font-weight="600" fill="#e6edf3">1325</text>
-<text x="800" y="168" font-size="13" fill="#9da7b3">Explicitly selected / Az&#x27;arch-modified:</text>
-<text x="1060" y="168" font-size="13" font-weight="600" fill="#e6edf3">288 / 16</text>
+<text x="800" y="168" font-size="13" fill="#9da7b3">Az&#x27;arch Component / Stock Arch:</text>
+<text x="1060" y="168" font-size="13" font-weight="600" fill="#e6edf3">803 / 522</text>
 <text x="32" y="188" font-size="13" fill="#9da7b3">Deepest chain (leaf -&gt; base):</text>
 <text x="292" y="188" font-size="13" font-weight="600" fill="#e6edf3">44 hops</text>
 <text x="800" y="188" font-size="13" fill="#9da7b3">Installed size:</text>
@@ -40,15 +40,15 @@
 <rect x="418" y="226" width="128" height="40" rx="6" fill="#1f6feb" fill-opacity="0.22" stroke="#1f6feb" stroke-width="1.4"/>
 <text x="426" y="243" font-size="11.5" font-weight="600" fill="#e6edf3">plasma-bigscreen</text>
 <text x="426" y="257" font-size="9" fill="#9da7b3">6.7.3</text>
-<text x="533" y="241" font-size="11" fill="#e6edf3">●</text>
+<text x="533" y="241" font-size="11" fill="#03a5fc">★</text>
 <rect x="554" y="226" width="128" height="40" rx="6" fill="#dc2626" fill-opacity="0.22" stroke="#dc2626" stroke-width="1.4"/>
 <text x="562" y="243" font-size="11.5" font-weight="600" fill="#e6edf3">plasma-vault</text>
 <text x="562" y="257" font-size="9" fill="#9da7b3">6.7.3</text>
-<text x="669" y="241" font-size="11" fill="#e6edf3">●</text>
+<text x="669" y="241" font-size="11" fill="#03a5fc">★</text>
 <rect x="690" y="226" width="128" height="40" rx="6" fill="#1f6feb" fill-opacity="0.22" stroke="#1f6feb" stroke-width="1.4"/>
 <text x="698" y="243" font-size="11.5" font-weight="600" fill="#e6edf3">plasma-browser-i…</text>
 <text x="698" y="257" font-size="9" fill="#9da7b3">6.7.3</text>
-<text x="805" y="241" font-size="11" fill="#e6edf3">●</text>
+<text x="805" y="241" font-size="11" fill="#03a5fc">★</text>
 <rect x="826" y="226" width="128" height="40" rx="6" fill="#1f6feb" fill-opacity="0.22" stroke="#1f6feb" stroke-width="1.4"/>
 <text x="834" y="243" font-size="11.5" font-weight="600" fill="#e6edf3">plasma-desktop</text>
 <text x="834" y="257" font-size="9" fill="#9da7b3">6.7.3</text>
@@ -56,23 +56,23 @@
 <rect x="962" y="226" width="128" height="40" rx="6" fill="#7c3aed" fill-opacity="0.22" stroke="#7c3aed" stroke-width="1.4"/>
 <text x="970" y="243" font-size="11.5" font-weight="600" fill="#e6edf3">plasma-pa</text>
 <text x="970" y="257" font-size="9" fill="#9da7b3">6.7.3</text>
-<text x="1077" y="241" font-size="11" fill="#e6edf3">●</text>
+<text x="1077" y="241" font-size="11" fill="#03a5fc">★</text>
 <rect x="1098" y="226" width="128" height="40" rx="6" fill="#1f6feb" fill-opacity="0.22" stroke="#1f6feb" stroke-width="1.4"/>
 <text x="1106" y="243" font-size="11.5" font-weight="600" fill="#e6edf3">kdeplasma-addons</text>
 <text x="1106" y="257" font-size="9" fill="#9da7b3">6.7.3</text>
-<text x="1213" y="241" font-size="11" fill="#e6edf3">●</text>
+<text x="1213" y="241" font-size="11" fill="#03a5fc">★</text>
 <rect x="1234" y="226" width="128" height="40" rx="6" fill="#1f6feb" fill-opacity="0.22" stroke="#1f6feb" stroke-width="1.4"/>
 <text x="1242" y="243" font-size="11.5" font-weight="600" fill="#e6edf3">plasma-login-man…</text>
 <text x="1242" y="257" font-size="9" fill="#9da7b3">6.7.3</text>
-<text x="1349" y="241" font-size="11" fill="#e6edf3">●</text>
+<text x="1349" y="241" font-size="11" fill="#03a5fc">★</text>
 <rect x="1370" y="226" width="128" height="40" rx="6" fill="#3b82f6" fill-opacity="0.22" stroke="#3b82f6" stroke-width="1.4"/>
 <text x="1378" y="243" font-size="11.5" font-weight="600" fill="#e6edf3">kamoso</text>
 <text x="1378" y="257" font-size="9" fill="#9da7b3">26.04.3</text>
-<text x="1485" y="241" font-size="11" fill="#e6edf3">●</text>
+<text x="1485" y="241" font-size="11" fill="#03a5fc">★</text>
 <rect x="282" y="274" width="128" height="40" rx="6" fill="#3b82f6" fill-opacity="0.22" stroke="#3b82f6" stroke-width="1.4"/>
 <text x="290" y="291" font-size="11.5" font-weight="600" fill="#e6edf3">spectacle</text>
 <text x="290" y="305" font-size="9" fill="#9da7b3">1:6.7.3</text>
-<text x="397" y="289" font-size="11" fill="#e6edf3">●</text>
+<text x="397" y="289" font-size="11" fill="#03a5fc">★</text>
 <rect x="418" y="274" width="128" height="40" rx="6" fill="#3b82f6" fill-opacity="0.22" stroke="#3b82f6" stroke-width="1.4"/>
 <text x="426" y="291" font-size="11.5" font-weight="600" fill="#e6edf3">discover</text>
 <text x="426" y="305" font-size="9" fill="#9da7b3">6.7.3</text>
@@ -80,31 +80,31 @@
 <rect x="554" y="274" width="128" height="40" rx="6" fill="#059669" fill-opacity="0.22" stroke="#059669" stroke-width="1.4"/>
 <text x="562" y="291" font-size="11.5" font-weight="600" fill="#e6edf3">krdp</text>
 <text x="562" y="305" font-size="9" fill="#9da7b3">6.7.3</text>
-<text x="669" y="289" font-size="11" fill="#e6edf3">●</text>
+<text x="669" y="289" font-size="11" fill="#03a5fc">★</text>
 <rect x="690" y="274" width="128" height="40" rx="6" fill="#3b82f6" fill-opacity="0.22" stroke="#3b82f6" stroke-width="1.4"/>
 <text x="698" y="291" font-size="11.5" font-weight="600" fill="#e6edf3">gwenview</text>
 <text x="698" y="305" font-size="9" fill="#9da7b3">26.04.3</text>
-<text x="805" y="289" font-size="11" fill="#e6edf3">●</text>
+<text x="805" y="289" font-size="11" fill="#03a5fc">★</text>
 <rect x="826" y="274" width="128" height="40" rx="6" fill="#3b82f6" fill-opacity="0.22" stroke="#3b82f6" stroke-width="1.4"/>
 <text x="834" y="291" font-size="11.5" font-weight="600" fill="#e6edf3">dolphin</text>
 <text x="834" y="305" font-size="9" fill="#9da7b3">26.04.3</text>
-<text x="941" y="289" font-size="11" fill="#e6edf3">●</text>
+<text x="941" y="289" font-size="11" fill="#03a5fc">★</text>
 <rect x="962" y="274" width="128" height="40" rx="6" fill="#1f6feb" fill-opacity="0.22" stroke="#1f6feb" stroke-width="1.4"/>
 <text x="970" y="291" font-size="11.5" font-weight="600" fill="#e6edf3">plasma-sdk</text>
 <text x="970" y="305" font-size="9" fill="#9da7b3">6.7.3</text>
-<text x="1077" y="289" font-size="11" fill="#e6edf3">●</text>
+<text x="1077" y="289" font-size="11" fill="#03a5fc">★</text>
 <rect x="1098" y="274" width="128" height="40" rx="6" fill="#3b82f6" fill-opacity="0.22" stroke="#3b82f6" stroke-width="1.4"/>
 <text x="1106" y="291" font-size="11.5" font-weight="600" fill="#e6edf3">plasma-systemmon…</text>
 <text x="1106" y="305" font-size="9" fill="#9da7b3">6.7.3</text>
-<text x="1213" y="289" font-size="11" fill="#e6edf3">●</text>
+<text x="1213" y="289" font-size="11" fill="#03a5fc">★</text>
 <rect x="1234" y="274" width="128" height="40" rx="6" fill="#3b82f6" fill-opacity="0.22" stroke="#3b82f6" stroke-width="1.4"/>
 <text x="1242" y="291" font-size="11.5" font-weight="600" fill="#e6edf3">konsole</text>
 <text x="1242" y="305" font-size="9" fill="#9da7b3">26.04.3</text>
-<text x="1349" y="289" font-size="11" fill="#e6edf3">●</text>
+<text x="1349" y="289" font-size="11" fill="#03a5fc">★</text>
 <rect x="1370" y="274" width="128" height="40" rx="6" fill="#3b82f6" fill-opacity="0.22" stroke="#3b82f6" stroke-width="1.4"/>
 <text x="1378" y="291" font-size="11.5" font-weight="600" fill="#e6edf3">kclock</text>
 <text x="1378" y="305" font-size="9" fill="#9da7b3">26.04.3</text>
-<text x="1485" y="289" font-size="11" fill="#e6edf3">●</text>
+<text x="1485" y="289" font-size="11" fill="#03a5fc">★</text>
 <text x="1556" y="348" font-size="11" text-anchor="end" fill="#9da7b3">+84 more in this layer</text>
 <rect x="32" y="374" width="1536" height="150" rx="10" fill="#161b22" stroke="#30363d"/>
 <line x1="274" y1="384" x2="274" y2="514" stroke="#30363d"/>
@@ -122,47 +122,49 @@
 <rect x="554" y="390" width="128" height="40" rx="6" fill="#059669" fill-opacity="0.22" stroke="#059669" stroke-width="1.4"/>
 <text x="562" y="407" font-size="11.5" font-weight="600" fill="#e6edf3">curl</text>
 <text x="562" y="421" font-size="9" fill="#9da7b3">8.21.0</text>
-<text x="669" y="405" font-size="11" fill="#e6edf3">●</text>
 <rect x="690" y="390" width="128" height="40" rx="6" fill="#94a3b8" fill-opacity="0.22" stroke="#94a3b8" stroke-width="1.4"/>
 <text x="698" y="407" font-size="11.5" font-weight="600" fill="#e6edf3">libelf</text>
 <text x="698" y="421" font-size="9" fill="#9da7b3">0.195</text>
 <rect x="826" y="390" width="128" height="40" rx="6" fill="#0891b2" fill-opacity="0.22" stroke="#0891b2" stroke-width="1.4"/>
 <text x="834" y="407" font-size="11.5" font-weight="600" fill="#e6edf3">libglvnd</text>
 <text x="834" y="421" font-size="9" fill="#9da7b3">1.7.0</text>
-<text x="941" y="405" font-size="11" fill="#e6edf3">●</text>
+<text x="941" y="405" font-size="11" fill="#03a5fc">★</text>
 <rect x="962" y="390" width="128" height="40" rx="6" fill="#0891b2" fill-opacity="0.22" stroke="#0891b2" stroke-width="1.4"/>
 <text x="970" y="407" font-size="11.5" font-weight="600" fill="#e6edf3">mesa</text>
 <text x="970" y="421" font-size="9" fill="#9da7b3">1:26.1.5</text>
-<text x="1077" y="405" font-size="11" fill="#e6edf3">●</text>
+<text x="1077" y="405" font-size="11" fill="#03a5fc">★</text>
 <rect x="1098" y="390" width="128" height="40" rx="6" fill="#94a3b8" fill-opacity="0.22" stroke="#94a3b8" stroke-width="1.4"/>
 <text x="1106" y="407" font-size="11.5" font-weight="600" fill="#e6edf3">libproxy</text>
 <text x="1106" y="421" font-size="9" fill="#9da7b3">0.5.12</text>
 <rect x="1234" y="390" width="128" height="40" rx="6" fill="#0ea5e9" fill-opacity="0.22" stroke="#0ea5e9" stroke-width="1.4"/>
 <text x="1242" y="407" font-size="11.5" font-weight="600" fill="#e6edf3">qt6-base</text>
 <text x="1242" y="421" font-size="9" fill="#9da7b3">6.11.1</text>
+<text x="1349" y="405" font-size="11" fill="#03a5fc">★</text>
 <rect x="1370" y="390" width="128" height="40" rx="6" fill="#0ea5e9" fill-opacity="0.22" stroke="#0ea5e9" stroke-width="1.4"/>
 <text x="1378" y="407" font-size="11.5" font-weight="600" fill="#e6edf3">qt6-declarative</text>
 <text x="1378" y="421" font-size="9" fill="#9da7b3">6.11.1</text>
+<text x="1485" y="405" font-size="11" fill="#03a5fc">★</text>
 <rect x="282" y="438" width="128" height="40" rx="6" fill="#8a6d3b" fill-opacity="0.22" stroke="#8a6d3b" stroke-width="1.4"/>
 <text x="290" y="455" font-size="11.5" font-weight="600" fill="#e6edf3">systemd</text>
 <text x="290" y="469" font-size="9" fill="#9da7b3">261.1</text>
-<text x="397" y="453" font-size="11" fill="#03a5fc">★</text>
 <rect x="418" y="438" width="128" height="40" rx="6" fill="#dc2626" fill-opacity="0.22" stroke="#dc2626" stroke-width="1.4"/>
 <text x="426" y="455" font-size="11.5" font-weight="600" fill="#e6edf3">tpm2-tss</text>
 <text x="426" y="469" font-size="9" fill="#9da7b3">4.1.3</text>
-<text x="533" y="453" font-size="11" fill="#e6edf3">●</text>
 <rect x="554" y="438" width="128" height="40" rx="6" fill="#94a3b8" fill-opacity="0.22" stroke="#94a3b8" stroke-width="1.4"/>
 <text x="562" y="455" font-size="11.5" font-weight="600" fill="#e6edf3">libsecret</text>
 <text x="562" y="469" font-size="9" fill="#9da7b3">0.21.7</text>
 <rect x="690" y="438" width="128" height="40" rx="6" fill="#0ea5e9" fill-opacity="0.22" stroke="#0ea5e9" stroke-width="1.4"/>
 <text x="698" y="455" font-size="11.5" font-weight="600" fill="#e6edf3">kconfig</text>
 <text x="698" y="469" font-size="9" fill="#9da7b3">6.28.0</text>
+<text x="805" y="453" font-size="11" fill="#03a5fc">★</text>
 <rect x="826" y="438" width="128" height="40" rx="6" fill="#0ea5e9" fill-opacity="0.22" stroke="#0ea5e9" stroke-width="1.4"/>
 <text x="834" y="455" font-size="11.5" font-weight="600" fill="#e6edf3">ki18n</text>
 <text x="834" y="469" font-size="9" fill="#9da7b3">6.28.0</text>
+<text x="941" y="453" font-size="11" fill="#03a5fc">★</text>
 <rect x="962" y="438" width="128" height="40" rx="6" fill="#0ea5e9" fill-opacity="0.22" stroke="#0ea5e9" stroke-width="1.4"/>
 <text x="970" y="455" font-size="11.5" font-weight="600" fill="#e6edf3">kcoreaddons</text>
 <text x="970" y="469" font-size="9" fill="#9da7b3">6.28.0</text>
+<text x="1077" y="453" font-size="11" fill="#03a5fc">★</text>
 <rect x="1098" y="438" width="128" height="40" rx="6" fill="#78716c" fill-opacity="0.22" stroke="#78716c" stroke-width="1.4"/>
 <text x="1106" y="455" font-size="11.5" font-weight="600" fill="#e6edf3">pinentry</text>
 <text x="1106" y="469" font-size="9" fill="#9da7b3">1.3.3</text>
@@ -222,12 +224,15 @@
 <rect x="826" y="602" width="128" height="40" rx="6" fill="#059669" fill-opacity="0.22" stroke="#059669" stroke-width="1.4"/>
 <text x="834" y="619" font-size="11.5" font-weight="600" fill="#e6edf3">avahi</text>
 <text x="834" y="633" font-size="9" fill="#9da7b3">1:0.9rc5</text>
+<text x="941" y="617" font-size="11" fill="#03a5fc">★</text>
 <rect x="962" y="602" width="128" height="40" rx="6" fill="#0d9488" fill-opacity="0.22" stroke="#0d9488" stroke-width="1.4"/>
 <text x="970" y="619" font-size="11.5" font-weight="600" fill="#e6edf3">libcups</text>
 <text x="970" y="633" font-size="9" fill="#9da7b3">2:2.4.19</text>
+<text x="1077" y="617" font-size="11" fill="#03a5fc">★</text>
 <rect x="1098" y="602" width="128" height="40" rx="6" fill="#94a3b8" fill-opacity="0.22" stroke="#94a3b8" stroke-width="1.4"/>
 <text x="1106" y="619" font-size="11.5" font-weight="600" fill="#e6edf3">libinput</text>
 <text x="1106" y="633" font-size="9" fill="#9da7b3">1.31.3</text>
+<text x="1213" y="617" font-size="11" fill="#03a5fc">★</text>
 <rect x="1234" y="602" width="128" height="40" rx="6" fill="#dc2626" fill-opacity="0.22" stroke="#dc2626" stroke-width="1.4"/>
 <text x="1242" y="619" font-size="11.5" font-weight="600" fill="#e6edf3">shadow</text>
 <text x="1242" y="633" font-size="9" fill="#9da7b3">4.19.4.arch1</text>
@@ -266,7 +271,6 @@
 <rect x="1234" y="718" width="128" height="40" rx="6" fill="#65a30d" fill-opacity="0.22" stroke="#65a30d" stroke-width="1.4"/>
 <text x="1242" y="735" font-size="11.5" font-weight="600" fill="#e6edf3">e2fsprogs</text>
 <text x="1242" y="749" font-size="9" fill="#9da7b3">1.47.4</text>
-<text x="1349" y="733" font-size="11" fill="#e6edf3">●</text>
 <rect x="1370" y="718" width="128" height="40" rx="6" fill="#94a3b8" fill-opacity="0.22" stroke="#94a3b8" stroke-width="1.4"/>
 <text x="1378" y="735" font-size="11.5" font-weight="600" fill="#e6edf3">bzip2</text>
 <text x="1378" y="749" font-size="9" fill="#9da7b3">1.0.8</text>
@@ -370,7 +374,6 @@
 <rect x="282" y="1046" width="128" height="40" rx="6" fill="#6b7280" fill-opacity="0.22" stroke="#6b7280" stroke-width="1.4"/>
 <text x="290" y="1063" font-size="11.5" font-weight="600" fill="#e6edf3">filesystem</text>
 <text x="290" y="1077" font-size="9" fill="#9da7b3">2025.10.12</text>
-<text x="397" y="1061" font-size="11" fill="#03a5fc">★</text>
 <rect x="418" y="1046" width="128" height="40" rx="6" fill="#6b7280" fill-opacity="0.22" stroke="#6b7280" stroke-width="1.4"/>
 <text x="426" y="1063" font-size="11.5" font-weight="600" fill="#e6edf3">glibc</text>
 <text x="426" y="1077" font-size="9" fill="#9da7b3">2.43+r37+gfdf…</text>
@@ -453,15 +456,18 @@
 <rect x="1234" y="1210" width="128" height="40" rx="6" fill="#a16207" fill-opacity="0.22" stroke="#a16207" stroke-width="1.4"/>
 <text x="1242" y="1227" font-size="11.5" font-weight="600" fill="#e6edf3">default-cursors</text>
 <text x="1242" y="1241" font-size="9" fill="#9da7b3">3</text>
+<text x="1349" y="1225" font-size="11" fill="#03a5fc">★</text>
 <rect x="1370" y="1210" width="128" height="40" rx="6" fill="#78716c" fill-opacity="0.22" stroke="#78716c" stroke-width="1.4"/>
 <text x="1378" y="1227" font-size="11.5" font-weight="600" fill="#e6edf3">xkeyboard-config</text>
 <text x="1378" y="1241" font-size="9" fill="#9da7b3">2.48</text>
+<text x="1485" y="1225" font-size="11" fill="#03a5fc">★</text>
 <rect x="282" y="1258" width="128" height="40" rx="6" fill="#94a3b8" fill-opacity="0.22" stroke="#94a3b8" stroke-width="1.4"/>
 <text x="290" y="1275" font-size="11.5" font-weight="600" fill="#e6edf3">liburing</text>
 <text x="290" y="1289" font-size="9" fill="#9da7b3">2.15</text>
 <rect x="418" y="1258" width="128" height="40" rx="6" fill="#0ea5e9" fill-opacity="0.22" stroke="#0ea5e9" stroke-width="1.4"/>
 <text x="426" y="1275" font-size="11.5" font-weight="600" fill="#e6edf3">qt6-translations</text>
 <text x="426" y="1289" font-size="9" fill="#9da7b3">6.11.1</text>
+<text x="533" y="1273" font-size="11" fill="#03a5fc">★</text>
 <rect x="554" y="1258" width="128" height="40" rx="6" fill="#7c3aed" fill-opacity="0.22" stroke="#7c3aed" stroke-width="1.4"/>
 <text x="562" y="1275" font-size="11.5" font-weight="600" fill="#e6edf3">alsa-topology-co…</text>
 <text x="562" y="1289" font-size="9" fill="#9da7b3">1.2.5.1</text>
@@ -471,16 +477,17 @@
 <rect x="826" y="1258" width="128" height="40" rx="6" fill="#78716c" fill-opacity="0.22" stroke="#78716c" stroke-width="1.4"/>
 <text x="834" y="1275" font-size="11.5" font-weight="600" fill="#e6edf3">iso-codes</text>
 <text x="834" y="1289" font-size="9" fill="#9da7b3">4.20.1</text>
+<text x="941" y="1273" font-size="11" fill="#03a5fc">★</text>
 <rect x="962" y="1258" width="128" height="40" rx="6" fill="#78716c" fill-opacity="0.22" stroke="#78716c" stroke-width="1.4"/>
 <text x="970" y="1275" font-size="11.5" font-weight="600" fill="#e6edf3">hwdata</text>
 <text x="970" y="1289" font-size="9" fill="#9da7b3">0.409</text>
 <rect x="1098" y="1258" width="128" height="40" rx="6" fill="#a16207" fill-opacity="0.22" stroke="#a16207" stroke-width="1.4"/>
 <text x="1106" y="1275" font-size="11.5" font-weight="600" fill="#e6edf3">hicolor-icon-the…</text>
 <text x="1106" y="1289" font-size="9" fill="#9da7b3">0.18</text>
-<text x="1213" y="1273" font-size="11" fill="#e6edf3">●</text>
 <rect x="1234" y="1258" width="128" height="40" rx="6" fill="#7c3aed" fill-opacity="0.22" stroke="#7c3aed" stroke-width="1.4"/>
 <text x="1242" y="1275" font-size="11.5" font-weight="600" fill="#e6edf3">sound-theme-free…</text>
 <text x="1242" y="1289" font-size="9" fill="#9da7b3">0.8</text>
+<text x="1349" y="1273" font-size="11" fill="#03a5fc">★</text>
 <rect x="1370" y="1258" width="128" height="40" rx="6" fill="#a16207" fill-opacity="0.22" stroke="#a16207" stroke-width="1.4"/>
 <text x="1378" y="1275" font-size="11.5" font-weight="600" fill="#e6edf3">adwaita-fonts</text>
 <text x="1378" y="1289" font-size="9" fill="#9da7b3">50.0</text>
@@ -531,10 +538,8 @@
 <rect x="800" y="1441" width="12" height="12" rx="3" fill="#78716c" fill-opacity="0.35" stroke="#78716c"/>
 <text x="818" y="1452" font-size="11" fill="#e6edf3">System</text>
 <text x="32" y="1488" font-size="14" font-weight="700" fill="#e6edf3">Edition</text>
-<text x="122" y="1488" font-size="11.5" font-weight="700" fill="#03a5fc">★ az’arch</text>
-<text x="242" y="1488" font-size="11" fill="#9da7b3">package Az’arch modifies (config / branding / theme / removed)</text>
-<text x="122" y="1508" font-size="11.5" font-weight="700" fill="#e6edf3">● arch-selected</text>
-<text x="242" y="1508" font-size="11" fill="#9da7b3">stock Arch, explicitly listed in the Az’arch manifest</text>
-<text x="122" y="1528" font-size="11.5" font-weight="700" fill="#9da7b3">arch-dep</text>
-<text x="242" y="1528" font-size="11" fill="#9da7b3">stock Arch, pulled in only as a transitive dependency</text>
+<text x="122" y="1488" font-size="11.5" font-weight="700" fill="#03a5fc">★ Az’arch Component</text>
+<text x="242" y="1488" font-size="11" fill="#9da7b3">in the set only because Az’arch added it (a chosen app or its support)</text>
+<text x="122" y="1508" font-size="11.5" font-weight="700" fill="#9da7b3">Stock Arch</text>
+<text x="242" y="1508" font-size="11" fill="#9da7b3">already on the stock archiso releng medium; Az’arch inherits it</text>
 </svg>

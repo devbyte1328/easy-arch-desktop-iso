@@ -102,6 +102,24 @@ def resolve_closure(manifest_tokens, packages, provides, groups):
     }
 
 
+def stock_reachable(stock_tokens, azarch_closure, packages, provides, groups):
+    """Return the set of packages in the Az'arch closure that the STOCK archiso
+    `releng` medium already pulls in.
+
+    We resolve the stock releng manifest through the exact same machinery as the
+    Az'arch manifest (groups expanded, `provides` followed) and walk its full
+    transitive closure, then intersect with the Az'arch closure. A package is
+    "Stock Arch" iff it lands in that intersection; everything else in the
+    Az'arch closure is there only because of an Az'arch addition.
+
+    Resolving the stock list on its own graph (rather than reusing the Az'arch
+    edges) is deliberate: it answers "what would plain archiso install?" honestly,
+    independent of what Az'arch happens to also request.
+    """
+    stock = resolve_closure(stock_tokens, packages, provides, groups)
+    return stock["closure"] & azarch_closure
+
+
 def _strongly_connected_components(closure, edges):
     """Tarjan's SCC algorithm (iterative, so deep dependency graphs don't blow
     the Python stack). Returns (comp_id_of_node, list_of_components).

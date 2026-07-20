@@ -34,6 +34,11 @@ import spec_html
 # scripts/libraries/ -> repo root is two levels up.
 REPO_ROOT = os.path.abspath(os.path.join(_SELF_DIR, "..", ".."))
 DEFAULT_MANIFEST = os.path.join(REPO_ROOT, "libraries", "data", "packages.x86_64")
+# The stock archiso `releng` baseline: the ground truth for the "Stock Arch"
+# edition. Everything in the final set NOT reachable from this list is an
+# "Az'arch Component". See spec_classify / spec_resolve.stock_reachable.
+DEFAULT_STOCK_MANIFEST = os.path.join(REPO_ROOT, "libraries", "data",
+                                      "packages.x86_64.stock")
 DEFAULT_OUTPUT = os.path.join(REPO_ROOT, "documentation", "SPECIFICATIONS_GENERAL.md")
 DEFAULT_SVG = os.path.join(REPO_ROOT, "documentation", "SPECIFICATIONS_COMPONENTS_OVERVIEW.svg")
 DEFAULT_FULLTEXT = os.path.join(REPO_ROOT, "documentation",
@@ -139,6 +144,9 @@ def parse_args(argv):
                         f"(default: {DEFAULT_HTML}); the SVG map, but navigable")
     p.add_argument("-m", "--manifest", default=DEFAULT_MANIFEST,
                    help=f"package manifest (default: {DEFAULT_MANIFEST})")
+    p.add_argument("--stock-manifest", default=DEFAULT_STOCK_MANIFEST,
+                   help=f"stock archiso releng baseline used to split the two "
+                        f"editions (default: {DEFAULT_STOCK_MANIFEST})")
     p.add_argument("--db-cache", default=DEFAULT_CACHE,
                    help=f"where to store the fetched Arch .db files "
                         f"(default: {DEFAULT_CACHE})")
@@ -173,8 +181,9 @@ def _build_glance(packages, resolved, tiers, tags):
         "raw_lines": resolved["raw_lines"],
         "by_repo": by_repo,
         "closure": len(closure),
-        "selected": ed_counts.get("arch-selected", 0),
-        "dep": ed_counts.get("arch-dep", 0),
+        # Two editions only: Stock Arch (already on the stock archiso releng
+        # medium) vs Az'arch Component (in the set only because Az'arch added it).
+        "stock": ed_counts.get("stock", 0),
         "azarch": ed_counts.get("az'arch", 0),
         "max_height": tiers["max_height"],
         "size": f"{total_isize / 1024 ** 3:.2f} GiB",
@@ -183,7 +192,8 @@ def _build_glance(packages, resolved, tiers, tags):
 
 
 def build(manifest_path, db_cache, mirror, offline, svg_rel="SPECIFICATIONS.svg",
-          general_rel="SPECIFICATIONS_GENERAL.md"):
+          general_rel="SPECIFICATIONS_GENERAL.md",
+          stock_manifest_path=DEFAULT_STOCK_MANIFEST):
     """Run the full pipeline. Return (markdown, svg, fulltext, html)."""
     db_paths = spec_db.fetch_databases(db_cache, mirror=mirror, offline=offline)
     packages, provides, groups = spec_db.load_databases(db_paths)
@@ -194,7 +204,14 @@ def build(manifest_path, db_cache, mirror, offline, svg_rel="SPECIFICATIONS.svg"
     resolved = spec_resolve.resolve_closure(tokens, packages, provides, groups)
     resolved["raw_lines"] = raw_lines
     tiers = spec_resolve.compute_tiers(resolved)
-    tags = spec_classify.classify(packages, resolved["closure"], resolved["roots"])
+
+    # Split the closure into the two editions by walking the STOCK archiso releng
+    # baseline: anything that baseline already pulls in is "Stock Arch", the rest
+    # is an "Az'arch Component". The baseline is committed alongside the manifest.
+    stock_tokens, _ = spec_resolve.load_manifest(stock_manifest_path)
+    stock_reach = spec_resolve.stock_reachable(
+        stock_tokens, resolved["closure"], packages, provides, groups)
+    tags = spec_classify.classify(packages, resolved["closure"], stock_reach)
 
     unresolved_tokens = [t for t, v in resolved["manifest_map"].items()
                          if v["kind"] == "unresolved"]
@@ -231,7 +248,8 @@ def main(argv=None):
     general_rel_ft = os.path.relpath(args.output, ft_dir)
     md, svg, full, page = build(args.manifest, args.db_cache, args.mirror,
                                 args.offline, svg_rel=svg_rel,
-                                general_rel=general_rel_ft)
+                                general_rel=general_rel_ft,
+                                stock_manifest_path=args.stock_manifest)
 
     if args.stdout:
         sys.stdout.write(md)

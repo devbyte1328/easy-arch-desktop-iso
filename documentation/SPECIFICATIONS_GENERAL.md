@@ -21,7 +21,7 @@ General and developer-facing spec of the Az'arch distribution. The full base->to
 | Explicit entries incl. group members (`xorg`+`plasma`) | 300 |
 | **Full package set (transitive closure)** | **1325** |
 | &nbsp;&nbsp;from `core` / `extra` / `multilib` | 228 / 986 / 111 |
-| Edition: Az'arch-modified / selected / dependency | 16 / 288 / 1021 |
+| Edition: Az'arch Component / Stock Arch | 803 / 522 |
 | Top / leaf packages (nothing depends on them) | 203 |
 | Base / sink packages (depend on nothing else in the set) | 71 |
 | Deepest dependency chain (leaf -> base) | 44 hops |
@@ -31,9 +31,8 @@ General and developer-facing spec of the Az'arch distribution. The full base->to
 
 | Tag | Meaning |
 |---|---|
-| `az'arch` | Az'arch modifies this package: ships config, rebrands, themes, or removes it. See section 3. |
-| `arch-sel` | Stock Arch package, but **explicitly listed** in `packages.x86_64` -- an Az'arch curation choice. |
-| `arch-dep` | Stock Arch package pulled in **only** as a transitive dependency; not chosen directly. |
+| `az'arch` | **Az'arch Component** -- in the package set **only** because Az'arch added it on top of the stock archiso `releng` baseline (a chosen application, or a dependency that exists purely to support one). The subset Az'arch also rebrands/themes/removes is called out in section 3. |
+| `stock` | **Stock Arch** -- already pulled in by the stock archiso `releng` install medium; Az'arch inherits it whether it adds anything or not. |
 
 ---
 
@@ -61,7 +60,7 @@ Notes for a developer:
 
 ## 3. What Az'arch changes on top of Arch
 
-Every package is stock Arch from the official repos; Az'arch's identity is *curation* (which packages ship, chosen in `libraries/data/packages.x86_64`) plus *configuration and branding* on the packages below. These are the only packages that carry Az'arch-specific changes -- grounded in the build's own config modules (`libraries/azarch/config/*.py`).
+Every package comes unmodified from the official Arch repos; Az'arch's identity is *curation* (which packages ship, chosen in `libraries/data/packages.x86_64` on top of the stock archiso baseline) plus *configuration and branding* on the packages below. Note this is a narrower set than the **Az'arch Component** edition: a package can be an Az'arch Component (added by Az'arch) without being reconfigured, and a **Stock Arch** package (e.g. `pacman`, `systemd`) can still carry an Az'arch config change. The table below lists only the packages that carry Az'arch-specific changes -- grounded in the build's own config modules (`libraries/azarch/config/*.py`).
 
 | Package | Version | Category | What Az'arch does | Shipped? |
 |---|---|---|---|---|

@@ -4,8 +4,9 @@ HTML page (documentation/SPECIFICATIONS_COMPONENTS_NAVIGATE_FULL.html).
 
 This is the interactive twin of the SVG (spec_svg): the same layered map -- seven
 horizontal bands from the kernel at the bottom up to the leaf applications at the
-top, every component drawn as a box coloured by category and marked by edition --
-but you can actually *use* it. Click any component to open a detail panel with its
+top, every component drawn as a box coloured by category and marked by edition
+(a star marks an Az'arch Component; unmarked boxes are Stock Arch) -- but you can
+actually *use* it. Click any component to open a detail panel with its
 plain-language purpose, version, edition, category, layer, size and upstream link;
 the map then highlights everything it requires (below it) and everything that
 requires it (above it), so you see its place in the stack at a glance. Search by
@@ -41,9 +42,8 @@ def _fmt_size(nbytes):
 
 
 EDITION_LABEL = {
-    "az'arch": "Az'arch-modified",
-    "arch-selected": "Explicitly selected",
-    "arch-dep": "Dependency",
+    "az'arch": "Az'arch Component",
+    "stock": "Stock Arch",
 }
 
 
@@ -106,8 +106,7 @@ def _build_payload(packages, resolved, tiers, tags, glance):
             "closure": glance["closure"],
             "byRepo": glance["by_repo"],
             "azarch": glance["azarch"],
-            "selected": glance["selected"],
-            "dep": glance["dep"],
+            "stock": glance["stock"],
             "maxHeight": glance["max_height"],
             "size": glance["size"],
             "isoVersion": glance["iso_version"],
@@ -141,6 +140,10 @@ _PAGE = r"""<!DOCTYPE html>
   /* rail (layer labels) and detail panel share this width so the panel overlays
      the rail exactly when a component is opened, never covering the boxes. */
   --rail-w:300px;
+  /* horizontal padding inside .map -- referenced by the detail panel so it can
+     reach past this gap (plus the band's 1px border) and sit its left edge
+     directly on top of the rail's left border. */
+  --map-pad:16px;
 }
 *{box-sizing:border-box}
 html,body{margin:0;height:100%}
@@ -181,7 +184,7 @@ header{
 /* position:relative so the detail panel can overlay the map instead of
    pushing it -- opening a component must NOT resize/reflow the graph. */
 .main{flex:1;display:flex;min-height:0;position:relative}
-.map{flex:1;overflow:auto;padding:14px 16px 40px}
+.map{flex:1;overflow:auto;padding:14px var(--map-pad) 40px}
 /* ---- bands ---- */
 /* Boxes on the LEFT, the layer-label rail on the RIGHT (flex order:2). The rail
    width matches the detail panel (--rail-w) so, when a component is clicked, the
@@ -215,11 +218,14 @@ header{
 .band.empty{display:none}
 .emptynote{color:var(--dim);font-size:12px;padding:6px 2px}
 /* ---- detail panel ---- */
-/* Overlays the RIGHT edge of the map (position:absolute), the same width as the
-   band rails (--rail-w) so it sits exactly on top of the "Foundation / 71 pkgs"
-   labels and never covers the component boxes. It does NOT resize or reflow the
-   graph -- the boxes underneath are only dimmed. */
-.panel{position:absolute;top:0;right:0;height:100%;width:var(--rail-w);z-index:5;
+/* Overlays the RIGHT edge of the map (position:absolute), as wide as the
+   band rails (--rail-w) PLUS the map's right padding and the band's 1px right
+   border, so its left edge lands directly on top of the rail's left border --
+   it sits exactly on top of the "Foundation / 71 pkgs" labels and never covers
+   the component boxes. It does NOT resize or reflow the graph -- the boxes
+   underneath are only dimmed. */
+.panel{position:absolute;top:0;right:0;height:100%;
+  width:calc(var(--rail-w) + var(--map-pad) + 1px);z-index:5;
   border-left:1px solid var(--line);background:var(--panel2);
   box-shadow:-8px 0 24px rgba(0,0,0,.45);
   overflow:auto;padding:0;display:flex;flex-direction:column}
@@ -299,9 +305,8 @@ kbd{background:var(--ink);border:1px solid var(--line);border-radius:4px;padding
   <label>Category</label><select id="fcat"></select>
   <label>Edition</label><select id="fed">
     <option value="">all</option>
-    <option value="az'arch">Az'arch-modified</option>
-    <option value="arch-selected">Explicitly selected</option>
-    <option value="arch-dep">Dependency</option>
+    <option value="az'arch">Az'arch Component</option>
+    <option value="stock">Stock Arch</option>
   </select>
   <label>Sort</label><select id="sort" title="How boxes are ordered within each layer">
     <option value="load">Most load-bearing</option>
@@ -317,15 +322,15 @@ kbd{background:var(--ink);border:1px solid var(--line);border-radius:4px;padding
   <div class="map" id="map"></div>
   <aside class="panel hidden" id="panel"></aside>
 </div>
-<button class="legend-toggle" id="legendToggle" title="Show / hide the legend (press l)">Hide legend ▾</button>
-<div class="legend" id="legend"></div>
+<button class="legend-toggle down" id="legendToggle" title="Show / hide the legend (press l)">Show legend ▴</button>
+<div class="legend hidden" id="legend"></div>
 
 <script id="data" type="application/json">/*__DATA__*/</script>
 <script>
 "use strict";
 const DATA = JSON.parse(document.getElementById('data').textContent);
 const C = DATA.components, ORDER = DATA.order, CATCOLORS = DATA.catColors;
-const EDITION_MARK = {"az'arch":"★","arch-selected":"●","arch-dep":""};
+const EDITION_MARK = {"az'arch":"★","stock":""};
 const map = document.getElementById('map');
 const panel = document.getElementById('panel');
 let selected = null;
@@ -338,7 +343,7 @@ let filterCat = "", filterEd = "", query = "";
     ["Kernel", "linux "+g.kernel],
     ["Init", "systemd "+g.init],
     ["Components", g.closure],
-    ["Az'arch / selected / dep", g.azarch+" / "+g.selected+" / "+g.dep],
+    ["Az'arch / stock", g.azarch+" / "+g.stock],
     ["Deepest chain", g.maxHeight+" hops"],
     ["Installed size", g.size],
   ];
@@ -382,9 +387,8 @@ function idxFromDisp(n){ return NLAYERS - n; }    // shown number -> internal id
     `<div class="grp how">Foundation / sinks (bottom) &#8594; leaf apps (top) `+
     `&#183; click any component to inspect it `+
     `&#183; <b style="color:var(--text)">Edition:</b>`+
-    `<span><span style="color:var(--cyan)">★</span> Az'arch-modified</span>`+
-    `<span>● Explicitly selected</span>`+
-    `<span style="opacity:.7">(no mark) dependency</span></div>`+
+    `<span><span style="color:var(--cyan)">★</span> Az'arch Component</span>`+
+    `<span style="opacity:.7">(no mark) Stock Arch</span></div>`+
     `<div class="cats">${cats}</div>`+
     `<div class="grp"><span style="color:#eab308">■ requires</span>`+
     `<span style="color:#22c55e">■ required by</span></div>`+
@@ -531,7 +535,7 @@ function clearHighlight(){
 // ---- detail panel ----
 function openPanel(name){
   const c = C[name];
-  const edClass = c.edition==="az'arch"?"ed-az":(c.edition==="arch-selected"?"ed-sel":"");
+  const edClass = c.edition==="az'arch"?"ed-az":"ed-sel";
   const layer = DATA.layers[c.layer];
   const reqPills = pills(c.requires, "req");
   const reqbyPills = pills(c.requiredBy, "reqby");
@@ -627,7 +631,7 @@ document.addEventListener('keydown',e=>{
 
 buildMap();
 applyFilters();
-setLegend(true);            // position the legend toggle above the legend on load
+setLegend(false);           // legend hidden by default; toggle sits bottom-right (press l / click to show)
 window.addEventListener('resize',()=>{ if(!legendEl.classList.contains('hidden')) setLegend(true); });
 </script>
 </body>
