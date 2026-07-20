@@ -180,8 +180,8 @@ kbd{background:var(--ink);border:1px solid var(--line);border-radius:4px;padding
     <option value="stock">Stock Arch</option>
   </select>
   <label>Sort</label><select id="sort" title="How boxes are ordered within each layer">
+    <option value="name" selected>Name (A-Z)</option>
     <option value="load">Most load-bearing</option>
-    <option value="name">Name (A-Z)</option>
     <option value="size">Installed size</option>
     <option value="deps">Most dependencies</option>
   </select>
@@ -277,7 +277,7 @@ const SORTS = {
   size: (a,b)=> C[b].isize-C[a].isize || (a<b?-1:1),
   deps: (a,b)=> C[b].requires.length-C[a].requires.length || (a<b?-1:1),
 };
-let sortMode = "load";
+let sortMode = "name";
 
 // ---- build the bands + boxes once ----
 function buildMap(){
@@ -485,7 +485,7 @@ legendBtn.addEventListener('click',()=>setLegend(legendEl.classList.contains('hi
 document.getElementById('reset').addEventListener('click',()=>{
   filterCat=filterEd=query=""; q.value="";
   document.getElementById('fcat').value=""; document.getElementById('fed').value="";
-  sortMode="load"; sortSel.value="load"; resort();
+  sortMode="name"; sortSel.value="name"; resort();
   setCollapsed(false);
   applyFilters(); closePanel();
 });
