@@ -32,15 +32,23 @@ PANEL_LINE = "#30363d"
 TEXT = "#e6edf3"
 TEXT_DIM = "#9da7b3"
 
-# The seven layers, bottom (0) to top (6). (id -> (title, subtitle)).
+# The seven depth bands, bottom (0) to top (6): (title, subtitle).
+#
+# The band is DEPENDENCY DEPTH ONLY (the longest chain of dependencies below a
+# package). Domain is a SEPARATE axis carried by colour (the package's category),
+# never by the band -- every band is empirically a category mix (e.g. "Shared
+# library" packages appear at every depth), so a domain title like "Core
+# libraries" would mislabel the axis. The titles therefore name position in the
+# dependency graph, and the subtitles give example packages as a hint. Bottom =
+# nothing below it (a true sink); top = nothing depends on it (a leaf).
 LAYER_DEFS = [
-    ("Kernel & firmware", "the floor: linux + microcode + firmware"),
-    ("Base / sinks", "depend on nothing else in the set"),
-    ("Core libraries", "libc, compression, crypto primitives"),
-    ("System libraries & services", "dbus, systemd, X/Wayland, mesa, networking"),
-    ("Frameworks & toolkits", "Qt6, KDE Frameworks, GTK, language runtimes"),
-    ("Desktop & session", "Plasma shell, compositor, session services"),
-    ("Applications", "top / leaves -- nothing depends on these"),
+    ("Foundation",   "depth 0 -- nothing below them; true sinks of the graph"),
+    ("Depth 1-3",    "rest on the foundation only; libc, filesystem, early libs"),
+    ("Depth 4-8",    "a few layers deep; shared libraries and base tools"),
+    ("Depth 9-14",   "mid stack; libraries and services with real chains below"),
+    ("Depth 15-23",  "deep stack; kernel, coreutils, and heavier subsystems"),
+    ("Depth 24-33",  "near the top; systemd, mesa, X, Qt, toolkits"),
+    ("Leaves (34+)", "top; the deepest chains -- nothing depends on these"),
 ]
 
 # Edition marker glyphs drawn on each box corner.
@@ -52,20 +60,29 @@ EDITION_MARK = {
 
 
 def layer_of(pkg, category, height):
-    """Map a package to one of the 7 layers by category(kernel) + dependency height."""
-    if category == "Kernel & firmware":
-        return 0
+    """Vertical band = dependency DEPTH only (the longest chain of dependencies
+    below the package). There is NO category override: `category` is the colour
+    axis, not the vertical one, and every band is a category mix, so `pkg` and
+    `category` are unused here (kept in the signature for call-site stability).
+
+    height 0 (nothing below it) is the most foundational and sits at the bottom;
+    the deepest chains sit at the top. Because `height` is a true partial order
+    (if A depends on B then height(B) < height(A)), this can never place a
+    dependency above its dependent. Thresholds come from the real height
+    histogram (max 44) to keep every band populated (roughly 5-22% each)."""
     if height == 0:
+        return 0    # foundation: true sinks, nothing below them
+    if height <= 3:
         return 1
-    if height <= 4:
+    if height <= 8:
         return 2
-    if height <= 12:
+    if height <= 14:
         return 3
-    if height <= 22:
-        return 4
+    if height <= 23:
+        return 4    # kernel (h=22) and coreutils (h=21) land here
     if height <= 33:
         return 5
-    return 6
+    return 6         # leaves (h 34-44)
 
 
 def _esc(s):
@@ -176,8 +193,8 @@ def render_svg(packages, resolved, tiers, tags, glance):
     a(f'<text x="{margin+168}" y="52" font-size="26" font-weight="600" '
       f'fill="{TEXT}">Distribution dependency graph</text>')
     a(f'<text x="{margin}" y="78" font-size="13" fill="{TEXT_DIM}">'
-      f'base (kernel, bottom) to top (leaf applications) &#183; layer = real '
-      f'dependency depth &#183; colour = category &#183; mark = edition</text>')
+      f'sinks (nothing below, bottom) to leaves (top) &#183; layer = dependency '
+      f'depth &#183; colour = category &#183; mark = edition</text>')
 
     facts = [
         ("Base", glance["base"]),

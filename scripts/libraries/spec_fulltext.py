@@ -24,6 +24,7 @@ this listing is the browsable HTML map (spec_html).
 import textwrap
 
 import spec_classify as K
+import spec_svg
 
 # Stable one-line explanation of each edition tag, shown in the legend and used
 # as the long form when a component is displayed on its own.
@@ -38,17 +39,10 @@ EDITION_SHORT = {
     "arch-dep": "arch-dep",
 }
 
-# Human-language, one-line role for each of the seven dependency layers, so the
-# reader understands what "layer 3" means without cross-referencing the SVG.
-LAYER_ROLE = [
-    "Kernel & firmware -- the floor the whole system boots on",
-    "Base / sinks -- depend on nothing else in the set",
-    "Core libraries -- libc, compression, crypto primitives",
-    "System libraries & services -- dbus, systemd, X/Wayland, mesa, net",
-    "Frameworks & toolkits -- Qt6, KDE Frameworks, GTK, runtimes",
-    "Desktop & session -- Plasma shell, compositor, session services",
-    "Applications -- top / leaves, nothing depends on these",
-]
+# Human-language, one-line role for each dependency layer, so the reader
+# understands what "layer 3" means without cross-referencing the SVG. Derived
+# from the single source of truth (spec_svg.LAYER_DEFS) so the two never drift.
+LAYER_ROLE = [f"{title} -- {subtitle}" for title, subtitle in spec_svg.LAYER_DEFS]
 
 RULE = "=" * 78
 THIN = "-" * 78
@@ -56,7 +50,6 @@ THIN = "-" * 78
 
 def _layer_of(pkg, category, height):
     # Mirror the SVG's layer assignment so the two artifacts agree.
-    import spec_svg
     return spec_svg.layer_of(pkg, category, height)
 
 
@@ -132,7 +125,7 @@ def _component_block(pkg, packages, resolved, tiers, tags):
     # Identity / classification.
     out.append(f"edition:  {EDITION_LABEL[tag['edition']]}")
     out.append(f"category: {tag['category']}")
-    out.append(f"layer:    {layer} of 6  ({LAYER_ROLE[layer]})")
+    out.append(f"layer:    {layer} of {len(LAYER_ROLE) - 1}  ({LAYER_ROLE[layer]})")
     out.append(f"repo:     {repo}    installed size: {_fmt_size(isize)}    "
                f"license: {rec.get('license') or '(unknown)'}")
     # Az'arch-specific note, when present, is important enough to call out.
@@ -254,7 +247,7 @@ def render_fulltext(packages, resolved, tiers, tags, glance, svg_rel, general_re
     for ed in ("az'arch", "arch-selected", "arch-dep"):
         w(f"                 {EDITION_LABEL[ed]}")
     w("  category:    a single human-language role")
-    w("  layer:       0 (kernel) .. 6 (leaf apps) -- real dependency depth")
+    w("  layer:       0 (sinks) .. 6 (leaf apps) -- real dependency depth")
     w("  requires:    the packages it directly depends on")
     w("  required-by: the packages in the set that directly depend on it")
     w("  optional:    optional deps and the capability each one adds")

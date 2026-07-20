@@ -138,6 +138,9 @@ _PAGE = r"""<!DOCTYPE html>
 :root{
   --ink:#0d1117; --panel:#161b22; --panel2:#1b222b; --line:#30363d;
   --text:#e6edf3; --dim:#9da7b3; --cyan:#03a5fc; --blue:#0065f9;
+  /* rail (layer labels) and detail panel share this width so the panel overlays
+     the rail exactly when a component is opened, never covering the boxes. */
+  --rail-w:300px;
 }
 *{box-sizing:border-box}
 html,body{margin:0;height:100%}
@@ -177,9 +180,12 @@ header{
 .main{flex:1;display:flex;min-height:0;position:relative}
 .map{flex:1;overflow:auto;padding:14px 16px 40px}
 /* ---- bands ---- */
+/* Boxes on the LEFT, the layer-label rail on the RIGHT (flex order:2). The rail
+   width matches the detail panel (--rail-w) so, when a component is clicked, the
+   panel overlays the rail exactly and never covers the component boxes. */
 .band{border:1px solid var(--line);border-radius:12px;background:var(--panel);
   margin-bottom:14px;display:flex;min-height:96px}
-.rail{width:210px;flex:none;padding:12px 14px;border-right:1px solid var(--line)}
+.rail{width:var(--rail-w);flex:none;padding:12px 14px;border-left:1px solid var(--line);order:2}
 .rail .t{font-size:15px;font-weight:700}
 .rail .s{font-size:11px;color:var(--dim);margin-top:3px;line-height:1.3}
 .rail .n{margin-top:8px;font-size:12px;font-weight:700;
@@ -203,9 +209,11 @@ header{
 .band.empty{display:none}
 .emptynote{color:var(--dim);font-size:12px;padding:6px 2px}
 /* ---- detail panel ---- */
-/* Overlays the right edge of the map (position:absolute) so opening it dims the
-   boxes but does NOT resize or reflow the graph. */
-.panel{position:absolute;top:0;right:0;height:100%;width:410px;z-index:5;
+/* Overlays the RIGHT edge of the map (position:absolute), the same width as the
+   band rails (--rail-w) so it sits exactly on top of the "Foundation / 71 pkgs"
+   labels and never covers the component boxes. It does NOT resize or reflow the
+   graph -- the boxes underneath are only dimmed. */
+.panel{position:absolute;top:0;right:0;height:100%;width:var(--rail-w);z-index:5;
   border-left:1px solid var(--line);background:var(--panel2);
   box-shadow:-8px 0 24px rgba(0,0,0,.45);
   overflow:auto;padding:0;display:flex;flex-direction:column}
@@ -250,15 +258,20 @@ header{
 .band.collapsed .rail .n{margin-top:0}
 .band.collapsed .rail .arrow{display:none}
 /* ---- legend (collapsible footer) ---- */
-.legend-toggle{position:fixed;right:14px;bottom:10px;z-index:6;
+/* The toggle sits just ABOVE the legend's top border, pinned to the right, so it
+   never overlaps the legend's own text (and stays clear of the detail panel,
+   which opens on the left). When hidden it drops to the bottom-right corner. */
+.legend-toggle{position:fixed;right:14px;bottom:calc(var(--legend-h,150px) + 6px);z-index:6;
   background:var(--ink);border:1px solid var(--line);color:var(--dim);
   border-radius:7px;padding:5px 10px;font-size:11.5px;cursor:pointer}
+.legend-toggle.down{bottom:10px}
 .legend-toggle:hover{border-color:var(--cyan);color:var(--text)}
 .legend{border-top:1px solid var(--line);background:var(--panel);padding:8px 16px;
   display:flex;gap:16px;flex-wrap:wrap;align-items:center;font-size:11.5px;color:var(--dim)}
 .legend.hidden{display:none}
 .legend .sw{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px}
 .legend .grp{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.legend .grp.how{flex-basis:100%;color:var(--text)}
 .legend .cats{display:flex;gap:10px;flex-wrap:wrap}
 kbd{background:var(--ink);border:1px solid var(--line);border-radius:4px;padding:1px 5px;font-size:11px}
 </style>
@@ -266,12 +279,12 @@ kbd{background:var(--ink);border:1px solid var(--line);border-radius:4px;padding
 <body>
 <header>
   <span class="brand">Az&#39;arch</span>
-  <span class="sub">interactive component map &#183; kernel (bottom) &#8594; apps (top) &#183; colour = category &#183; click a component to inspect it &#183; press <kbd>0</kbd>&ndash;<kbd>6</kbd> to jump layers</span>
+  <span class="sub">interactive component map</span>
   <div class="glance" id="glance"></div>
 </header>
 <div class="controls">
   <input type="search" id="q" placeholder="Search components&hellip;  (press /)" autocomplete="off"/>
-  <label>Jump to layer</label><select id="jump" title="Scroll to a layer (press 0-6)"></select>
+  <label>Jump to layer</label><select id="jump" title="Scroll to a layer (press 1-7; 1 = top)"></select>
   <label>Category</label><select id="fcat"></select>
   <label>Edition</label><select id="fed">
     <option value="">all</option>
@@ -328,12 +341,18 @@ let filterCat = "", filterEd = "", query = "";
     DATA.categories.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join("");
 })();
 
+// Display layer number: 1 = the TOP layer (leaves), counting down to the bottom.
+// Internally layers are 0 (sinks/foundation) .. N-1 (leaves); invert for display.
+const NLAYERS = DATA.layers.length;
+function dispNum(i){ return NLAYERS - i; }        // internal idx -> shown number
+function idxFromDisp(n){ return NLAYERS - n; }    // shown number -> internal idx
+
 // ---- layer jump options (top layer first, matching the on-screen order) ----
 (function(){
   const sel = document.getElementById('jump');
   const opts = ['<option value="">go to&hellip;</option>'];
   for(let i=DATA.layers.length-1;i>=0;i--){
-    opts.push(`<option value="${i}">${i} &middot; ${esc(DATA.layers[i].title)}</option>`);
+    opts.push(`<option value="${i}">${dispNum(i)} &middot; ${esc(DATA.layers[i].title)}</option>`);
   }
   sel.innerHTML = opts.join("");
 })();
@@ -345,6 +364,8 @@ let filterCat = "", filterEd = "", query = "";
     `<span><span class="sw" style="background:${CATCOLORS[c]}66;border:1px solid ${CATCOLORS[c]}"></span>${esc(c)}</span>`
   ).join("");
   el.innerHTML =
+    `<div class="grp how">kernel (bottom) &#8594; apps (top) &#183; colour = category `+
+    `&#183; click a component to inspect it &#183; press <kbd>1</kbd>&ndash;<kbd>7</kbd> to jump layers</div>`+
     `<div class="grp"><b style="color:var(--text)">Edition:</b>`+
     `<span><span style="color:var(--cyan)">★</span> Az'arch-modified</span>`+
     `<span>● Explicitly selected</span>`+
@@ -353,7 +374,7 @@ let filterCat = "", filterEd = "", query = "";
     `<div class="grp"><span style="color:#eab308">■ requires</span>`+
     `<span style="color:#22c55e">■ required by</span></div>`+
     `<div class="grp" style="margin-left:auto">Keys: `+
-    `<kbd>/</kbd> search <kbd>0</kbd>&ndash;<kbd>6</kbd> jump to layer `+
+    `<kbd>/</kbd> search <kbd>1</kbd>&ndash;<kbd>7</kbd> jump to layer `+
     `<kbd>z</kbd> collapse all <kbd>l</kbd> legend <kbd>Esc</kbd> close</div>`;
 })();
 
@@ -414,7 +435,8 @@ function resort(){
 // scroll a given layer into view (used by the Jump control + number keys)
 function jumpToLayer(i){
   const band = document.getElementById('layer-'+i);
-  if(band){ band.classList.remove('collapsed'); band.scrollIntoView({behavior:'smooth',block:'start'}); }
+  if(band){ band.classList.remove('collapsed');
+    if(band.scrollIntoView) band.scrollIntoView({behavior:'smooth',block:'start'}); }
 }
 
 function makeBox(name){
@@ -511,7 +533,7 @@ function openPanel(name){
       `<div class="chips">`+
         `<span class="chip cat" style="border-color:${CATCOLORS[c.category]};color:${CATCOLORS[c.category]}">${esc(c.category)}</span>`+
         `<span class="chip ${edClass}">${EDITION_MARK[c.edition]||''} ${esc(c.editionLabel)}</span>`+
-        `<span class="chip">Layer ${c.layer}: ${esc(layer.title)}</span>`+
+        `<span class="chip">Layer ${dispNum(c.layer)}: ${esc(layer.title)}</span>`+
         (c.removed?`<span class="chip" style="border-color:#f85149;color:#f85149">removed from ISO</span>`:``)+
       `</div>`+
       (c.azarch? `<div class="azbox"><div class="h">What Az'arch changes</div>${esc(c.azarch)}</div>`:``)+
@@ -560,6 +582,13 @@ collapseBtn.addEventListener('click',()=>setCollapsed(!allCollapsed));
 function setLegend(show){
   legendEl.classList.toggle('hidden', !show);
   legendBtn.textContent = show ? 'Hide legend ▾' : 'Show legend ▴';
+  // Park the button ABOVE the legend when it's shown (so it never covers the
+  // legend text), or drop it to the bottom-right corner when the legend is hidden.
+  legendBtn.classList.toggle('down', !show);
+  if(show){
+    // pin the button just above the actual rendered legend height
+    document.documentElement.style.setProperty('--legend-h', legendEl.offsetHeight + 'px');
+  }
 }
 legendBtn.addEventListener('click',()=>setLegend(legendEl.classList.contains('hidden')));
 
@@ -576,13 +605,15 @@ document.addEventListener('keydown',e=>{
   if(e.key==='/' && !typing){ e.preventDefault(); q.focus(); }
   else if(e.key==='Escape'){ if(!panel.classList.contains('hidden')) closePanel(); else if(typing){ q.blur(); } }
   else if(typing){ /* let the search field keep other keys */ }
-  else if(e.key>='0' && e.key<='6'){ jumpToLayer(+e.key); }
+  else if(e.key>='1' && e.key<=String(NLAYERS)){ jumpToLayer(idxFromDisp(+e.key)); }
   else if(e.key==='z'){ setCollapsed(!allCollapsed); }
   else if(e.key==='l'){ setLegend(legendEl.classList.contains('hidden')); }
 });
 
 buildMap();
 applyFilters();
+setLegend(true);            // position the legend toggle above the legend on load
+window.addEventListener('resize',()=>{ if(!legendEl.classList.contains('hidden')) setLegend(true); });
 </script>
 </body>
 </html>
