@@ -159,8 +159,11 @@ header{
   background:linear-gradient(90deg,var(--cyan),var(--blue));
   -webkit-background-clip:text;background-clip:text;color:transparent;white-space:nowrap}
 .sub{color:var(--dim);font-size:12px}
-.glance{margin-left:auto;display:flex;gap:14px;flex-wrap:wrap;color:var(--dim);font-size:11.5px}
-.glance b{color:var(--text)}
+.glance{margin-left:auto;display:flex;gap:6px 14px;flex-wrap:wrap;align-items:center;
+  color:var(--dim);font-size:11.5px}
+.glance .fact{white-space:nowrap;display:inline-flex;gap:5px;align-items:baseline}
+.glance .fact:not(:last-child)::after{content:"·";color:var(--line);margin-left:9px}
+.glance b{color:var(--text);font-weight:600}
 /* ---- controls ---- */
 .controls{padding:8px 16px;border-bottom:1px solid var(--line);
   display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:var(--panel2)}
@@ -253,7 +256,7 @@ header{
 .band.collapsed .rail .t::before{content:"▸ ";}
 .band.collapsed .boxes{display:none}
 .band.collapsed{min-height:0}
-.band.collapsed .rail{border-right:none;width:100%;display:flex;align-items:baseline;gap:14px}
+.band.collapsed .rail{border-left:none;width:100%;display:flex;align-items:baseline;gap:14px}
 .band.collapsed .rail .s{margin-top:0}
 .band.collapsed .rail .n{margin-top:0}
 .band.collapsed .rail .arrow{display:none}
@@ -331,7 +334,11 @@ let filterCat = "", filterEd = "", query = "";
     ["Deepest chain", g.maxHeight+" hops"],
     ["Installed size", g.size],
   ];
-  el.innerHTML = items.map(([k,v])=>`${k}: <b>${v}</b>`).join(" &nbsp;·&nbsp; ");
+  // Each fact is ONE inline <span> so it never splits across lines: the glance
+  // strip is a flex row, and without wrapping each fact the label and its value
+  // would become separate flex items and wrap independently.
+  el.innerHTML = items.map(([k,v])=>
+    `<span class="fact">${esc(k)}: <b>${esc(v)}</b></span>`).join("");
 })();
 
 // ---- category filter options ----
@@ -364,8 +371,8 @@ function idxFromDisp(n){ return NLAYERS - n; }    // shown number -> internal id
     `<span><span class="sw" style="background:${CATCOLORS[c]}66;border:1px solid ${CATCOLORS[c]}"></span>${esc(c)}</span>`
   ).join("");
   el.innerHTML =
-    `<div class="grp how">kernel (bottom) &#8594; apps (top) &#183; colour = category `+
-    `&#183; click a component to inspect it &#183; press <kbd>1</kbd>&ndash;<kbd>7</kbd> to jump layers</div>`+
+    `<div class="grp how">Foundation / sinks (bottom) &#8594; leaf apps (top) `+
+    `&#183; click any component to inspect it</div>`+
     `<div class="grp"><b style="color:var(--text)">Edition:</b>`+
     `<span><span style="color:var(--cyan)">★</span> Az'arch-modified</span>`+
     `<span>● Explicitly selected</span>`+
