@@ -79,21 +79,21 @@ class ProgressBar:
         filled = (eff * barw // (1000 * self.total_weight)) if self.total_weight else 0
         filled = min(max(filled, 0), barw)
         bar = "█" * filled + "░" * (barw - filled)
-        # Remaining columns for the label (minus one separating space).
+        # Remaining columns for the label (after one separating space).
         budget = cols - barw - len(pctstr) - 1
         label = self.label
         if budget <= 0:
-            label, sep = "", ""
+            sep, field = "", ""
         else:
             if len(label) > budget:
                 label = (label[: budget - 1] + "…") if budget >= 2 else label[:budget]
             sep = " " if label else ""
-        # Final safety: assert the visible width fits, then colorize (zero-width codes).
-        visible_w = barw + len(pctstr) + len(sep) + len(label)
-        if visible_w > cols:  # should never trigger, but clamp defensively
-            overflow = visible_w - cols
-            label = label[: max(0, len(label) - overflow)]
-        return f"\033[36m{bar}\033[0m\033[1m{pctstr}\033[0m{sep}{label}"
+            # Center the label within its remaining field (bar + % stay put; only the
+            # text is pushed toward the middle of the space it has).
+            pad = max(budget - len(label), 0)
+            left = pad // 2
+            field = " " * left + label
+        return f"\033[36m{bar}\033[0m\033[1m{pctstr}\033[0m{sep}{field}"
 
     # -- pinning -------------------------------------------------------------
     def _arm(self) -> None:
