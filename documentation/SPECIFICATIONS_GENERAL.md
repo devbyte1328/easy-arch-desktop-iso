@@ -219,7 +219,7 @@ This is the core rescue-and-install mission of the medium. Two installers ship: 
 | `nilfs-utils` / `jfsutils` / `bcachefs-tools` | 2.3.0-1 / 1.1.15-9 / 3:1.38.8-2 | NILFS, JFS, bcachefs |
 | `nfs-utils` / `open-iscsi` / `nbd` | 2.9.1-1 / 2.1.12-1 / 3.27.1-4 | Network filesystems and block devices |
 | `squashfs-tools` | 4.7.5-1 | SquashFS (live image) tools |
-| `clonezilla` / `partclone` / `fsarchiver` | 5.16.16-1 / 0.3.47-3 / 0.8.9-1 | Disk imaging/cloning/backup |
+| `clonezilla` / `partclone` / `fsarchiver` | 5.16.19-1 / 0.3.47-3 / 0.8.9-1 | Disk imaging/cloning/backup |
 | `testdisk` / `ddrescue` | 7.2-4 / 1.30-2 | Partition + data recovery |
 | `smartmontools` / `nvme-cli` | 7.5-1 / 2.16-2 | SMART monitoring, NVMe control |
 

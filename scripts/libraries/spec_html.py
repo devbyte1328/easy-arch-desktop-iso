@@ -1051,6 +1051,9 @@ tabC.addEventListener('click',showComponents);
 tabE.addEventListener('click',showEntries);
 
 document.addEventListener('keydown',e=>{
+  // Let the browser handle any modified combo (Ctrl+C/Cmd+C to copy, Ctrl+E, etc.)
+  // Bare-letter hotkeys below must never steal these.
+  if(e.ctrlKey || e.metaKey || e.altKey) return;
   const typing = document.activeElement===q || document.activeElement===qe;
   if(e.key==='/' && !typing){ e.preventDefault(); (currentPage==="entries"?qe:q).focus(); }
   else if(e.key==='Escape'){
