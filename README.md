@@ -22,28 +22,43 @@ This is a year-old, neglected, poorly put-together project that is undergoing a 
    
    **📥Link: [https://drive.google.com/file/d/18nclTLo05_KU7uOfYd_WTnI0LK--mGE6/view?usp=sharing](https://drive.google.com/file/d/18nclTLo05_KU7uOfYd_WTnI0LK--mGE6/view?usp=sharing)**
 
-3. **Create a Bootable USB**  
+2. **Create a Bootable USB**  
    Use one of the following tools to write the ISO to a USB drive:
    - **[balenaEtcher](https://etcher.balena.io/)** (Windows/macOS/Linux)
    - **[Rufus](https://rufus.ie/en/)** (Windows only)
-   - Or use the `dd` command (Linux/macOS):
+   - `dd` command (Linux/macOS):
      ```bash
      sudo dd if=azarch-2025.07.28-x86_64.iso of=/dev/sdX bs=4M status=progress && sync
      ```
      ⚠️ Replace `/dev/sdX` with your actual USB device (this will erase the disk).
 
-4. **Boot from USB**  
+3. **Boot from USB**  
    Reboot your machine and use your **BIOS/UEFI boot menu** to boot from the USB drive.
 
-5. **Live Environment and Installation**  
-   The ISO boots to a minimal graphical live session (Openbox, no full desktop
-   environment) and auto-launches the **Calamares** installer, Manjaro-style.
+4. **Live Session and Installation**  
+   <table width="100%">
+   <thead>
+   <tr><th align="left">ℹ️ NOTE</th></tr>
+   </thead>
+   <tbody>
+   <tr><td>
+
+   Some considerations when using the live session:
+   - Reserves 4 GB of RAM.
+   - Runs entirely from RAM, nothing gets saved after reboot.
+   - Uses a generic open-source graphics driver.
+
+   </td></tr>
+   </tbody>
+   </table>
+
+   The ISO boots into a live session and automatically launches the Az'arch
+   installer, which is powered by **Calamares**.
+
    From the live session you can:
-   - Use the live environment (Kitty terminal, LibreWolf browser, LibreOffice)
-   - Install with **Calamares** (auto-opens; also on the right-click menu). It
-     defaults to **Btrfs** and offers **full-disk LUKS encryption** as a toggle.
-   - Or, for rescue use, run the legacy terminal installer on the Desktop:
-     `sudo ~/Desktop/azarch-iso-installer.sh`
+   - Install Az'arch.
+   - Perform machine rescue tasks.
+   - Do general work.
 
 ## 🧰 Compile
 
@@ -71,17 +86,12 @@ uploaded).
 > (SHA256, plus an OpenPGP signature for LibreWolf).
 >
 > **Two build tiers:**
-> - **`./compile.sh`** (default) — binary-first: every package that has a verified
->   binary is fetched as one (all Arch packages via pacman; LibreWolf repackaged from
->   its *official prebuilt tarball*, SHA256 + OpenPGP verified). Only Calamares is
->   compiled from source, because upstream publishes no prebuilt Calamares binary to
->   fetch and verify. This keeps builds to minutes.
-> - **`./compile.sh --full-compile`** — everything Az'arch builds itself is compiled
->   from source, including LibreWolf from Firefox source. Nothing prebuilt. Expect a
->   multi-hour build needing ~16 GB RAM and tens of GB of disk.
-> - **`./compile.sh --estimate-full-compile`** — builds nothing; just prints a rough
->   estimate of how long `--full-compile` would take on *this* machine (from its CPU
->   cores and RAM) and exits. No sudo, no network.
+> - **`./compile.sh`** (default) — Calamares is compiled from source; LibreWolf is
+>   repackaged from its *official prebuilt tarball* (SHA256 + signature verified).
+>   A full LibreWolf/Firefox compile takes 1.5–3+ hours, so this keeps builds fast.
+> - **`./compile.sh --full-compile`** — everything is compiled from source,
+>   including LibreWolf from Firefox source. Nothing prebuilt. Expect a multi-hour
+>   build needing ~16 GB RAM and tens of GB of disk.
 >
 > With Docker, pass the flag through: append `--full-compile` to the `docker run`
 > image name, i.e. `... azarch ./compile.sh --full-compile`.
