@@ -151,7 +151,7 @@ The build runs in Docker, so the steps are the same on every operating system.
 5. **Get the ISO.** It's in the `output/` folder. On **Windows (WSL)** that folder
    opens in File Explorer at `\\wsl$\<distro>\home\<your-username>\azarch\output`.
 
-- **Wipe the cache** to force a fresh, fully-online rebuild:
+- **Wipe the cache** to force a fresh, fully-online rebuild. This deletes the git-ignored `cache/`, `output/`, and `logs/` directories:
 
   <table width="100%">
   <thead>
@@ -173,5 +173,5 @@ The build runs in Docker, so the steps are the same on every operating system.
   </table>
 
   ```
-  git clean -Xdf        # deletes cache/, output/, logs/ (all git-ignored)
+  git clean -Xdf
   ```
