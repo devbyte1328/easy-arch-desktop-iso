@@ -36,10 +36,13 @@ This is a year-old, neglected, poorly put-together project that is undergoing a 
    Reboot your machine and use your **BIOS/UEFI boot menu** to boot from the USB drive.
 
 5. **Live Environment and Installation**  
-   The ISO boots to a console (autologin, no desktop yet — the desktop is being
-   reworked as part of the overhaul). From the shell you can either:
-   - Use the live environment temporarily  
-   - Or start the installation by running the installer script on the Desktop:
+   The ISO boots to a minimal graphical live session (Openbox, no full desktop
+   environment) and auto-launches the **Calamares** installer, Manjaro-style.
+   From the live session you can:
+   - Use the live environment (Kitty terminal, LibreWolf browser, LibreOffice)
+   - Install with **Calamares** (auto-opens; also on the right-click menu). It
+     defaults to **Btrfs** and offers **full-disk LUKS encryption** as a toggle.
+   - Or, for rescue use, run the legacy terminal installer on the Desktop:
      `sudo ~/Desktop/azarch-iso-installer.sh`
 
 ## 🧰 Compile
@@ -59,6 +62,24 @@ after that everything is cached and rebuilds run fully offline (see
 Packages are pulled at their latest version, so the ISO you build may contain
 bugs the pre-built download does not (that one was briefly examined before being
 uploaded).
+
+> **Our own packages, not the AUR.** Two components are not in the official Arch
+> repos: the **Calamares** installer and the **LibreWolf** browser. Az'arch does
+> NOT pull these from the AUR or any community source — it builds them from its
+> OWN recipes (`libraries/azarch/config/pkgbuild.py`, consumed by `makepkg`) into
+> the ISO's offline repo. Every external artifact is pinned and integrity-checked
+> (SHA256, plus an OpenPGP signature for LibreWolf).
+>
+> **Two build tiers:**
+> - **`./compile.sh`** (default) — Calamares is compiled from source; LibreWolf is
+>   repackaged from its *official prebuilt tarball* (SHA256 + signature verified).
+>   A full LibreWolf/Firefox compile takes 1.5–3+ hours, so this keeps builds fast.
+> - **`./compile.sh --full-compile`** — everything is compiled from source,
+>   including LibreWolf from Firefox source. Nothing prebuilt. Expect a multi-hour
+>   build needing ~16 GB RAM and tens of GB of disk.
+>
+> With Docker, pass the flag through: append `--full-compile` to the `docker run`
+> image name, i.e. `... azarch ./compile.sh --full-compile`.
 
 **Build with Docker.** The ISO is assembled with `mkarchiso`, which resolves the
 ISO's package list against the build host's Arch Linux repositories. That means

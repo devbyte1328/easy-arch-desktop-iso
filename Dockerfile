@@ -31,6 +31,13 @@ FROM archlinux:latest
 #   python        -> the build itself: compile.sh is a thin PTY/sudo shim that
 #                    hands off to `python3 -m azarch.build` (see libraries/)
 # --noconfirm keeps the build non-interactive.
+# Extra tools beyond the original set, for the makepkg stage that builds Az'arch's
+# OWN packages (calamares, librewolf) from our recipes in azarch.config.pkgbuild:
+#   fakeroot   -> makepkg's fakeroot packaging (part of base-devel, listed for clarity)
+#   gnupg      -> import + verify LibreWolf's release signing key for the .sig check
+# The heavy makedepends (cmake, qt6-*, kpmcore, rust, clang, ...) are installed at
+# build time by azarch.makepkg._install_host_build_deps, not baked in here, so the
+# image stays small and the dep set tracks the recipes.
 RUN pacman -Sy --needed --noconfirm archlinux-keyring \
     && pacman -Syu --needed --noconfirm \
         archiso \
@@ -39,6 +46,8 @@ RUN pacman -Sy --needed --noconfirm archlinux-keyring \
         git \
         sudo \
         python \
+        fakeroot \
+        gnupg \
     && pacman -Scc --noconfirm
 
 # Initialize pacman's trust database. Installing archlinux-keyring above only

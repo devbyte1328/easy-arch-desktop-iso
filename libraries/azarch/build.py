@@ -92,6 +92,14 @@ def main() -> int:
     paths.LOGDIR.mkdir(parents=True, exist_ok=True)
     paths.CACHEDIR.mkdir(parents=True, exist_ok=True)
 
+    # --full-compile: build Az'arch's own packages entirely from source (incl. the
+    # multi-hour LibreWolf/Firefox compile) rather than repackaging the verified
+    # upstream LibreWolf tarball. Default is the fast repackage tier.
+    full_compile = "--full-compile" in sys.argv[1:]
+    if full_compile:
+        print("[*] --full-compile: Az'arch's own packages will be built ENTIRELY from source.")
+        print("    This includes a LibreWolf/Firefox compile that can take 1.5-3+ hours.")
+
     offline = cache_is_complete()
     _stale_cache_notice(offline)
 
@@ -132,7 +140,8 @@ def main() -> int:
 
     bar.init()
     try:
-        iso = steps.run(bar, offline, reclaim_after_mkarchiso=own.reclaim_full)
+        iso = steps.run(bar, offline, full_compile=full_compile,
+                        reclaim_after_mkarchiso=own.reclaim_full)
     except SystemExit as e:
         teardown()
         msg = str(e)

@@ -81,6 +81,18 @@ cp /root/azarch/os-release /usr/lib/os-release
 chmod 0644 /usr/lib/os-release
 """
 
+# getty@tty1 autologin override. The releng base autologins ROOT on tty1; the
+# graphical live session must instead autologin the unprivileged `main` user, whose
+# ~/.bash_profile execs startx into the Openbox session. Running the desktop as root
+# is wrong (Calamares/Qt dislike it, and the live user model expects `main`). The
+# empty first ExecStart= clears the unit's default before we set ours (systemd
+# requires the reset to override ExecStart in a drop-in).
+GETTY_TTY1_AUTOLOGIN = """\
+[Service]
+ExecStart=
+ExecStart=-/usr/bin/agetty --noreset --noclear --autologin main - $TERM
+"""
+
 # System hostname. The archiso releng base ships `archiso`; we overlay `azarch`
 # so the shell prompt and fastfetch title read main@azarch instead of main@archiso.
 # (We deliberately do NOT rename the `archiso` build TOOLING or the ISO's internal

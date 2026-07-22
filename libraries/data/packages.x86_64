@@ -151,18 +151,26 @@ zsh
 # ============================================================================
 # AZ'ARCH ADDITIONS -- everything below is added by Az'arch (edit here)
 # ============================================================================
+# NOTE: calamares and librewolf ARE listed here (so pacstrap installs them), but
+# their PACKAGE FILES come from Az'arch's OWN recipes built into the offline repo
+# (libraries/azarch/config/pkgbuild.py), not from the Arch mirrors. Their
+# Arch-repo runtime dependencies are also listed below. Every name below was
+# verified present in the Arch core/extra repos (or, for calamares/librewolf, in
+# the Az'arch local repo).
+
+# --- Az'arch's own packages (built by the makepkg stage into the local repo) ---
+calamares
+librewolf
+
+# --- Base system / firmware / networking ---
 os-prober
 linux-headers
 networkmanager
-xorg
 base-devel
 rp-pppoe
 bc
 curl
 git
-pipewire
-pipewire-pulse
-pipewire-alsa
 dialog
 ufw
 htop
@@ -170,12 +178,7 @@ fastfetch
 bluez
 bluez-utils
 cups
-mesa
-dotnet-sdk
-dotnet-runtime
-dotnet-host
 webp-pixbuf-loader
-libreoffice-fresh
 xclip
 go
 zip
@@ -184,8 +187,91 @@ jq
 python
 python-pip
 tk
+
+# --- Audio (PipeWire; wireplumber is the session manager -- without it the
+#     audio graph never comes up) ---
+pipewire
+pipewire-pulse
+pipewire-alsa
+wireplumber
+
+# --- Xorg + Openbox graphical live session (minimal, no DE) ---
+xorg-server
+xorg-xinit
+xorg-xrandr
+xorg-xsetroot
+mesa
+openbox
+picom
+feh
+pcmanfm
+gvfs
+lxappearance
+network-manager-applet
+polkit-gnome
+xdg-user-dirs
+xdg-utils
+dunst
+kitty
+xterm
+ttf-dejavu
+ttf-liberation
+noto-fonts
+adwaita-icon-theme
+gnome-themes-extra
+xcursor-themes
+
+# --- Calamares installer runtime deps (from Arch repos; calamares itself is
+#     our own package). Filesystem + partitioning + Qt6/KF6 + polkit +
+#     bootloader + initramfs. rsync is required by unpackfs; parted/cryptsetup/
+#     lvm2/mkinitcpio/efibootmgr/grub back the partition/LUKS/bootloader modules. ---
+kpmcore
+qt6-base
+qt6-svg
+qt6-declarative
+qt6-5compat
+kconfig
+kcoreaddons
+ki18n
+kcrash
+kwidgetsaddons
+kpackage
+yaml-cpp
+polkit
+polkit-qt6
+squashfs-tools
+rsync
+dosfstools
+e2fsprogs
+btrfs-progs
+ntfs-3g
+exfatprogs
+gptfdisk
+parted
+cryptsetup
+lvm2
+mkinitcpio
+efibootmgr
+grub
+hwinfo
+icu
+
+# --- LibreWolf runtime deps (browser is our own package; these are its Arch
+#     library deps so it runs) ---
+gtk3
+nss
+libnotify
+libpulse
+
+# --- Applications ---
+libreoffice-fresh
 vlc
 vlc-plugin-ffmpeg
 vlc-plugin-x264
 vlc-plugin-x265
 vlc-plugin-upnp
+
+# --- .NET (kept from the prior manifest) ---
+dotnet-sdk
+dotnet-runtime
+dotnet-host

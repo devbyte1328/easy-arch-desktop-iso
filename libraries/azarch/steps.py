@@ -17,16 +17,18 @@ from pathlib import Path
 
 import signal
 
-from . import emit, packages, paths
-from .config import fastfetch, installer, locale, pacman, profile, system
+from . import emit, makepkg, packages, paths
+from .config import calamares, desktop, fastfetch, installer, locale, pacman, profile, system
 from .progress import ProgressBar
 
 # Weights: setup/emit steps carry real weight so the bar visibly advances through
-# them (at weight 1 they were ~2% of the whole bar and looked frozen); the two giants
+# them (at weight 1 they were ~2% of the whole bar and looked frozen); the giants
 # are still the bulk, sized from real log spans. Keep in sync with steps below:
-# len(STEP_WEIGHTS) - 1 MUST equal the number of bar.step() calls in run(), and the
-# final two weights belong to the package-cache and mkarchiso giants, in that order.
-STEP_WEIGHTS = [0] + [8] * 11 + [250, 270]
+# len(STEP_WEIGHTS) - 1 MUST equal the number of bar.step() calls in run(). The
+# final THREE weights belong, in order, to: the package-cache giant, the makepkg
+# stage (our own calamares/librewolf; heavy in the default tier, VERY heavy with
+# --full-compile), and the mkarchiso giant.
+STEP_WEIGHTS = [0] + [8] * 12 + [250, 120, 270]
 
 # PGID of the currently-running mkarchiso child (0 = none). mkarchiso is spawned in
 # its own session/process group so the signal handler can kill THAT group (and all
@@ -56,8 +58,13 @@ def kill_active_child(sudo: list[str]) -> None:
                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
 
 
-def run(bar: ProgressBar, offline: bool, reclaim_after_mkarchiso) -> Path:
-    """Execute all steps; return the path to the built ISO. Raises on failure."""
+def run(bar: ProgressBar, offline: bool, reclaim_after_mkarchiso, full_compile: bool = False) -> Path:
+    """Execute all steps; return the path to the built ISO. Raises on failure.
+
+    full_compile: when True, Az'arch's own packages (librewolf) are compiled from
+    source instead of repackaged from the verified upstream tarball. Passed to the
+    makepkg stage below.
+    """
     W = paths.WORKDIR
     airootfs = W / "airootfs"
     ea = airootfs / "root/azarch"  # the azarch payload dir baked into the ISO
@@ -136,7 +143,18 @@ def run(bar: ProgressBar, offline: bool, reclaim_after_mkarchiso) -> Path:
     # Overlay the releng `archiso` hostname with `azarch` (prompt + fastfetch title).
     emit.write_text(airootfs / "etc/hostname", system.HOSTNAME)
 
-    # 8 -- Stage installed-system pacman and pkgs service.
+    # 8 -- Overlay the Openbox live desktop + Calamares installer config.
+    # The graphical live session (Manjaro-style): user configs go to BOTH the live
+    # `main` home AND /etc/skel (so a Calamares-created user on the installed system
+    # inherits the same desktop). The tty1 autologin override switches the releng
+    # default (autologin root) to autologin `main`, whose .bash_profile execs startx.
+    # The Calamares config tree lands under /etc/calamares.
+    bar.step("Overlay Openbox desktop and Calamares config")
+    _emit_desktop(airootfs, home)
+    _emit_calamares(airootfs)
+    _emit_tty1_autologin(airootfs)
+
+    # 9 -- Stage installed-system pacman and pkgs service.
     # The package-management unit of the installed system: its /etc/pacman.conf, the
     # live-session setup-pkgs.sh, and the pkgs-setup.service that runs it.
     bar.step("Stage installed-system pacman and pkgs service")
@@ -153,10 +171,10 @@ def run(bar: ProgressBar, offline: bool, reclaim_after_mkarchiso) -> Path:
     emit.write_text(airootfs / "etc/sudoers.d/00-main", system.SUDOERS_MAIN, mode=0o440)
 
     # 10 -- Emit profiledef and installer payload.
-    # profiledef.sh (archiso metadata at the PROFILE ROOT, not airootfs), the installer
-    # script, and the first-boot script/service/conf. The old XDG-autostart .desktop
-    # (which launched the installer in konsole) was dropped with the desktop -- the ISO
-    # now boots to a console, so the installer is run from the shell instead.
+    # profiledef.sh (archiso metadata at the PROFILE ROOT, not airootfs) plus the
+    # first-boot script/service/conf. Calamares (auto-launched from the Openbox
+    # session, step 8) is now the PRIMARY installer; the legacy bash installer is
+    # still emitted to the Desktop as a terminal fallback for rescue use.
     bar.step("Emit profiledef and installer payload")
     emit.write_exec(W / "profiledef.sh", profile.profiledef_sh())
     emit.write_exec(home / "Desktop/azarch-iso-installer.sh", installer.installer_sh())
@@ -184,7 +202,19 @@ def run(bar: ProgressBar, offline: bool, reclaim_after_mkarchiso) -> Path:
     emit.write_text(ea / "pacstrap-azarch-conf/pacman.conf", pacman.installer_pacstrap_conf())
     emit.write_exec(ea / "chroot-setup.sh", installer.chroot_setup_sh())
 
-    # 13 -- Assemble ISO (GIANT, weight 270).
+    # 13 -- Build Az'arch's OWN packages and fold them into the offline repo
+    # (GIANT-ish, weight 120; MUCH heavier under --full-compile). makepkg builds
+    # calamares (always from source) and librewolf (repackaged upstream by default,
+    # or from Firefox source under --full-compile), drops the *.pkg.tar.zst into
+    # cache/pkgs/repo/, then we RE-reconcile the index and RE-stage the repo into
+    # airootfs so mkarchiso's pacstrap (and the on-disk installer) can install them.
+    bar.step("Build Az'arch's own packages (calamares, librewolf)")
+    makepkg.build_own_packages(offline, full_compile, bar.sub, bar.phase)
+    bar.sub_done()
+    bar._arm(); bar.draw()
+    _refold_own_packages_into_repo(W)
+
+    # 14 -- Assemble ISO (GIANT, weight 270).
     # mkarchiso: pacstrap into airootfs, mksquashfs, checksum, build the .iso
     # (drives bar.sub sub-progress via _drive_mkarchiso_progress).
     bar.step("Assemble ISO (mkarchiso)")
@@ -193,6 +223,63 @@ def run(bar: ProgressBar, offline: bool, reclaim_after_mkarchiso) -> Path:
 
 
 # --- helpers ---------------------------------------------------------------
+
+def _emit_desktop(airootfs: Path, home: Path) -> None:
+    """Emit the Openbox live-session files. Each PLAN entry has an absolute dest
+    (either under /home/main for the live user or an absolute system path). User
+    files are ALSO copied into /etc/skel so a Calamares-created user on the
+    installed system inherits the same desktop (Manjaro-style). The /home/main
+    tree is chowned 1000:998 by step 6 / the post-emit chown below."""
+    skel = airootfs / "etc/skel"
+    for entry in desktop.emit_plan():
+        content = entry["builder"]()
+        dest_abs = entry["dest"]          # e.g. "/home/main/.xinitrc" or "/usr/local/bin/..."
+        mode = entry["mode"]
+        # airootfs-relative destination (strip leading '/').
+        emit.write_text(airootfs / dest_abs.lstrip("/"), content, mode=mode)
+        # Mirror HOME-relative user files into /etc/skel for installed-system users.
+        if entry["owner"] == "home" and dest_abs.startswith(desktop.HOME + "/"):
+            rel = dest_abs[len(desktop.HOME) + 1:]   # path under the home dir
+            emit.write_text(skel / rel, content, mode=mode)
+    # re-assert ownership of the live user's tree (new files were added under it).
+    subprocess.run(_sudo() + ["chown", "-R", "1000:998", str(home)], check=False)
+
+
+def _emit_calamares(airootfs: Path) -> None:
+    """Write the whole Calamares config tree under /etc/calamares."""
+    base = airootfs / "etc/calamares"
+    for rel, content in calamares.emit_map().items():
+        emit.write_text(base / rel, content)
+
+
+def _emit_tty1_autologin(airootfs: Path) -> None:
+    """Override the releng getty@tty1 autologin so it logs in `main` (not root).
+    The graphical session runs X as the unprivileged live user; `main`'s
+    .bash_profile then execs startx. Root autologin would run the whole desktop
+    as root, which Calamares and Qt both dislike."""
+    dropin = airootfs / "etc/systemd/system/getty@tty1.service.d/autologin.conf"
+    emit.write_text(dropin, system.GETTY_TTY1_AUTOLOGIN)
+
+
+def _refold_own_packages_into_repo(W: Path) -> None:
+    """After makepkg drops calamares/librewolf into cache/pkgs/repo/, re-reconcile
+    the local repo index so those packages are in pacstrap-azarch-repo.db, then
+    RE-stage the repo + db into the airootfs payload dir. build_cache already
+    staged the Arch packages there; this overlays our two on top so mkarchiso's
+    pacstrap and the on-disk installer resolve them from the same offline repo."""
+    pkg_repo = paths.PKG_REPO
+    pkg_db = paths.PKG_DB
+    # Re-run the incremental index reconcile (delta: only the 2 new packages added).
+    packages._reconcile_index(pkg_repo, lambda _p: None)
+    # Re-stage into the airootfs payload the on-disk installer copies from.
+    ea = W / "airootfs" / "root/azarch"
+    final_db = ea / "pacstrap-azarch-db"
+    final_cache = ea / "pacstrap-azarch-repo"
+    final_db.mkdir(parents=True, exist_ok=True)
+    final_cache.mkdir(parents=True, exist_ok=True)
+    subprocess.run(["cp", "-r", f"{pkg_db}/.", f"{final_db}/"], check=False)
+    subprocess.run(["cp", "-r", f"{pkg_repo}/.", f"{final_cache}/"], check=False)
+
 
 def _unmount_worktree(sudo) -> None:
     aw = paths.AIROOTFS
@@ -245,10 +332,11 @@ def _emit_fastfetch(ea: Path, home: Path) -> None:
 
 
 def _link_services(airootfs: Path) -> None:
-    # Console-only live medium: no display manager, no graphical.target. The archiso
-    # releng base already autologins on tty1, so we only enable the multi-user daemons
-    # and the two azarch oneshots. (KDE/SDDM and graphical.target.wants were removed in
-    # the overhaul; a desktop/WM is layered back on later, not here.)
+    # Graphical live medium WITHOUT a display manager: the tty1 autologin (overridden
+    # to `main`) drops into a login shell whose ~/.bash_profile execs startx -> Openbox
+    # -> Calamares. So there is deliberately NO display-manager unit and NO
+    # graphical.target.wants here; we only enable the multi-user daemons and the two
+    # azarch oneshots. X is started from the shell, not by systemd.
     base = airootfs / "etc/systemd/system"
     emit.mkdir(base / "multi-user.target.wants")
     for svc in ("NetworkManager.service", "bluetooth.service", "org.cups.cupsd.service"):
@@ -299,6 +387,13 @@ def _probe_and_maybe_switch(W: Path, conf: str, localrepo: Path, bar: ProgressBa
     ).returncode == 0
     if ok:
         print("    [+] Mirrors reachable -- building online (new packages will be fetched).")
+        # Online build still needs the LOCAL repo for Az'arch's own packages
+        # (calamares, librewolf) -- they exist on no mirror. Append it alongside
+        # the network repos so pacstrap resolves Arch pkgs from mirrors and ours
+        # from file://. The packages themselves are dropped in by the makepkg step
+        # (13) before mkarchiso (14) runs.
+        conf = pacman.append_local_repo(conf, str(localrepo))
+        emit.write_text(W / "pacman.conf", conf)
     elif paths.LOCALREPO_INDEX.exists():
         print(f"    [!] Mirrors unreachable -- building OFFLINE from {localrepo}.")
         _switch_offline(W, conf, localrepo)

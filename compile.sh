@@ -18,6 +18,11 @@
 #      a faithful copy of everything to logs/full.log.
 #
 # Then it hands off to `python3 -m azarch.build`, which does the rest.
+#
+# ARGS: any args (e.g. --full-compile) are passed straight through to the Python
+# build driver. --full-compile makes Az'arch's own packages build EVERYTHING from
+# source (incl. a multi-hour LibreWolf/Firefox compile) instead of the default,
+# which repackages LibreWolf's verified upstream tarball. See azarch.build.
 
 set -o pipefail
 

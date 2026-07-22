@@ -217,6 +217,22 @@ def build_profile_conf(cachedir: str | None = None) -> str:
     return conf
 
 
+def append_local_repo(conf: str, localrepo_path: str) -> str:
+    """Append the local file:// [pacstrap-azarch-repo] to a conf that KEEPS its
+    network repos. Used for ONLINE builds so mkarchiso's pacstrap pulls Arch
+    packages from the mirrors AND Az'arch's own packages (calamares, librewolf,
+    which are not on any mirror) from the local repo. Listed LAST so the network
+    repos take precedence for any name they both carry (they won't overlap, but
+    ordering makes intent explicit)."""
+    if "[pacstrap-azarch-repo]" in conf:
+        return conf
+    return conf.rstrip("\n") + (
+        "\n\n[pacstrap-azarch-repo]\n"
+        "SigLevel = Never\n"
+        f"Server = file://{localrepo_path}\n"
+    )
+
+
 def switch_to_local_repo(conf: str, localrepo_path: str) -> str:
     """Rewrite a profile pacman.conf so pacstrap installs from the local file://
     repo instead of the network mirrors -- the fully-offline rebuild path.

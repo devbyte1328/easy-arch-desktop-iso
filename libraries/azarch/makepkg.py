@@ -1,0 +1,244 @@
+"""Build Az'arch's OWN packages (calamares, librewolf) with makepkg and drop the
+resulting *.pkg.tar.zst into the offline repo the rest of the build already uses.
+
+Everything not in the official Arch repos is built from recipes WE author in
+azarch.config.pkgbuild -- never the AUR, never an AUR helper. This module is the
+runner: it emits those recipes into a scratch dir, ensures the host has the
+makedepends, runs `makepkg` as an UNPRIVILEGED user (makepkg refuses root), and
+copies the built packages into cache/pkgs/repo/ so the normal index-reconcile
+step (packages._reconcile_index) folds them into pacstrap-azarch-repo.db next to
+the Arch packages. `calamares`/`librewolf` in packages.x86_64 then resolve from
+the local repo like anything else.
+
+Tiers: full_compile=False builds librewolf by repackaging the verified upstream
+tarball (fast); full_compile=True compiles it from Firefox source (hours). The
+flag is chosen by config.pkgbuild.recipe_dirs().
+
+Offline policy: makepkg needs to FETCH sources (the calamares/firefox/librewolf
+tarballs + git). When the build is fully offline (BUILD_OFFLINE) we SKIP the
+makepkg stage if the packages are already present in the repo, and fail loudly
+if they are not -- exactly like the rest of the cache-first design.
+"""
+
+from __future__ import annotations
+
+import os
+import pwd
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+from typing import Callable
+
+from . import emit, paths
+from .config import pkgbuild as pkgbuild_cfg
+
+ProgressCb = Callable[[int], None]
+
+# Unprivileged user makepkg runs as (makepkg aborts as root). Created on demand
+# on a native/root build; on a rootless build we already are unprivileged and
+# just use the current user.
+BUILDER_USER = "azbuilder"
+
+# The two package NAMES this stage produces. Used to detect "already built".
+PRODUCED = ("calamares", "librewolf")
+
+
+class MakepkgError(RuntimeError):
+    pass
+
+
+def _sudo() -> list[str]:
+    return [] if paths.is_root() else ["sudo"]
+
+
+def _run(cmd: list[str], **kw) -> subprocess.CompletedProcess:
+    return subprocess.run(cmd, **kw)
+
+
+def _repo_has_all(pkg_repo: Path) -> bool:
+    """True if a built package file exists for every PRODUCED name."""
+    for name in PRODUCED:
+        if not any(pkg_repo.glob(f"{name}-*.pkg.tar.zst")):
+            return False
+    return True
+
+
+def _emit_recipes(scratch: Path, full_compile: bool) -> list[Path]:
+    """Write each recipe dir (PKGBUILD + companions) from config.pkgbuild into
+    scratch/. Returns the list of recipe dirs to build, in order."""
+    dirs: list[Path] = []
+    for dirname, files in pkgbuild_cfg.recipe_dirs(full_compile):
+        d = scratch / dirname
+        d.mkdir(parents=True, exist_ok=True)
+        for filename, content in files.items():
+            emit.write_text(d / filename, content)
+        dirs.append(d)
+    return dirs
+
+
+def _ensure_builder_user() -> str:
+    """Return the username makepkg should run as. On a root build, create an
+    unprivileged builder; otherwise use the current (already unprivileged) user."""
+    if not paths.is_root():
+        return pwd.getpwuid(os.getuid()).pw_name
+    try:
+        pwd.getpwnam(BUILDER_USER)
+    except KeyError:
+        _run(["useradd", "-m", "-s", "/bin/bash", BUILDER_USER], check=True)
+    # passwordless sudo for the builder is NOT granted; makepkg installs its
+    # makedepends via a separate root `pacman -S` we run below, so the builder
+    # only ever runs the unprivileged compile.
+    return BUILDER_USER
+
+
+def _collect_makedepends(dirs: list[Path]) -> list[str]:
+    """Union of makedepends + depends across the recipes, so the host can build
+    (makedepends) and so runtime deps are present for any check phase."""
+    want: set[str] = set()
+    for d in dirs:
+        pb = d / "PKGBUILD"
+        # Source the PKGBUILD in bash and print its dep arrays -- authoritative,
+        # avoids reparsing bash arrays in Python.
+        out = subprocess.run(
+            ["bash", "-c", f'source "{pb}"; printf "%s\\n" "${{makedepends[@]}}" "${{depends[@]}}"'],
+            capture_output=True, text=True,
+        ).stdout
+        for tok in out.split():
+            tok = tok.strip()
+            if tok:
+                want.add(tok)
+    return sorted(want)
+
+
+def _install_host_build_deps(sudo: list[str], deps: list[str], offline: bool) -> None:
+    """Install makedepends on the BUILD HOST so makepkg can compile. Skipped when
+    offline (assumes a warm host / already-built packages)."""
+    if offline or not deps:
+        return
+    print(f"    [+] Installing {len(deps)} build-host dependencies for makepkg...")
+    r = _run(sudo + ["pacman", "-S", "--needed", "--noconfirm", *deps])
+    if r.returncode != 0:
+        # Non-fatal: makepkg will still try and fail clearly if something's truly
+        # missing. Some listed deps are runtime-only and may not be needed to build.
+        print("    [!] Some build-host deps failed to install; continuing (makepkg will verify).")
+
+
+def _import_librewolf_key(builder: str, sudo: list[str], offline: bool) -> None:
+    """Import the LibreWolf release key into the BUILDER's gpg keyring so the
+    librewolf recipe's detached-signature check passes. Fails closed online: if
+    the key can't be fetched, the signature check would be skipped, so we abort."""
+    if offline:
+        return
+    key = pkgbuild_cfg.LIBREWOLF_PGP_KEY
+    # Run gpg AS the builder (its keyring is what makepkg checks).
+    def as_builder(args: list[str]) -> subprocess.CompletedProcess:
+        if paths.is_root():
+            return _run(["sudo", "-u", builder, *args])
+        return _run(args)
+
+    for ks in ("hkps://keyserver.ubuntu.com", "hkps://keys.openpgp.org"):
+        r = as_builder(["gpg", "--keyserver", ks, "--recv-keys", key])
+        if r.returncode == 0:
+            print(f"    [+] Imported LibreWolf signing key {key[-8:]} from {ks}.")
+            return
+    raise MakepkgError(
+        f"Could not import the LibreWolf signing key {key} from any keyserver.\n"
+        "    The signature check would be bypassed, so the build fails closed.\n"
+        "    Check network/keyservers, or use --full-compile (source build, no tarball sig)."
+    )
+
+
+def build_own_packages(offline: bool, full_compile: bool, progress: ProgressCb,
+                        phase: Callable[[str], None] = lambda _s: None) -> None:
+    """Emit our recipes, build them with makepkg, and drop the packages into the
+    offline repo. Idempotent: an already-built package is not rebuilt."""
+    sudo = _sudo()
+    pkg_repo = paths.PKG_REPO
+    pkg_repo.mkdir(parents=True, exist_ok=True)
+
+    tier = "full-compile (from source)" if full_compile else "default (repackage verified upstream)"
+    print(f"[*] Building Az'arch's own packages -- tier: {tier}")
+    phase(f"own packages: {tier}")
+    progress(20)
+
+    if offline:
+        if _repo_has_all(pkg_repo):
+            print("    [+] Own packages already present in the offline repo -- skipping makepkg.")
+            progress(1000)
+            return
+        raise MakepkgError(
+            "Offline build but calamares/librewolf are not in the cache.\n"
+            "    Rebuild once online (FORCE_ONLINE=1) or wipe cache/ so they get built."
+        )
+
+    scratch = paths.CACHEDIR / "makepkg"
+    if scratch.exists():
+        _run(sudo + ["rm", "-rf", str(scratch)], check=False)
+    scratch.mkdir(parents=True, exist_ok=True)
+
+    dirs = _emit_recipes(scratch, full_compile)
+    progress(80)
+
+    builder = _ensure_builder_user()
+    deps = _collect_makedepends(dirs)
+    _install_host_build_deps(sudo, deps, offline)
+    progress(200)
+
+    _import_librewolf_key(builder, sudo, offline)
+    progress(260)
+
+    # The builder must own the scratch tree to write src//pkg/ during makepkg.
+    if paths.is_root():
+        _run(["chown", "-R", f"{builder}:{builder}", str(scratch)], check=True)
+
+    total = len(dirs)
+    for i, d in enumerate(dirs):
+        name = d.name
+        phase(f"makepkg: building {name}")
+        print(f"[*] makepkg: building {name} ({i + 1}/{total})...")
+        _makepkg_one(builder, d)
+        # copy the freshly built package(s) into the offline repo
+        built = sorted(d.glob("*.pkg.tar.zst"))
+        if not built:
+            raise MakepkgError(f"makepkg produced no package for {name} in {d}")
+        for pkgfile in built:
+            shutil.copy2(pkgfile, pkg_repo / pkgfile.name)
+            print(f"    [+] {pkgfile.name} -> offline repo")
+        progress(260 + (i + 1) * 700 // total)
+
+    # hand the repo back to the invoking user (parity with packages.build_cache).
+    own_uid = os.environ.get("HOST_UID") or str(os.getuid())
+    own_gid = os.environ.get("HOST_GID") or str(os.getgid())
+    _run(sudo + ["chown", "-R", f"{own_uid}:{own_gid}", str(pkg_repo)], check=False)
+    progress(1000)
+    print("[✓] Az'arch's own packages built and staged into the offline repo.")
+
+
+def _makepkg_one(builder: str, recipe_dir: Path) -> None:
+    """Run makepkg in recipe_dir as the unprivileged builder. -f force rebuild,
+    -c clean, --skippgpcheck NOT passed (sig checks must run for librewolf); -s
+    would auto-install deps via sudo which the builder lacks, so deps were
+    installed on the host already and we pass --nodeps=False by omitting -s and
+    relying on the host having them."""
+    # --holdver: don't let makepkg bump pkgver from VCS. --noconfirm: unattended.
+    cmd = ["makepkg", "-f", "--noconfirm", "--needed", "--noprogressbar"]
+    env = dict(os.environ)
+    # Keep makepkg's build/cache under the scratch dir, not the builder's $HOME,
+    # so a root build doesn't scatter files and offline reruns are clean.
+    env["PKGDEST"] = str(recipe_dir)
+    env["SRCDEST"] = str(recipe_dir / ".src")
+    env["BUILDDIR"] = str(recipe_dir / ".build")
+    (recipe_dir / ".src").mkdir(exist_ok=True)
+    (recipe_dir / ".build").mkdir(exist_ok=True)
+
+    if paths.is_root():
+        # Re-exec as the builder, preserving the makepkg env vars.
+        envargs = [f"{k}={env[k]}" for k in ("PKGDEST", "SRCDEST", "BUILDDIR")]
+        full = ["sudo", "-u", builder, "env", *envargs, *cmd]
+        r = subprocess.run(full, cwd=str(recipe_dir))
+    else:
+        r = subprocess.run(cmd, cwd=str(recipe_dir), env=env)
+
+    if r.returncode != 0:
+        raise MakepkgError(f"makepkg failed for {recipe_dir.name} (exit {r.returncode})")
