@@ -62,19 +62,7 @@ This is a year-old, neglected, poorly put-together project that is undergoing a 
 
 ## 🧰 Compile
 
-You can clone this repository and compile the ISO yourself. The first build
-needs an internet connection to download every component that goes into the ISO,
-after that everything is cached and rebuilds run fully offline.
-
-Build with Docker. The ISO is assembled with `mkarchiso`, which resolves the
-ISO's package list against the build host's Arch Linux repositories. That means
-the build only works on a genuine Arch userland with the real Arch `core`,
-`extra`, and `multilib` repositories. On anything else those repositories are
-wrong or missing and the build fails with errors like
-`target not found: archinstall` or endless kernel-provider prompts.
-
-Docker sidesteps all of that, the image is `archlinux:latest`, so the build runs
-inside real Arch no matter what machine you are on.
+You can clone this repository and compile the ISO yourself. The first build needs an internet connection to download every component that goes into the ISO, after that everything is cached and rebuilds run fully offline. Build with Docker. The ISO is assembled with `mkarchiso`, which resolves the ISO's package list against the build host's Arch Linux repositories. That means the build only works on a genuine Arch userland with the real Arch `core`, `extra`, and `multilib` repositories. On anything else those repositories are wrong or missing and the build fails with errors like `target not found: archinstall` or endless kernel-provider prompts. Docker sidesteps all of that, the image is `archlinux:latest`, so the build runs inside real Arch no matter what machine you are on.
 
 ### 🐧 Linux
 
