@@ -148,6 +148,13 @@ def _sync_and_download(sudo, dlconf, gpgdir, pkg_db, pkg_repo, progress, phase=l
     # targets and fail the cache download. (Package names never contain '#'.)
     pkgs = [tok for line in paths.PACKAGES_FILE.read_text().splitlines()
             if (tok := line.split("#", 1)[0].strip())]
+    # EXCLUDE Az'arch's OWN packages (calamares, librewolf): they exist on no Arch
+    # mirror, so `pacman -Sw` would abort with "target not found". They are built
+    # by the makepkg stage (steps.py step 13) and folded into the same offline repo
+    # right AFTER this download, then indexed alongside everything else.
+    from .makepkg import PRODUCED
+    own = set(PRODUCED)
+    pkgs = [p for p in pkgs if p not in own]
 
     print("[*] Downloading missing packages into the persistent cache (resumable)...")
     phase(f"downloading {len(pkgs)} packages into cache")
