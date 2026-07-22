@@ -1,10 +1,5 @@
 """All pacman.conf variants, generated in Python.
 
-There used to be four loose pacman.conf files under conf/, including a separate
-``force-x11-session/pacman.conf`` "hack". That hack is gone: its only real
-content (NoExtract the wayland session file + an injected build CacheDir) is now
-just parameters to ``build_profile_conf()`` below. One generator, no hack dir.
-
 The variants:
 
   download_conf()          used by the package-cache step to fetch ISO packages on
@@ -13,12 +8,10 @@ The variants:
 
   build_profile_conf()     the archiso profile's pacman.conf that mkarchiso's
                            internal pacstrap uses. Standard Arch base, PLUS:
-                             - NoExtract wayland-sessions/plasma.desktop (X11-only)
+                             - NoExtract usr/lib/os-release (Az'arch branding wins)
                              - an injected CacheDir (the persistent build cache)
                              - optionally rewritten to a file:// local repo for
                                fully-offline rebuilds.
-                           This replaces both conf/system/pacman.conf-as-profile
-                           and the force-x11-session hack.
 
   installer_base_conf()    the pacman.conf shipped to the INSTALLED system
                            (/etc/pacman.conf): plain Arch defaults, multilib on.
@@ -128,25 +121,16 @@ _CUSTOM_EXAMPLE = """\
 
 
 # Files the ISO overrides / suppresses. pacstrap must NOT extract the owning
-# package's version, for two distinct reasons:
-#   usr/lib/os-release                        owned by `filesystem`; we replace it
-#                                             with the Az'arch-branded file, planted
-#                                             post-pacstrap by customize_airootfs.sh.
-#   usr/share/xsessions/plasma.desktop        owned by `plasma-workspace`; we replace
-#                                             it with our X11 session entry, also
-#                                             planted post-pacstrap.
-#   usr/share/wayland-sessions/plasma.desktop owned by `plasma-workspace`; dropped
-#                                             outright (no replacement) to force the
-#                                             ISO X11-only.
-# The first two MUST be NoExtract'd (not just overlaid): pacman's file-conflict check
-# runs BEFORE extraction and is not suppressed by NoExtract, so pre-placing our copy
-# in the airootfs overlay aborts pacstrap with "exists in filesystem". NoExtract keeps
-# the package from owning the path; customize_airootfs.sh then lays our copy down after
-# pacstrap, conflict-free (see config/system.CUSTOMIZE_AIROOTFS + steps.py step 10c).
+# package's version:
+#   usr/lib/os-release   owned by `filesystem`; we replace it with the Az'arch-branded
+#                        file, planted post-pacstrap by customize_airootfs.sh.
+# This MUST be NoExtract'd (not just overlaid): pacman's file-conflict check runs
+# BEFORE extraction and is not suppressed by NoExtract, so pre-placing our copy in the
+# airootfs overlay aborts pacstrap with "exists in filesystem". NoExtract keeps the
+# package from owning the path; customize_airootfs.sh then lays our copy down after
+# pacstrap, conflict-free (see config/system.CUSTOMIZE_AIROOTFS + steps.py step 7).
 _ISO_NOEXTRACT = [
     "usr/lib/os-release",
-    "usr/share/xsessions/plasma.desktop",
-    "usr/share/wayland-sessions/plasma.desktop",
 ]
 
 
@@ -154,9 +138,8 @@ def _options_block(cachedir: str | None, noextract: list[str] | None = None) -> 
     cachedir_line = f"CacheDir     = {cachedir}\n" if cachedir else "#CacheDir     = /var/cache/pacman/pkg/\n"
     # A single NoExtract line takes multiple space-separated paths. We NoExtract the
     # files the ISO overrides with its own airootfs copies so pacstrap's owning
-    # package (filesystem, plasma-workspace) does not lay down a conflicting file:
-    #   usr/lib/os-release                     -> our Az'arch branding wins
-    #   usr/share/wayland-sessions/plasma.desktop -> X11-only ISO
+    # package (filesystem) does not lay down a conflicting file:
+    #   usr/lib/os-release -> our Az'arch branding wins
     noextract_line = (
         f"NoExtract   = {' '.join(noextract)}" if noextract else "#NoExtract   ="
     )
@@ -220,15 +203,12 @@ LocalFileSigLevel = Never
 def build_profile_conf(cachedir: str | None = None) -> str:
     """The archiso profile's pacman.conf for mkarchiso's internal pacstrap.
 
-    Standard Arch base with two build-specific tweaks folded in (this is the
-    former force-x11-session hack, now just parameters):
-      - NoExtract the wayland Plasma session file  -> X11-only ISO
-      - NoExtract usr/lib/os-release               -> our Az'arch branding wins
-      - an injected CacheDir                        -> persistent build cache reuse
+    Standard Arch base with two build-specific tweaks folded in:
+      - NoExtract usr/lib/os-release -> our Az'arch branding wins
+      - an injected CacheDir         -> persistent build cache reuse
 
-    Multilib is left OFF here (the old force-x11-session profile had it commented).
-    The offline rewrite to a file:// repo is applied separately (see
-    ``switch_to_local_repo``) so this generator stays declarative.
+    Multilib is left OFF here. The offline rewrite to a file:// repo is applied
+    separately (see ``switch_to_local_repo``) so this generator stays declarative.
     """
     conf = _options_block(cachedir=cachedir, noextract=_ISO_NOEXTRACT)
     conf += _STD_TESTING_TAIL

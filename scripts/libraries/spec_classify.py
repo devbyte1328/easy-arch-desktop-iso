@@ -45,12 +45,6 @@ import re
 # --------------------------------------------------------------------------- #
 AZARCH_CONFIGURED = {
     "fastfetch":        "Custom Az' ANSI logo + config.jsonc replace the stock Arch fetch output",
-    "plasma-workspace": "Branded X11 session entry, custom panel/plasmashellrc, kickoff Footer/main.qml, dark Breeze scheme",
-    "plasma-desktop":   "Custom desktop layout (locked panel, kickoff, systray) + kdeglobals",
-    "kwin":             "Custom kwinrc: single virtual desktop, tiling padding, shakecursor off, Xwayland scale",
-    "kmenuedit":        "Flattened application menu; dev/debug entries hidden",
-    "breeze":           "Set as the default look-and-feel (Breeze Dark) globally",
-    "sddm":             "Autologin config into the X11 Plasma session (pulled in as a dep, configured by Az'arch)",
     "pacman":           "Az'arch pacman.conf: custom SigLevel, hardcoded mirrors, offline [pacstrap-azarch-repo], NoExtract rules",
     "filesystem":       "Rebranded /usr/lib/os-release (Az'arch Linux) and /etc/hostname",
     "systemd":          "Rebranded systemd-boot UEFI loader entries + two live-ISO oneshot service units",
@@ -58,13 +52,12 @@ AZARCH_CONFIGURED = {
     "syslinux":         "Rebranded BIOS boot menu title and entries (Az'arch Linux)",
     "sudo":             "Sudoers drop-ins: passwordless sudo for 'main', rootpw default",
     "ufw":              "Enabled with default reject-incoming / allow-outgoing policy",
-    "discover":         "Removed on the installed system and live ISO (not shipped)",
-    "plasma-welcome":   "Removed so the KDE welcome app never runs (not shipped)",
 }
 
-# Packages listed above that Az'arch *removes* rather than ships. They appear in
-# the manifest but are pacman -R'd, so the running system does not contain them.
-AZARCH_REMOVED = {"discover", "plasma-welcome"}
+# Packages Az'arch removes from the running system after pacstrap. The KDE overhaul
+# dropped the desktop, so nothing is pacman -R'd any more -- kept as an empty set so
+# the classify() call site stays stable.
+AZARCH_REMOVED = set()
 
 
 def edition_of(pkg, stock_reachable):

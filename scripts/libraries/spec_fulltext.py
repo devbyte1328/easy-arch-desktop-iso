@@ -84,9 +84,9 @@ def _name_list(names, label, width=78):
         return [f"{label}: (none)"]
     joined = ", ".join(names)
     indent = " " * (len(label) + 2)
-    # break_on_hyphens=False so a hyphenated package name (xdg-user-dirs, most of
-    # KDE) is never split across two lines: it stays one whitespace-free token,
-    # which keeps the file honest and the parser trivial.
+    # break_on_hyphens=False so a hyphenated package name (e.g. xdg-user-dirs,
+    # vlc-plugin-ffmpeg) is never split across two lines: it stays one
+    # whitespace-free token, which keeps the file honest and the parser trivial.
     wrapped = textwrap.fill(joined, width=width,
                             initial_indent=f"{label}: ",
                             subsequent_indent=indent,

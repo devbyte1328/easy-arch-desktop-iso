@@ -1,34 +1,21 @@
 """The on-disk install pipeline scripts, authored in Python and emitted as the
-real .sh/.desktop/.conf/.service files the ISO ships.
+real .sh/.conf/.service files the ISO ships.
 
-  installer_desktop()        autostart .desktop that launches the installer
   installer_sh()             azarch-iso-installer.sh: partition, pacstrap from
                              the offline repo, copy config, run chroot-setup
   chroot_setup_sh()          runs inside arch-chroot: locale, bootloader, services
-  setup_pkgs_sh()            live-ISO oneshot: firewall + theme tweaks
+  setup_pkgs_sh()            live-ISO oneshot: firewall tweaks
   first_boot_sh/service/conf first-boot-once mechanism on the installed system
 
-The KDE 'Next' wallpaper was removed in the overhaul, so none of these copy a
-wallpaper any more (the old code did `cp -r .../Next/. /usr/share/wallpapers/Next`).
-The desktop ships KDE's stock Breeze wallpaper.
+The KDE/Plasma desktop was removed in the overhaul: the ISO now boots to a bare
+console (like plain archiso), so these scripts no longer copy any desktop theme,
+plasmoid QML, session file, or display-manager config. A desktop/WM is layered
+back on later, not here.
 """
 
 from __future__ import annotations
 
 from .locale import _detect_and_apply_locale_block
-
-
-# --- Autostart launcher for the installer -----------------------------------
-def installer_desktop() -> str:
-    return """\
-[Desktop Entry]
-Type=Application
-Exec=konsole -e bash -c "sudo /home/main/Desktop/azarch-iso-installer.sh; exec bash"
-Hidden=false
-NoDisplay=false
-Name=Run Script
-Comment=Run the script on Desktop
-"""
 
 
 # --- The disk installer (runs in the live session) --------------------------
@@ -195,26 +182,9 @@ cp /etc/sudoers.d/00-main /mnt/etc/sudoers.d/00-main
 chmod 440 /mnt/etc/sudoers.d/00-rootpw
 chmod 440 /mnt/etc/sudoers.d/00-main
 
-echo "[*] Adding SDDM config..."
+echo "[*] Preparing home directory..."
 mkdir -p /mnt/home/main
 chown -R 1000:998 /mnt/home/main
-mkdir -p /mnt/etc
-cp /etc/sddm.conf /mnt/etc/sddm.conf
-
-echo "[*] Copying X11 startup file..."
-mkdir -p /mnt/usr/share/xsessions
-cp /usr/share/xsessions/plasma.desktop /mnt/usr/share/xsessions/plasma.desktop
-
-echo "[*] Copying KDE minimal theme files..."
-mkdir -p /mnt/home/main/.config/menus
-mkdir -p /mnt/root/azarch/kde
-cp /root/azarch/kde/Footer.qml /mnt/root/azarch/Footer.qml
-cp /root/azarch/kde/main.qml /mnt/root/azarch/main.qml
-cp /root/azarch/kde/plasmashellrc /mnt/home/main/.config/plasmashellrc
-cp /root/azarch/kde/kwinrc /mnt/home/main/.config/kwinrc
-cp /root/azarch/kde/plasma-org.kde.plasma.desktop-appletsrc /mnt/home/main/.config/plasma-org.kde.plasma.desktop-appletsrc
-cp /root/azarch/kde/applications-kmenuedit.menu /mnt/home/main/.config/menus/applications-kmenuedit.menu
-cp /root/azarch/kde/kdeglobals /mnt/home/main/.config/kdeglobals
 
 echo "[*] Copying azarch fastfetch config..."
 mkdir -p /mnt/home/main/.config/fastfetch
@@ -263,8 +233,6 @@ touch /var/log/.locale_set
 # Generate initramfs
 mkinitcpio -P
 
-pacman -R --noconfirm discover plasma-welcome
-
 is_uefi=$(cat /etc/install_info/is_uefi)
 disk=$(cat /etc/install_info/disk)
 
@@ -276,11 +244,6 @@ fi
 
 grub-mkconfig -o /boot/grub/grub.cfg
 
-mkdir -p /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/
-cp /root/azarch/Footer.qml /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/Footer.qml
-cp /root/azarch/main.qml /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/main.qml
-
-systemctl enable sddm
 systemctl enable NetworkManager
 
 mkdir -p /home/main/.config
@@ -289,8 +252,6 @@ chmod 755 /home/main/.config/first-boot/first-boot-setup.sh
 chmod 644 /etc/systemd/system/first-boot-setup.service
 chmod 666 /home/main/.config/first-boot/first-boot-setup.conf
 systemctl enable first-boot-setup.service
-
-chmod 666 /home/main/.config/plasmashellrc
 
 find /home/main -type f -exec chmod 666 {{}} \\;
 find /home/main -type d -exec chmod 777 {{}} \\;
@@ -305,8 +266,8 @@ echo -e "\\e[94mazarch disk installation complete, you can reboot now.\\e[0m"
 
 # --- Live-ISO post-boot tweaks ----------------------------------------------
 def setup_pkgs_sh() -> str:
-    """Firewall + KDE theme + installer perms. The 'Next' wallpaper copy that used
-    to live here was removed with the wallpaper."""
+    """Live-ISO oneshot: firewall setup + installer perms. The KDE theme apply and
+    the `discover`/`plasma-welcome` removal were dropped with the desktop."""
     return """\
 #!/bin/bash
 
@@ -315,17 +276,8 @@ sudo ufw enable
 sudo ufw default reject incoming
 sudo ufw default allow outgoing
 
-# Apply KDE minimal theme
-sudo mkdir -p /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/
-sudo cp /root/azarch/Footer.qml /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/Footer.qml
-sudo cp /root/azarch/main.qml /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/main.qml
-
 # Fix azarch iso installer permissions
 sudo chmod +x /home/main/Desktop/azarch-iso-installer.sh
-
-# Remove unnecesary packages
-sudo pacman -R --noconfirm discover plasma-welcome
-pkill plasma-welcome
 """
 
 
@@ -364,11 +316,6 @@ CONFIG_FILE="/home/main/.config/first-boot/first-boot-setup.conf"
 # Check if config file exists and contains First_Boot=TRUE
 if grep -q '^First_Boot=TRUE' "$CONFIG_FILE"; then
     echo "First boot setup enabled. Running setup..."
-
-    # Create plasmoid directory and copy files
-    mkdir -p /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/
-    cp /root/azarch/Footer.qml /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/Footer.qml
-    cp /root/azarch/main.qml /usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/main.qml
 
     # Wait up to 15 seconds for internet connection
     timeout 15s bash -c "until ping -c 1 archlinux.org >/dev/null 2>&1; do sleep 1; done" || { echo "No internet connection after 15s"; }

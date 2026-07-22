@@ -1,4 +1,4 @@
-# azarch
+# Az'arch
 
 
 <table width="100%">
@@ -15,14 +15,7 @@ This is a year-old, neglected, poorly put-together project that is undergoing a 
 </table>
 
 
-azarch is a lightweight, Arch-based distribution that stays close to upstream. It's built for ease of installation, allowing users to quickly set up and reproduce their development environment. It starts off stable, with the option to easily update to a rolling release using `sudo pacman -Syu`.
-
-It comes with only the essential packages needed for any system. The desktop environment is a stripped-down, minimal version of KDE Plasma, designed to stay out of your way and let you get straight to work.  
-**No bloat. No distractions.**
-
-![Screenshot](screenshot.png)
-
-## 💽 How to Install azarch
+## 💽 Install
 
 1. **Download the ISO**  
    The ISO is hosted on **Google Drive** (GitHub does not allow files larger than 2 GB).
@@ -43,12 +36,13 @@ It comes with only the essential packages needed for any system. The desktop env
    Reboot your machine and use your **BIOS/UEFI boot menu** to boot from the USB drive.
 
 5. **Live Environment and Installation**  
-   The ISO boots into a live session. A terminal window (Konsole) will appear, offering to begin disk installation.  
-   You can either:
+   The ISO boots to a console (autologin, no desktop yet — the desktop is being
+   reworked as part of the overhaul). From the shell you can either:
    - Use the live environment temporarily  
-   - Or start the installation immediately by following the terminal prompts
+   - Or start the installation by running the installer script on the Desktop:
+     `sudo ~/Desktop/azarch-iso-installer.sh`
 
-## 🧰 How to Compile azarch
+## 🧰 Compile
 
 You can clone this repository and compile the ISO yourself. The **first** build
 needs an internet connection to download every component that goes into the ISO;
@@ -59,9 +53,8 @@ after that everything is cached and rebuilds run fully offline (see
 > authored in `libraries/azarch/` (the config files are Python modules holding
 > their content as variables) and emitted into the archiso profile tree by
 > `python3 -m azarch.build`. `compile.sh` is a thin shim that sets up the PTY +
-> sudo and hands off to it. The two user-facing knobs are plain data files:
-> `libraries/data/packages.x86_64` (the package list) and the wallpaper/QML under
-> `libraries/data/`.
+> sudo and hands off to it. The main user-facing knob is the plain data file
+> `libraries/data/packages.x86_64` (the package list).
 
 Packages are pulled at their latest version, so the ISO you build may contain
 bugs the pre-built download does not (that one was briefly examined before being

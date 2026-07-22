@@ -1,5 +1,5 @@
-"""System-level configs: users, sudoers, display manager, session, boot menus,
-and systemd units. Each is authored here as a Python string.
+"""System-level configs: users, sudoers, OS branding, boot menus, and systemd
+units. Each is authored here as a Python string.
 
 Kept byte-faithful to the originals under the old conf/system/. The user/group
 databases and sudoers files in particular are security-sensitive; the modes are
@@ -69,7 +69,7 @@ LOGO=archlinux-logo
 # deletes it -- so it never ships on the ISO. We use it purely to plant the branded
 # os-release: doing this here (post-pacstrap) avoids the file-conflict that pre-
 # placing it in the airootfs overlay triggers against the `filesystem` package (see
-# steps.py step 10c). The staged source lives at /root/azarch/os-release in the chroot.
+# steps.py step 7). The staged source lives at /root/azarch/os-release in the chroot.
 # NoExtract (config/pacman.py) already kept `filesystem` from writing its own
 # "Arch Linux" copy, so usr/lib/os-release is absent until this cp lands ours.
 CUSTOMIZE_AIROOTFS = """\
@@ -79,10 +79,6 @@ set -euo pipefail
 # Brand the live system as Az'arch Linux. /etc/os-release symlinks to this path.
 cp /root/azarch/os-release /usr/lib/os-release
 chmod 0644 /usr/lib/os-release
-
-# Plant the X11 Plasma session entry (plasma-workspace's copy was NoExtract'd so
-# this path is free of a conflicting owner).
-install -Dm0644 /root/azarch/plasma.desktop /usr/share/xsessions/plasma.desktop
 """
 
 # System hostname. The archiso releng base ships `archiso`; we overlay `azarch`
@@ -92,30 +88,6 @@ install -Dm0644 /root/azarch/plasma.desktop /usr/share/xsessions/plasma.desktop
 # branding.) The plain `azarch` here is the live-ISO hostname; the on-disk
 # installer sets the installed system's hostname separately.
 HOSTNAME = "azarch\n"
-
-# --- SDDM / session ---------------------------------------------------------
-# Autologin `main` straight into the X11 Plasma session (no Wayland — the build's
-# pacman NoExtract drops the wayland session file; see config/pacman.py).
-
-SDDM_CONF = """\
-[Autologin]
-User=main
-Session=plasma.desktop
-
-[General]
-DisplayServer=x11
-"""
-
-PLASMA_DESKTOP = """\
-[Desktop Entry]
-Name=Plasma
-Comment=KDE Plasma (X11)
-Exec=startplasma-x11
-TryExec=startplasma-x11
-Type=Application
-DesktopNames=KDE
-X-KDE-SessionType=x11
-"""
 
 # --- Boot menu entries ------------------------------------------------------
 # systemd-boot (UEFI) entries + syslinux (BIOS) config. %INSTALL_DIR% and

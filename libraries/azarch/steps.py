@@ -18,15 +18,15 @@ from pathlib import Path
 import signal
 
 from . import emit, packages, paths
-from .config import fastfetch, installer, kde, locale, pacman, profile, system
+from .config import fastfetch, installer, locale, pacman, profile, system
 from .progress import ProgressBar
 
 # Weights: setup/emit steps carry real weight so the bar visibly advances through
-# them (at weight 1 the 12 of them were ~2% of the whole bar and looked frozen); the
-# two giants are still the bulk, sized from real log spans. Keep in sync with steps
-# below: len(STEP_WEIGHTS) - 1 MUST equal the number of bar.step() calls in run(), and
-# the final two weights belong to the package-cache and mkarchiso giants, in that order.
-STEP_WEIGHTS = [0] + [8] * 12 + [250, 270]
+# them (at weight 1 they were ~2% of the whole bar and looked frozen); the two giants
+# are still the bulk, sized from real log spans. Keep in sync with steps below:
+# len(STEP_WEIGHTS) - 1 MUST equal the number of bar.step() calls in run(), and the
+# final two weights belong to the package-cache and mkarchiso giants, in that order.
+STEP_WEIGHTS = [0] + [8] * 11 + [250, 270]
 
 # PGID of the currently-running mkarchiso child (0 = none). mkarchiso is spawned in
 # its own session/process group so the signal handler can kill THAT group (and all
@@ -97,8 +97,9 @@ def run(bar: ProgressBar, offline: bool, reclaim_after_mkarchiso) -> Path:
     bar.step("Stage pacstrap package manifest")
     emit.copy_data("packages.x86_64", W / "packages.x86_64")
 
-    # 6 -- Provision airootfs accounts (users/groups + /home/main, chowned for SDDM autologin)
-    bar.step("Provision airootfs accounts (SDDM autologin)")
+    # 6 -- Provision airootfs accounts (users/groups + /home/main, chowned for the
+    # autologin `main` user the getty drops straight into on the live console).
+    bar.step("Provision airootfs accounts (console autologin)")
     emit.write_text(airootfs / "etc/passwd", system.PASSWD)
     emit.write_text(airootfs / "etc/shadow", system.SHADOW, mode=0o600)
     emit.write_text(airootfs / "etc/gshadow", system.GSHADOW, mode=0o600)
@@ -107,20 +108,19 @@ def run(bar: ProgressBar, offline: bool, reclaim_after_mkarchiso) -> Path:
     emit.mkdir(home)
     subprocess.run(sudo + ["chown", "-R", "1000:998", str(home)], check=False)
 
-    # 7 -- Overlay branding, locale and Plasma theming into airootfs.
-    # One coherent overlay-population act: locale setup-script + service, the KDE/Plasma
-    # theme and plasmoid QML, the fastfetch logo, and the os-release/hostname rebrand.
-    bar.step("Overlay branding, locale and Plasma theming")
+    # 7 -- Overlay branding and locale into airootfs.
+    # One coherent overlay-population act: locale setup-script + service, the fastfetch
+    # logo, and the os-release/hostname rebrand.
+    bar.step("Overlay branding and locale")
 
     # locale: first-run setup script + the systemd unit that runs it.
     emit.write_exec(ea / "setup-locale.sh", locale.setup_locale_sh())
     emit.write_text(airootfs / "etc/systemd/system/locale-setup.service", system.LOCALE_SETUP_SERVICE)
 
-    # Plasma theme + plasmoid QML, and the azarch fastfetch logo.
-    _emit_kde(airootfs, ea, home)
+    # the azarch fastfetch logo/config for the live (and installed) user.
     _emit_fastfetch(ea, home)
 
-    # os-release / plasma.desktop rebrand:
+    # os-release rebrand:
     # Live ISO: the build pacman.conf NoExtracts usr/lib/os-release (config/pacman.py)
     # so the `filesystem` package's stock "Arch Linux" file never lands. We must NOT
     # pre-place our replacement in the airootfs overlay, though: mkarchiso copies the
@@ -132,10 +132,6 @@ def run(bar: ProgressBar, offline: bool, reclaim_after_mkarchiso) -> Path:
     # pacstrap). The branded file is staged read-only under root/azarch/os-release and
     # the hook copies it into place inside the pacstrapped rootfs.
     emit.write_text(ea / "os-release", system.OS_RELEASE)
-    # X11 Plasma session entry: also owned by a package (plasma-workspace), so it hits
-    # the same pre-pacstrap conflict if overlaid directly. Stage it and let the hook
-    # plant it post-pacstrap too. (NoExtract for it lives in config/pacman.py.)
-    emit.write_text(ea / "plasma.desktop", system.PLASMA_DESKTOP)
     emit.write_exec(airootfs / "root/customize_airootfs.sh", system.CUSTOMIZE_AIROOTFS)
     # Overlay the releng `archiso` hostname with `azarch` (prompt + fastfetch title).
     emit.write_text(airootfs / "etc/hostname", system.HOSTNAME)
@@ -148,16 +144,7 @@ def run(bar: ProgressBar, offline: bool, reclaim_after_mkarchiso) -> Path:
     emit.write_exec(ea / "setup-pkgs.sh", installer.setup_pkgs_sh())
     emit.write_text(airootfs / "etc/systemd/system/pkgs-setup.service", system.PKGS_SETUP_SERVICE)
 
-    # 9 -- Configure SDDM and Plasma session.
-    # Writes /etc/sddm.conf (display-manager + autologin). The Plasma X session file
-    # (plasma.desktop) is NOT written here: it is a plasma-workspace-owned path, so it
-    # is staged in step 7 and planted post-pacstrap by customize_airootfs.sh (overlaying
-    # it now would collide during pacstrap). The SDDM autologin Session= key still points
-    # at plasma.desktop; this step is the session milestone.
-    bar.step("Configure SDDM and Plasma session")
-    emit.write_text(airootfs / "etc/sddm.conf", system.SDDM_CONF)
-
-    # 10 -- Enable systemd units and sudoers policy.
+    # 9 -- Enable systemd units and sudoers policy.
     # Activation/policy at profile finalization: the *.target.wants symlinks that enable
     # the units, plus the sudoers.d drop-ins.
     bar.step("Enable systemd units and sudoers policy")
@@ -165,25 +152,26 @@ def run(bar: ProgressBar, offline: bool, reclaim_after_mkarchiso) -> Path:
     emit.write_text(airootfs / "etc/sudoers.d/00-rootpw", system.SUDOERS_ROOTPW, mode=0o440)
     emit.write_text(airootfs / "etc/sudoers.d/00-main", system.SUDOERS_MAIN, mode=0o440)
 
-    # 11 -- Emit profiledef and installer payload.
-    # profiledef.sh (archiso metadata at the PROFILE ROOT, not airootfs), the Desktop
-    # installer launcher + XDG autostart entry, and the first-boot script/service/conf.
+    # 10 -- Emit profiledef and installer payload.
+    # profiledef.sh (archiso metadata at the PROFILE ROOT, not airootfs), the installer
+    # script, and the first-boot script/service/conf. The old XDG-autostart .desktop
+    # (which launched the installer in konsole) was dropped with the desktop -- the ISO
+    # now boots to a console, so the installer is run from the shell instead.
     bar.step("Emit profiledef and installer payload")
     emit.write_exec(W / "profiledef.sh", profile.profiledef_sh())
     emit.write_exec(home / "Desktop/azarch-iso-installer.sh", installer.installer_sh())
-    emit.write_text(home / ".config/autostart/azarch-iso-install.desktop", installer.installer_desktop())
     emit.write_exec(ea / "first-boot-setup.sh", installer.first_boot_sh())
     emit.write_text(ea / "first-boot-setup.service", installer.first_boot_service())
     emit.write_text(ea / "first-boot-setup.conf", installer.first_boot_conf())
 
-    # 12 -- Resolve build pacman.conf and mirrors.
+    # 11 -- Resolve build pacman.conf and mirrors.
     # Writes the pacstrap/mkarchiso build pacman.conf, injects the persistent CacheDir,
     # probes mirrors, and switches to the local file:// repo when offline. A distinct
     # pacman-prep stage that gates the cache download below.
     bar.step("Resolve build pacman.conf and mirrors")
     _write_build_pacman_conf(W, offline, bar)
 
-    # 13 -- Warm pacman cache and stage installer payload (GIANT, weight 250).
+    # 12 -- Warm pacman cache and stage installer payload (GIANT, weight 250).
     # pacman -Sw builds/indexes the local repo (drives bar.sub sub-progress), then the
     # on-disk installer's package manifest + pacman confs + chroot-setup.sh are staged.
     bar.step("Warm pacman cache and stage installer payload")
@@ -196,7 +184,7 @@ def run(bar: ProgressBar, offline: bool, reclaim_after_mkarchiso) -> Path:
     emit.write_text(ea / "pacstrap-azarch-conf/pacman.conf", pacman.installer_pacstrap_conf())
     emit.write_exec(ea / "chroot-setup.sh", installer.chroot_setup_sh())
 
-    # 14 -- Assemble ISO (GIANT, weight 270).
+    # 13 -- Assemble ISO (GIANT, weight 270).
     # mkarchiso: pacstrap into airootfs, mksquashfs, checksum, build the .iso
     # (drives bar.sub sub-progress via _drive_mkarchiso_progress).
     bar.step("Assemble ISO (mkarchiso)")
@@ -243,32 +231,10 @@ def _copy_releng(W: Path) -> None:
     emit.copy_tree(src, W)
 
 
-def _emit_kde(airootfs: Path, ea: Path, home: Path) -> None:
-    cfg = home / ".config"
-    emit.write_text(cfg / "plasmashellrc", kde.PLASMASHELLRC)
-    emit.write_text(cfg / "kwinrc", kde.KWINRC)
-    emit.write_text(cfg / "plasma-org.kde.plasma.desktop-appletsrc", kde.APPLETSRC)
-    emit.write_text(cfg / "menus/applications-kmenuedit.menu", kde.APPLICATIONS_MENU)
-    emit.write_text(cfg / "kdeglobals", kde.KDEGLOBALS)
-    # The two big upstream QML files stay verbatim data; the live ISO copies them
-    # into the plasmoid via setup-pkgs. They live under root/azarch and kde/.
-    emit.copy_data("kde/Footer.qml", ea / "Footer.qml")
-    emit.copy_data("kde/main.qml", ea / "main.qml")
-    kde_dir = ea / "kde"
-    for name in ("Footer.qml", "main.qml"):
-        emit.copy_data(f"kde/{name}", kde_dir / name)
-    # the on-disk installer copies these KDE configs from root/azarch/kde too
-    emit.write_text(kde_dir / "plasmashellrc", kde.PLASMASHELLRC)
-    emit.write_text(kde_dir / "kwinrc", kde.KWINRC)
-    emit.write_text(kde_dir / "plasma-org.kde.plasma.desktop-appletsrc", kde.APPLETSRC)
-    emit.write_text(kde_dir / "applications-kmenuedit.menu", kde.APPLICATIONS_MENU)
-    emit.write_text(kde_dir / "kdeglobals", kde.KDEGLOBALS)
-
-
 def _emit_fastfetch(ea: Path, home: Path) -> None:
     """Write the azarch fastfetch config + Az' logo for the live user, and stage
     a copy under root/azarch/fastfetch so the on-disk installer can replant it
-    into the installed user's ~/.config/fastfetch (parity with the KDE configs)."""
+    into the installed user's ~/.config/fastfetch."""
     cfg = home / ".config/fastfetch"
     emit.write_text(cfg / "config.jsonc", fastfetch.config_jsonc())
     emit.write_text(cfg / fastfetch.LOGO_FILENAME, fastfetch.logo_txt())
@@ -279,10 +245,12 @@ def _emit_fastfetch(ea: Path, home: Path) -> None:
 
 
 def _link_services(airootfs: Path) -> None:
+    # Console-only live medium: no display manager, no graphical.target. The archiso
+    # releng base already autologins on tty1, so we only enable the multi-user daemons
+    # and the two azarch oneshots. (KDE/SDDM and graphical.target.wants were removed in
+    # the overhaul; a desktop/WM is layered back on later, not here.)
     base = airootfs / "etc/systemd/system"
     emit.mkdir(base / "multi-user.target.wants")
-    emit.mkdir(base / "graphical.target.wants")
-    emit.link("/usr/lib/systemd/system/sddm.service", base / "graphical.target.wants/sddm.service")
     for svc in ("NetworkManager.service", "bluetooth.service", "org.cups.cupsd.service"):
         emit.link(f"/usr/lib/systemd/system/{svc}", base / f"multi-user.target.wants/{svc}")
     emit.link("/etc/systemd/system/locale-setup.service", base / "multi-user.target.wants/locale-setup.service")
@@ -354,10 +322,10 @@ def _run_mkarchiso(sudo, W: Path, bar: ProgressBar, reclaim_after) -> Path:
     # start_new_session=True puts mkarchiso (and its pacstrap children) in their OWN
     # process group so a Ctrl-C can group-kill THEM without hitting our shell.
     global _ACTIVE_CHILD_PGID
-    # stdin from /dev/null: pacstrap under mkarchiso hits the `xorg`/`plasma` package
-    # groups and prints "Enter a selection (default=all):" on stdin. With no input it
-    # stalls for a minute before defaulting; feeding EOF makes it take default=all
-    # immediately instead of hanging.
+    # stdin from /dev/null: pacstrap under mkarchiso hits the `xorg` package group and
+    # prints "Enter a selection (default=all):" on stdin. With no input it stalls for a
+    # minute before defaulting; feeding EOF makes it take default=all immediately
+    # instead of hanging.
     proc = subprocess.Popen(
         sudo + ["mkarchiso", "-v", "-w", str(W / "work"), "-o", str(paths.BUILDDIR), str(W)],
         env=env, stdin=subprocess.DEVNULL,

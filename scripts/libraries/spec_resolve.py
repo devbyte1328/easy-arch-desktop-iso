@@ -4,7 +4,7 @@ dependency graph of the Az'arch distribution.
 
 Steps:
   1. Load the explicit manifest (libraries/data/packages.x86_64).
-  2. Resolve every entry to a concrete package, expanding groups (xorg, plasma)
+  2. Resolve every entry to a concrete package, expanding groups (e.g. xorg)
      to their members and following `provides` for virtual deps.
   3. Walk the full transitive dependency closure from those roots.
   4. Compute graph tiers: base/sinks (out-degree 0), top/leaves (in-degree 0),
@@ -141,7 +141,7 @@ def attribute_entries(resolved):
     does each entry pull into the system?" purely from the resolved graph.
 
     A manifest ENTRY is one line the author wrote in packages.x86_64 (a package,
-    or a group like `xorg`/`plasma` that expands to its members). Each entry has a
+    or a group like `xorg` that expands to its members). Each entry has a
     set of ROOTS (itself, or the group's members). An entry "brings" every package
     reachable from its roots along the dependency edges -- its transitive closure
     contribution. Because dependency graphs share heavily, one package is usually

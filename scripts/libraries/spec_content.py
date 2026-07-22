@@ -81,51 +81,15 @@ SUBSYSTEMS = [
         ],
     ),
     (
-        "plasma", "KDE Plasma desktop",
-        "The graphical environment the ISO boots into: KDE Plasma with KDE Gear "
-        "applications. `plasma-desktop`/`plasma-workspace` provide the shell, panel "
-        "and session; `kwin` is the Wayland compositor with `kwin-x11` as the X11 "
-        "window manager; `kdecoration`/`aurorae` handle window decorations. Session "
-        "services include screen management (`kscreen`), power management "
-        "(`powerdevil`), the lock screen (`kscreenlocker`), global shortcuts "
-        "(`kglobalacceld`), activity tracking (`kactivitymanagerd`), the KWallet PAM "
-        "bridge (`kwallet-pam`) and the polkit authentication agent "
-        "(`polkit-kde-agent`). Look and feel is Breeze/Oxygen. Bundled KDE apps: "
-        "`konsole` (terminal), `dolphin` (file manager), `gwenview` (image viewer), "
-        "`spectacle` (screenshots), `kcalc`, `kclock`, `kinfocenter`, "
-        "`plasma-systemmonitor`, `discover` (software center), plus `krdp` for an "
-        "RDP server and `xdg-desktop-portal-kde` for sandboxed-app portals.",
-        [
-            ("plasma-desktop", "KDE Plasma desktop shell"),
-            ("plasma-workspace", "Panel, session, workspace services"),
-            ("kwin", "Wayland compositor"),
-            ("kwin-x11", "X11 window manager"),
-            ("systemsettings", "Unified settings application"),
-            ("kscreen / powerdevil", "Display + power management"),
-            ("kscreenlocker", "Secure lock screen"),
-            ("polkit-kde-agent", "polkit authentication UI"),
-            ("breeze / oxygen", "Visual styles / themes"),
-            ("konsole", "Terminal emulator"),
-            ("dolphin", "File manager"),
-            ("gwenview / spectacle", "Image viewer / screenshots"),
-            ("kcalc / kclock", "Calculator / clock"),
-            ("plasma-systemmonitor", "System resource monitor"),
-            ("discover", "Graphical package/Flatpak manager"),
-            ("krdp", "Built-in RDP server"),
-            ("xdg-desktop-portal-kde", "Portal backend for sandboxed apps"),
-        ],
-    ),
-    (
-        "display", "Display server, graphics & login",
-        "The graphics stack under the desktop. `mesa` supplies the open-source "
-        "OpenGL/Vulkan drivers and `libglvnd` provides vendor-neutral GL dispatch. "
-        "A full X.Org server (`xorg-server`) is present alongside `xorg-xwayland`, "
-        "which runs legacy X clients under the Wayland session; the `xorg` group "
-        "also brings the complete set of X utilities (`xrandr`, `xinput`, "
-        "`setxkbmap`, etc.) and the generic `xf86-video-vesa` fallback driver. Login "
-        "is handled by `lightdm` with the `lightdm-gtk-greeter`, while "
-        "`plasma-login-manager` and the `sddm-kcm` configuration module are also "
-        "present for Plasma's own login manager.",
+        "display", "Display server & graphics",
+        "The X11 graphics stack. `mesa` supplies the open-source OpenGL/Vulkan "
+        "drivers and `libglvnd` provides vendor-neutral GL dispatch. A full X.Org "
+        "server (`xorg-server`) is present alongside `xorg-xwayland`; the `xorg` "
+        "group also brings the complete set of X utilities (`xrandr`, `xinput`, "
+        "`setxkbmap`, etc.) and the generic `xf86-video-vesa` fallback driver. No "
+        "desktop environment or display manager is shipped in this stripped-down "
+        "base -- the medium boots to a console and a desktop/WM is layered on later "
+        "in the overhaul.",
         [
             ("mesa", "Open-source OpenGL/Vulkan drivers"),
             ("libglvnd", "GL vendor-neutral dispatch"),
@@ -133,10 +97,6 @@ SUBSYSTEMS = [
             ("xorg-xwayland", "Run X clients under Wayland"),
             ("xorg-xrandr / xorg-xinput", "Display + input configuration"),
             ("xf86-video-vesa", "Generic VESA fallback video driver"),
-            ("lightdm", "Display/login manager"),
-            ("lightdm-gtk-greeter", "GTK login greeter"),
-            ("plasma-login-manager", "Plasma's login manager"),
-            ("sddm-kcm", "SDDM configuration module"),
         ],
     ),
     (
@@ -145,23 +105,20 @@ SUBSYSTEMS = [
         "PulseAudio and JACK. `pipewire-pulse` provides the PulseAudio-compatible "
         "daemon and `pipewire-alsa` the ALSA routing config, so both PulseAudio and "
         "ALSA clients play through PipeWire transparently. `alsa-utils` gives "
-        "kernel-level mixer/control tools, while `pavucontrol` and the `plasma-pa` "
-        "applet provide graphical volume and device control. `livecd-sounds` "
-        "supplies accessibility sound cues on the live medium.",
+        "kernel-level mixer/control tools. `livecd-sounds` supplies accessibility "
+        "sound cues on the live medium.",
         [
             ("pipewire", "Low-latency audio/video graph server"),
             ("pipewire-pulse", "PulseAudio-compatible daemon"),
             ("pipewire-alsa", "ALSA client routing into PipeWire"),
             ("alsa-utils", "Kernel ALSA mixer/control utilities"),
-            ("pavucontrol", "Graphical volume control"),
-            ("plasma-pa", "Plasma volume applet"),
         ],
     ),
     (
         "networking", "Networking & VPN",
         "A broad connectivity and diagnostics stack. `networkmanager` is the "
-        "connection manager, driven from the desktop by `plasma-nm` or the "
-        "`nm-connection-editor` GUI. Wireless is backed by `wpa_supplicant`, the "
+        "connection manager, driven from the console via `nmcli`/`nmtui`. "
+        "Wireless is backed by `wpa_supplicant`, the "
         "newer `iwd` daemon, and the `iw`/`wireless_tools` CLIs. Remote access and "
         "tunnelling: `openssh`, plus VPN clients `openvpn`, `openconnect` (Cisco "
         "AnyConnect) and `vpnc`; dial-up/DSL/mobile paths via `ppp`, `pptpclient`, "
@@ -170,8 +127,7 @@ SUBSYSTEMS = [
         "library. Diagnostics: `tcpdump` (packet capture), `nmap` (scanning), "
         "`ethtool`, `ndisc6` (IPv6), and transfer tools `curl` and `lftp`.",
         [
-            ("networkmanager", "Connection manager"),
-            ("plasma-nm", "Plasma network applet"),
+            ("networkmanager", "Connection manager (nmcli/nmtui)"),
             ("iwd / wpa_supplicant", "Wi-Fi daemons"),
             ("iw / wireless_tools", "Wireless CLI configuration"),
             ("openssh", "SSH client/server"),
@@ -212,23 +168,21 @@ SUBSYSTEMS = [
     ),
     (
         "security", "Security, firewall & crypto hardware",
-        "Host firewalling is provided by `ufw` (a netfilter front end) with the "
-        "`plasma-firewall` control panel. Trusted-computing and hardware-token "
-        "support: `tpm2-tss` (the TSS2 stack) and `tpm2-tools` for TPM 2.0; "
-        "`libfido2` for FIDO2/U2F security keys; `pcsclite` smartcard middleware; "
-        "and `openpgp-card-tools` for OpenPGP smartcards. `sequoia-sq` is a modern "
-        "OpenPGP CLI. On the desktop, `plasma-vault` creates encrypted vaults and "
-        "`kwallet-pam` unlocks the KDE wallet at login.",
+        "Host firewalling is provided by `ufw` (a netfilter front end), enabled by "
+        "the live-ISO setup with a default reject-incoming / allow-outgoing policy. "
+        "Trusted-computing and hardware-token support: `tpm2-tss` (the TSS2 stack) "
+        "and `tpm2-tools` for TPM 2.0; `libfido2` for FIDO2/U2F security keys; "
+        "`pcsclite` smartcard middleware; and `openpgp-card-tools` for OpenPGP "
+        "smartcards. `sequoia-sq` is a modern OpenPGP CLI. Full-disk encryption is "
+        "available at install time via `cryptsetup` (LUKS/dm-crypt).",
         [
             ("ufw", "netfilter firewall front end"),
-            ("plasma-firewall", "Firewall control panel"),
             ("tpm2-tss / tpm2-tools", "TPM 2.0 software stack + tools"),
             ("libfido2", "FIDO2 / U2F security-key support"),
             ("pcsclite", "PC/SC smartcard middleware"),
             ("sequoia-sq", "OpenPGP command-line tool"),
             ("openpgp-card-tools", "Manage OpenPGP smartcards"),
-            ("plasma-vault", "Encrypted vaults on the desktop"),
-            ("kwallet-pam", "Unlock KWallet at login (PAM)"),
+            ("cryptsetup", "LUKS/dm-crypt full-disk encryption"),
         ],
     ),
     (
@@ -254,39 +208,34 @@ SUBSYSTEMS = [
         "multimedia", "Multimedia & office",
         "Media playback centres on `vlc` with codec plugins for FFmpeg decode and "
         "x264/x265 (H.264/H.265) encode, plus UPnP streaming. `libreoffice-fresh` "
-        "is the full office suite (documents, spreadsheets, presentations). "
-        "`kamoso` records from webcams and `gnome-screenshot` captures the screen.",
+        "is the full office suite (documents, spreadsheets, presentations).",
         [
             ("vlc", "Multimedia player and framework"),
             ("vlc-plugin-ffmpeg", "FFmpeg-based decode for VLC"),
             ("vlc-plugin-x264 / vlc-plugin-x265", "H.264 / H.265 encoding"),
             ("vlc-plugin-upnp", "UPnP/DLNA media browsing"),
             ("libreoffice-fresh", "Full office productivity suite"),
-            ("kamoso", "Webcam capture/recording"),
-            ("gnome-screenshot", "Screenshot capture"),
         ],
     ),
     (
         "hardware", "Hardware, virtualization & peripherals",
-        "Bluetooth is provided by the `bluez` stack with the `bluedevil` KDE "
-        "integration; printing by `cups` with the `print-manager` front end. The "
-        "medium runs well as a guest under every major hypervisor: `open-vm-tools` "
-        "(VMware), `qemu-guest-agent` (QEMU/KVM), `virtualbox-guest-utils-nox` "
-        "(VirtualBox) and `hyperv` (Microsoft Hyper-V). Hardware inspection and "
-        "control: `usbutils`, `usb_modeswitch`, `dmidecode` (DMI/SMBIOS), and "
-        "Thunderbolt via `bolt` + `plasma-thunderbolt`. Accessibility is served by "
-        "`brltty` (braille displays) and `espeakup` (console speech).",
+        "Bluetooth is provided by the `bluez` stack (`bluetoothctl` CLI); printing "
+        "by the `cups` daemon. The medium runs well as a guest under every major "
+        "hypervisor: `open-vm-tools` (VMware), `qemu-guest-agent` (QEMU/KVM), "
+        "`virtualbox-guest-utils-nox` (VirtualBox) and `hyperv` (Microsoft "
+        "Hyper-V). Hardware inspection and control: `usbutils`, `usb_modeswitch`, "
+        "`dmidecode` (DMI/SMBIOS), and Thunderbolt via `bolt`. Accessibility is "
+        "served by `brltty` (braille displays) and `espeakup` (console speech).",
         [
             ("bluez / bluez-utils", "Bluetooth stack + tools"),
-            ("bluedevil", "Bluetooth integration in Plasma"),
-            ("cups / print-manager", "Printing daemon + GUI"),
+            ("cups", "Printing daemon"),
             ("open-vm-tools", "VMware guest integration"),
             ("qemu-guest-agent", "QEMU/KVM guest agent"),
             ("virtualbox-guest-utils-nox", "VirtualBox guest utilities"),
             ("hyperv", "Hyper-V guest tools"),
             ("usbutils / usb_modeswitch", "USB inspection + mode switching"),
             ("dmidecode", "DMI/SMBIOS hardware table dump"),
-            ("bolt / plasma-thunderbolt", "Thunderbolt device management"),
+            ("bolt", "Thunderbolt device management"),
             ("brltty / espeakup", "Braille + speech accessibility"),
         ],
     ),

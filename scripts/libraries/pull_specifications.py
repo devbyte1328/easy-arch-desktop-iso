@@ -171,13 +171,13 @@ def _build_glance(packages, resolved, tiers, tags):
     ed_counts = Counter(t["edition"] for t in tags.values())
     return {
         "base": "Arch Linux (rolling), x86_64",
-        "desktop": "KDE Plasma (X11) with KDE Gear applications",
+        "desktop": "None (bare console) -- a desktop is layered on later in the overhaul",
         "kernel": spec_render._pkg_version(packages, "linux"),
         "init": spec_render._pkg_version(packages, "systemd"),
-        "dm": "SDDM autologin into the X11 Plasma session",
+        "dm": "None -- autologin to a TTY (archiso getty), no display manager",
         "iso_version": "date-based, YYYY.MM.DD (no semver)",
         "ram": f"{read_cow_spacesize()} writable overlay held in RAM",
-        "purpose": "live / rescue / installer medium with a full KDE desktop",
+        "purpose": "live / rescue / installer medium (stripped-down Arch base)",
         "tokens": len(resolved["manifest_map"]),
         "raw_lines": resolved["raw_lines"],
         "by_repo": by_repo,
