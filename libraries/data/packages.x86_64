@@ -243,12 +243,4 @@ dotnet-sdk
 dotnet-runtime
 dotnet-host
 calamares
-# mailcap provides the virtual `mime-types`, a hard dependency of librewolf (and
-# of Firefox-family browsers generally). It is normally pulled in transitively,
-# but an OFFLINE build only has what the local repo indexed, and the virtual
-# provider was not being staged -- so pacstrap failed with "unable to satisfy
-# dependency 'mime-types' required by librewolf". Listing mailcap explicitly makes
-# the provider a first-class manifest entry, indexed into the offline repo and
-# installed deterministically on both online and offline builds.
-mailcap
 librewolf
