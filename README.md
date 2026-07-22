@@ -68,8 +68,7 @@ The build runs in Docker, so the steps are the same on every operating system.
 
 1. **Install Docker and Git.**
 
-   <details>
-   <summary><b>🐧 Linux</b></summary>
+   <b>🐧 Linux</b>
 
    - Install both with your package manager:
      - Arch-based: `sudo pacman -S --needed docker git`
@@ -77,24 +76,16 @@ The build runs in Docker, so the steps are the same on every operating system.
      - Fedora: `sudo dnf install docker git`
    - Start Docker: `sudo systemctl enable --now docker`
 
-   </details>
-
-   <details>
-   <summary><b>🍎 macOS</b></summary>
+   <b>🍎 macOS</b>
 
    - Install [Docker Desktop for Mac](https://www.docker.com/products/docker-desktop/) and launch it (wait until the whale icon says Docker is running).
    - Git ships with the Xcode command line tools: `xcode-select --install`
 
-   </details>
-
-   <details>
-   <summary><b>🪟 Windows</b></summary>
+   <b>🪟 Windows</b>
 
    - In an Administrator PowerShell, install WSL2: `wsl --install` (you may be prompted to reboot).
    - Install [Docker Desktop for Windows](https://www.docker.com/products/docker-desktop/) and enable **"Use the WSL 2 based engine"** in its settings.
    - Open your WSL distro (e.g. Ubuntu) and install Git: `sudo apt update && sudo apt install git`
-
-   </details>
 
 2. **Clone the repository and enter it**
    ```
