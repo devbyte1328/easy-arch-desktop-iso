@@ -26,8 +26,12 @@ extra/calamares 3.4.2 module schemas -- these were bugs caught in review):
     automatically. No `enableLuksAutomatedPartitioning` key is needed.
   - unpackfs.conf: sourcefs must be "squashfs" (with the airootfs.sfs path), not
     "filesystem" (which is not a recognized type). See ARCHISO_SFS.
-  - The module is named `services` (dir modules/services/); `services-systemd` is
-    only the schema filename. Its schema allows ONLY a `units:` array.
+  - The module is named `services-systemd` (its module.desc `name:` is
+    "services-systemd", verified against the shipped 3.4.2 module). BOTH the exec
+    sequence entry AND the per-module config file must use that exact name
+    (services-systemd.conf) or Calamares aborts at startup with "Initialization
+    Failed" (an unknown module name in the sequence stops the whole install).
+    Its schema allows ONLY a `units:` array.
   - fstab.conf allows ONLY `crypttabOptions` + `tmpOptions` (tmpOptions required);
     real mount options come from the partition module / mount.conf.
   - grubcfg.conf `defaults:` requires GRUB_TIMEOUT + GRUB_DEFAULT; kernel args go
@@ -103,7 +107,7 @@ sequence:
   - hwclock
   - initcpiocfg
   - initcpio
-  - services
+  - services-systemd
   - grubcfg
   - bootloader
   - packages
@@ -389,9 +393,12 @@ def services_conf() -> str:
     """Enable NetworkManager on the installed system (Az'arch networks via NM,
     not dhcpcd/systemd-networkd).
 
-    NOTE: in Calamares 3.4.2 this module is named `services` (the directory is
-    modules/services/; `services-systemd` is only the schema FILENAME). The
-    schema is additionalProperties:false and defines ONLY a `units:` array of
+    NOTE: in Calamares 3.4.2 this module's real name is `services-systemd` (its
+    module.desc `name:` field, verified against the installed module). The config
+    file must therefore be modules/services-systemd.conf and the exec-sequence
+    entry must read `services-systemd`; using the bare `services` makes Calamares
+    fail to find the module and abort at startup. The schema is
+    additionalProperties:false and defines ONLY a `units:` array of
     {name, action, mandatory} -- the older `services:`/`targets:`/`disable:` keys
     are rejected by validation."""
     return """\
@@ -464,8 +471,10 @@ def bootloader_conf() -> str:
 # efi | bios | none ; grub selects GRUB for both firmware types.
 efiBootLoader: "grub"
 
-# EFI System Partition mount point inside the target (matches partition.conf).
-efiSystemPartition: "/boot/efi"
+# NOTE: the ESP mount point is NOT set here. The bootloader module reads it from
+# globalstorage (populated by the partition module from partition.conf's
+# efiSystemPartition) -- the bootloader schema does not define an efiSystemPartition
+# key, so setting one here is a dead key. partition.conf already supplies /boot/efi.
 
 # Names for the GRUB EFI boot entry and its install directory.
 efiBootloaderId: "azarch"
@@ -516,10 +525,15 @@ strings:
     releaseNotesUrl:     https://github.com/michaelilgiaev/azarch
     donateUrl:           ""
 
-# Optional images (product logo / window icon). Left unset -> Calamares default.
+# Optional images (product logo / window icon). We ship NO logo.png in the
+# branding dir, so these are left EMPTY: Calamares' loadStrings skips empty image
+# keys (exactly as it does for productWelcome) and falls back to its built-in
+# default pixmap. Pointing them at a non-existent "logo.png" instead makes
+# Calamares log "Image file logo.png does not exist" -- set a real path here only
+# if a PNG is actually added to this branding directory.
 images:
-    productLogo:   "logo.png"
-    productIcon:   "logo.png"
+    productLogo:   ""
+    productIcon:   ""
     productWelcome: ""
 
 # Slideshow: a single QML slide placeholder shown during the exec phase.
@@ -600,7 +614,7 @@ def emit_map() -> dict[str, str]:
         "modules/fstab.conf": fstab_conf(),
         "modules/locale.conf": locale_conf(),
         "modules/initcpiocfg.conf": initcpiocfg_conf(),
-        "modules/services.conf": services_conf(),
+        "modules/services-systemd.conf": services_conf(),
         "modules/grubcfg.conf": grubcfg_conf(),
         "modules/bootloader.conf": bootloader_conf(),
         f"branding/{BRANDING}/branding.desc": branding_desc(),

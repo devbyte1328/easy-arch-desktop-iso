@@ -30,6 +30,11 @@ BOOTMODES = (
 FILE_PERMISSIONS = {
     "/etc/shadow": "0:0:400",
     "/etc/gshadow": "0:0:400",
+    # sudoers drop-ins: archiso normalizes overlay modes, so pin these to 0440
+    # (the sudo convention) rather than letting them ship 0644. steps.py emits
+    # them 0440 but that mode is lost in the squashfs without an entry here.
+    "/etc/sudoers.d/00-main": "0:0:440",
+    "/etc/sudoers.d/00-rootpw": "0:0:440",
     "/root": "0:0:750",
     "/root/azarch": "0:0:750",
     "/root/.automated_script.sh": "0:0:755",
@@ -37,6 +42,12 @@ FILE_PERMISSIONS = {
     "/usr/local/bin/choose-mirror": "0:0:755",
     "/usr/local/bin/Installation_guide": "0:0:755",
     "/usr/local/bin/livecd-sound": "0:0:755",
+    # The Calamares launcher the Openbox autostart runs on live login. archiso
+    # NORMALIZES overlay file modes when it packs the squashfs -- only paths
+    # listed here keep an explicit mode. Without this entry the wrapper ships
+    # 0644 (non-executable), the autostart's `[ -x ... ]` guard is false, and
+    # Calamares never auto-launches. THIS is what breaks the live installer.
+    "/usr/local/bin/azarch-install": "0:0:755",
     "/root/azarch/setup-locale.sh": "0:0:755",
     "/etc/systemd/system/locale-setup.service": "0:0:644",
     "/root/azarch/setup-pkgs.sh": "0:0:755",

@@ -78,7 +78,11 @@ def bash_profile_startx() -> str:
 
 # Auto-start the graphical live session on tty1 login ONLY. On other VTs or over
 # SSH this is skipped, leaving a plain login shell for rescue/maintenance.
-if [[ -z $DISPLAY && $XDG_VTNR -eq 1 ]]; then
+# We key off the controlling terminal ($(tty) == /dev/tty1) rather than
+# $XDG_VTNR: the latter only exists when pam_systemd ran and set it, so on a bare
+# agetty autologin it can be empty, making `-eq 1` fail. The tty check is always
+# correct for the tty1 autologin and has no such dependency.
+if [[ -z $DISPLAY && "$(tty)" == /dev/tty1 ]]; then
     exec startx
 fi
 """
@@ -343,8 +347,13 @@ fi
 
 # Auto-launch the Calamares installer ONCE, Manjaro-style, via the privileged
 # wrapper (Calamares must run as root; see """ + INSTALL_WRAPPER_PATH + """).
+# Run via the exec bit when present, else fall back to `sh <wrapper>` so a lost
+# exec bit (archiso normalizes overlay modes) can never silently stop the
+# installer from opening -- the wrapper is a plain /bin/sh script either way.
 if [ -x """ + INSTALL_WRAPPER_PATH + """ ]; then
     """ + INSTALL_WRAPPER_PATH + """ &
+elif [ -r """ + INSTALL_WRAPPER_PATH + """ ]; then
+    sh """ + INSTALL_WRAPPER_PATH + """ &
 fi
 """
 
@@ -365,6 +374,13 @@ def install_wrapper_sh() -> str:
 #!/bin/sh
 # azarch-install -- privileged Calamares launcher for the live session.
 # `main` has passwordless sudo on the live medium, so this needs no polkit agent.
+#
+# XDG_RUNTIME_DIR is unset before elevating: `sudo -E` would otherwise pass
+# main's /run/user/1000 through to the root Qt process, which then logs a
+# "runtime directory is owned by uid 1000, not 0" warning. DISPLAY/XAUTHORITY
+# (the load-bearing X vars) are still preserved by -E, and root can read main's
+# ~/.Xauthority, so Calamares connects to the running X server fine.
+unset XDG_RUNTIME_DIR
 exec sudo -E calamares -c /etc/calamares
 """
 
