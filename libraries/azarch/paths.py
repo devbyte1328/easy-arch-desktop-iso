@@ -6,11 +6,18 @@ Mirrors the directory scheme the old compile.sh used, so the Docker bind mounts
   REPODIR/                 repo root (where compile.sh lives)
     libraries/data/        verbatim data files (packages.x86_64, big QML)
     cache/                 persistent download cache (git-ignored, survives builds)
-      build/               WORKDIR: disposable mkarchiso profile+scratch tree
+      build/               WORKDIR on a NATIVE run: disposable mkarchiso scratch
       pkgs/                persistent package repo + synced DBs (the offline store)
       pacman-pkg/          pacstrap CacheDir injected into the profile pacman.conf
     output/                BUILDDIR: the finished .iso lands here
     logs/                  full.log + steps.log
+
+In DOCKER the disposable WORKDIR is moved OUT of the bind-mounted cache/ to a
+container-internal path (/tmp/azarch-build) so its root-owned mkarchiso scratch
+dies with the container and can never leave root-owned files locked on the host
+(a hard `docker kill` sends an untrappable SIGKILL that skips the handback). The
+persistent stores (cache/pkgs, cache/pacman-pkg) and the ISO (output/) stay on
+the bind mounts and are chowned back to the host user. See WORKDIR below.
 """
 
 from __future__ import annotations
@@ -28,7 +35,31 @@ ASSETSDIR = REPODIR / "assets"
 CACHEDIR = REPODIR / "cache"
 BUILDDIR = REPODIR / "output"
 LOGDIR = REPODIR / "logs"
-WORKDIR = CACHEDIR / "build"
+
+
+def in_docker() -> bool:
+    return Path("/.dockerenv").exists()
+
+
+# WORKDIR: the disposable mkarchiso profile + scratch tree (airootfs, the squashfs
+# work/ dir, the transient sync DB). mkarchiso creates it as ROOT and mounts
+# proc/sys/dev/run inside it, so its files are root-owned.
+#
+# In DOCKER it must live OUTSIDE the host bind mounts (cache/ output/ logs/). If it
+# sat under cache/ (a bind mount), a hard `docker kill` -- which sends an
+# untrappable SIGKILL, so the ownership-handback never runs -- would leave those
+# root-owned files on the host, and `git clean -Xdf` / `rm -rf cache/` would then
+# fail without sudo. Placing it at a container-internal path means the root-owned
+# scratch dies WITH the container and never touches the host. Only the PERSISTENT
+# stores (cache/pkgs, cache/pacman-pkg) and the finished ISO (output/) stay on the
+# bind mounts, and those are chowned back to the host user.
+#
+# On a NATIVE run there are no bind mounts, so keeping it in-repo (cache/build) is
+# fine and keeps everything discoverable under the repo.
+if in_docker():
+    WORKDIR = Path("/tmp/azarch-build")
+else:
+    WORKDIR = CACHEDIR / "build"
 
 # Persistent package stores (the offline-rebuild cache).
 PKG_REPO = CACHEDIR / "pkgs" / "repo"
@@ -55,7 +86,3 @@ AIROOTFS = WORKDIR / "work" / "x86_64" / "airootfs"
 
 def is_root() -> bool:
     return os.geteuid() == 0
-
-
-def in_docker() -> bool:
-    return Path("/.dockerenv").exists()
