@@ -89,8 +89,7 @@ The build runs in Docker, so the steps are the same on every operating system.
 
 2. **Clone the repository and enter it**
    ```
-   git clone https://github.com/michaelilgiaev/azarch.git
-   cd azarch
+   git clone https://github.com/michaelilgiaev/azarch.git && cd azarch
    ```
 
 3. **Build the Docker image** (creates the Arch build environment)
@@ -98,10 +97,10 @@ The build runs in Docker, so the steps are the same on every operating system.
    sudo docker build -t azarch .
    ```
 
-4. **Compile the ISO.** Pick one of the two commands below. The ISO is written to
-   `output/`, downloaded packages are cached in `cache/`, and logs go to `logs/`.
+4. **Compile the ISO.** The finished ISO goes to `output/`, downloaded packages
+   are cached in `cache/`, and build logs go to `logs/`.
 
-   **Default** (recommended):
+   **Default build** (recommended). Compiles only what's necessary. Everything else is downloaded as trusted, verified binaries.
    ```
    sudo docker run --rm -it --init --privileged \
      -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" \
@@ -111,7 +110,7 @@ The build runs in Docker, so the steps are the same on every operating system.
      azarch
    ```
 
-   **Full compile** — builds everything from source, takes hours:
+   **Full build.** Compiles everything from source, which takes hours.
 
    <table width="100%">
    <thead>
