@@ -542,8 +542,9 @@ _PACMAN_BANDS = {
 def _drive_mkarchiso_progress(proc, bar: ProgressBar) -> None:
     """Parse mkarchiso/pacstrap live output and drive the bar. pacman redraws its
     progress with carriage returns (not newlines), so we split on BOTH \\r and \\n
-    to see each (N/M) frame live. Every line is echoed to stdout (so it scrolls in
-    the region above the pinned bar) and appended to full.log."""
+    to see each (N/M) frame live. Every line is echoed to stdout, which the build's
+    stdout tee mirrors into full.log -- so we do NOT write full.log directly here
+    (doing both previously wrote every mkarchiso line to the log twice)."""
     import io
     import re
 
@@ -551,7 +552,6 @@ def _drive_mkarchiso_progress(proc, bar: ProgressBar) -> None:
         r"\(\s*(\d+)/(\d+)\)\s+(" + "|".join(re.escape(k) for k in _PACMAN_BANDS) + r")"
     )
     inpac = False
-    log = paths.FULL_LOG.open("a", encoding="utf-8", errors="replace")
     reader = io.TextIOWrapper(proc.stdout, encoding="utf-8", errors="replace", newline="")
     buf = ""
 
@@ -577,8 +577,8 @@ def _drive_mkarchiso_progress(proc, bar: ProgressBar) -> None:
         nonlocal inpac
         if not line:
             return
-        log.write(line + "\n")           # full line to the log
-        sys.stdout.write(bar._clip(line) + "\n")  # clipped echo so it fits the screen
+        # One write: clipped echo to stdout -> terminal + full.log (via the tee).
+        sys.stdout.write(bar._clip(line) + "\n")
         if "Installing packages to" in line:
             inpac = True
             bar.sub(20)
@@ -611,17 +611,13 @@ def _drive_mkarchiso_progress(proc, bar: ProgressBar) -> None:
             # no milestone, no frame -- keep the bar alive within the current phase.
             creep()
 
-    try:
-        while True:
-            ch = reader.read(1)
-            if not ch:
-                break
-            if ch in ("\n", "\r"):
-                emit_line(buf)
-                buf = ""
-            else:
-                buf += ch
-        emit_line(buf)
-    finally:
-        log.flush()
-        log.close()
+    while True:
+        ch = reader.read(1)
+        if not ch:
+            break
+        if ch in ("\n", "\r"):
+            emit_line(buf)
+            buf = ""
+        else:
+            buf += ch
+    emit_line(buf)

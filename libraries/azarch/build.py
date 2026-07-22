@@ -24,7 +24,7 @@ import subprocess
 import sys
 import threading
 
-from . import paths, steps
+from . import estimate, logstream, paths, steps
 from .ownership import Ownership
 from .progress import ProgressBar
 
@@ -90,7 +90,21 @@ def _stale_cache_notice(offline: bool) -> None:
 
 def main() -> int:
     paths.LOGDIR.mkdir(parents=True, exist_ok=True)
+
+    # --estimate-full-compile: predict how long a FULL from-source build would take
+    # on this machine and exit -- no workspace reset, no sudo, no network, no build,
+    # and no touching the build logs (it is a pure query, not a build). Prints to the
+    # terminal only. compile.sh routes it here without a PTY or sudo prime.
+    if "--estimate-full-compile" in sys.argv[1:]:
+        return estimate.run()
+
     paths.CACHEDIR.mkdir(parents=True, exist_ok=True)
+
+    # Python owns full.log from here on: route stdout/stderr through a tee that
+    # mirrors every print/stderr line into the log in real time. `script` in
+    # compile.sh now only provides the PTY (its capture goes to /dev/null), so the
+    # progress bar -- which paints to the RAW terminal only -- never reaches the log.
+    logstream.install()
 
     # --full-compile: build Az'arch's own packages entirely from source (incl. the
     # multi-hour LibreWolf/Firefox compile) rather than repackaging the verified

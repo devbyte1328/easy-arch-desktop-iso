@@ -71,12 +71,17 @@ uploaded).
 > (SHA256, plus an OpenPGP signature for LibreWolf).
 >
 > **Two build tiers:**
-> - **`./compile.sh`** (default) — Calamares is compiled from source; LibreWolf is
->   repackaged from its *official prebuilt tarball* (SHA256 + signature verified).
->   A full LibreWolf/Firefox compile takes 1.5–3+ hours, so this keeps builds fast.
-> - **`./compile.sh --full-compile`** — everything is compiled from source,
->   including LibreWolf from Firefox source. Nothing prebuilt. Expect a multi-hour
->   build needing ~16 GB RAM and tens of GB of disk.
+> - **`./compile.sh`** (default) — binary-first: every package that has a verified
+>   binary is fetched as one (all Arch packages via pacman; LibreWolf repackaged from
+>   its *official prebuilt tarball*, SHA256 + OpenPGP verified). Only Calamares is
+>   compiled from source, because upstream publishes no prebuilt Calamares binary to
+>   fetch and verify. This keeps builds to minutes.
+> - **`./compile.sh --full-compile`** — everything Az'arch builds itself is compiled
+>   from source, including LibreWolf from Firefox source. Nothing prebuilt. Expect a
+>   multi-hour build needing ~16 GB RAM and tens of GB of disk.
+> - **`./compile.sh --estimate-full-compile`** — builds nothing; just prints a rough
+>   estimate of how long `--full-compile` would take on *this* machine (from its CPU
+>   cores and RAM) and exits. No sudo, no network.
 >
 > With Docker, pass the flag through: append `--full-compile` to the `docker run`
 > image name, i.e. `... azarch ./compile.sh --full-compile`.

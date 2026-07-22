@@ -19,6 +19,8 @@ import os
 import shutil
 import sys
 
+from . import paths
+
 
 class ProgressBar:
     def __init__(self, weights: list[int], tty: bool | None = None):
@@ -36,12 +38,27 @@ class ProgressBar:
         self.done_weight = 0
         self.cur_weight = 0
         self.subfrac = 0  # 0..1000 within the current step
+        # The bar paints ONLY to the raw terminal (the pristine PTY stdout), never
+        # through the stdout tee build.py installs -- so its ANSI escapes and █/░
+        # glyphs are seen live by the human but never written into full.log.
+        self.term = sys.__stdout__
         if tty is None:
-            tty = sys.stdout.isatty()
+            tty = self.term.isatty()
         self.tty = tty
+        # steps.log gets each milestone/phase line in real time (compile.sh already
+        # truncated it at launch; append + flush so `tail -f` shows checkpoints live).
+        self.steps_log = paths.STEPS_LOG.open("a", encoding="utf-8", errors="replace")
         self._armed = False
         self._armed_rows = None  # terminal height the scroll region was last armed to
         self._base_label = ""    # current step's label, prefixed onto phase() sub-labels
+
+    def _log_step(self, line: str) -> None:
+        """Append a milestone/phase line to steps.log in real time."""
+        try:
+            self.steps_log.write(line + "\n")
+            self.steps_log.flush()
+        except (ValueError, OSError):
+            pass
 
     # -- geometry ------------------------------------------------------------
     def _size(self) -> tuple[int, int]:
@@ -104,8 +121,8 @@ class ProgressBar:
         # the pinned bar. Setting the region homes the cursor (a DECSTBM side effect),
         # which would make the next scrolling write land at the TOP; immediately place
         # the cursor at the bottom of the region so build output appends above the bar.
-        sys.stdout.write(f"\033[1;{rows - 1}r\033[{rows - 1};1H")
-        sys.stdout.flush()
+        self.term.write(f"\033[1;{rows - 1}r\033[{rows - 1};1H")
+        self.term.flush()
         self._armed = True
         self._armed_rows = rows
 
@@ -122,8 +139,8 @@ class ProgressBar:
             self._arm()
         line = self._layout(cols)
         # save cursor, jump to last row, clear, paint, restore cursor
-        sys.stdout.write(f"\033[s\033[{rows};1H\033[K{line}\033[u")
-        sys.stdout.flush()
+        self.term.write(f"\033[s\033[{rows};1H\033[K{line}\033[u")
+        self.term.flush()
 
     def init(self) -> None:
         if self.tty:
@@ -139,9 +156,12 @@ class ProgressBar:
         self.subfrac = 0
         self._base_label = label  # phase() prefixes sub-phase labels with this
         self._arm()
-        # milestone line (scrolls; captured in logs). Clip to width so a long label
-        # does not wrap and break the pinned scroll region.
-        sys.stdout.write("\n" + self._clip(f"[ {self.current:2d}/{self.total_steps} ] {label}") + "\n")
+        # milestone line: full (unclipped) text to steps.log in real time; a
+        # width-clipped copy scrolls on the terminal (and into full.log via the
+        # stdout tee) so a long label does not wrap and break the scroll region.
+        milestone = f"[ {self.current:2d}/{self.total_steps} ] {label}"
+        self._log_step(milestone)
+        sys.stdout.write("\n" + self._clip(milestone) + "\n")
         sys.stdout.flush()
         self.draw()
 
@@ -159,6 +179,7 @@ class ProgressBar:
         bar reports fine-grained progress instead of one static label for minutes."""
         text = f"{self._base_label} › {sublabel}" if getattr(self, "_base_label", "") else sublabel
         self.label = text
+        self._log_step(f"    -> {sublabel}")   # sub-checkpoint to steps.log, real time
         sys.stdout.write(self._clip(f"    -> {sublabel}") + "\n")
         sys.stdout.flush()
         self.draw()
@@ -173,23 +194,32 @@ class ProgressBar:
         """Print a permanent full bar as a scrolled line (the 'done' state)."""
         self.subfrac = 1000
         if self.tty:
-            sys.stdout.write("\033[r")  # unpin
+            # The final █/░ bar is bar glyphs -> terminal only (never the log).
+            self.term.write("\033[r")  # unpin
             cols, _ = self._size()
-            sys.stdout.write("\r\033[K" + self._layout(cols) + "\n")
+            self.term.write("\r\033[K" + self._layout(cols) + "\n")
+            self.term.flush()
         else:
+            # Non-tty (piped / docker logs): a plain #/. bar, no escapes -> it is
+            # fine (and useful) for this completion line to land in full.log via
+            # the stdout tee. Matches the pre-change non-tty behaviour.
             eff = self.done_weight * 1000 + self.cur_weight * 1000
             pct = min(eff // 10 // self.total_weight, 100)
             barw = 40
             filled = min(eff * barw // (1000 * self.total_weight), barw)
             bar = "#" * filled + "." * (barw - filled)
             sys.stdout.write(f"[{bar}] {pct:3d}%  {self.label}\n")
-        sys.stdout.flush()
+            sys.stdout.flush()
 
     def cleanup(self) -> None:
         """Restore the terminal on any exit (unpin scroll region, clear bar line)."""
         if self.tty:
             try:
-                sys.stdout.write("\r\033[K\033[r\033[0m")
-                sys.stdout.flush()
+                self.term.write("\r\033[K\033[r\033[0m")
+                self.term.flush()
             except Exception:
                 pass
+        try:
+            self.steps_log.close()
+        except (ValueError, OSError):
+            pass

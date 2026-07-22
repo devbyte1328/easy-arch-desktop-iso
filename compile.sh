@@ -11,18 +11,24 @@
 #      prompt can reach the user. The primed credential lets the Python sudo
 #      keepalive + ownership handback run `sudo -n` for the rest of the build.
 #
-#   2. Re-exec on a PTY via util-linux `script`, which writes the full log itself.
-#      The PTY is the point: pacman/mkarchiso detect a terminal and keep their
-#      live, \r-redrawn progress bars (piping through plain tee makes them buffer
-#      and appear frozen for minutes during big downloads). `script` also captures
-#      a faithful copy of everything to logs/full.log.
+#   2. Re-exec on a PTY via util-linux `script`. The PTY is the point: pacman/
+#      mkarchiso detect a terminal and keep their live, \r-redrawn progress bars
+#      (piping through plain tee makes them buffer and appear frozen for minutes
+#      during big downloads), and the process being a real tty is what lets the
+#      progress bar paint. `script` here writes its capture to /dev/null -- it is
+#      kept ONLY for the PTY. Python (azarch.logstream) owns logs/full.log itself,
+#      so the progress bar (painted to the raw terminal) never pollutes the log.
 #
 # Then it hands off to `python3 -m azarch.build`, which does the rest.
 #
-# ARGS: any args (e.g. --full-compile) are passed straight through to the Python
-# build driver. --full-compile makes Az'arch's own packages build EVERYTHING from
-# source (incl. a multi-hour LibreWolf/Firefox compile) instead of the default,
-# which repackages LibreWolf's verified upstream tarball. See azarch.build.
+# ARGS: any args are passed straight through to the Python build driver.
+#   --full-compile           build Az'arch's own packages ENTIRELY from source
+#                            (incl. a multi-hour LibreWolf/Firefox compile) instead
+#                            of the default, which repackages LibreWolf's verified
+#                            upstream binary tarball (sha256 + PGP checked).
+#   --estimate-full-compile  don't build anything -- just estimate how long a full
+#                            source compile would take on THIS machine, and exit.
+# See azarch.build.
 
 set -o pipefail
 
@@ -32,6 +38,16 @@ FULL_LOG="$LOGDIR/full.log"
 STEPS_LOG="$LOGDIR/steps.log"
 mkdir -p "$LOGDIR"
 
+# --estimate-full-compile is a pure, read-only query (no build, no privileged
+# steps, no live progress bar): hand straight to Python WITHOUT priming sudo or
+# re-execing on a PTY, so it runs instantly and never prompts for a password.
+for _arg in "$@"; do
+    if [ "$_arg" = "--estimate-full-compile" ]; then
+        export PYTHONPATH="$REPODIR/libraries${PYTHONPATH:+:$PYTHONPATH}"
+        exec python3 -u -m azarch.build "$@"
+    fi
+done
+
 if [ -z "$_COMPILE_LOGGING" ]; then
     export _COMPILE_LOGGING=1
     # Prime sudo once, interactively, on the real terminal (see note 1 above).
@@ -39,15 +55,20 @@ if [ -z "$_COMPILE_LOGGING" ]; then
         sudo -n -v 2>/dev/null || sudo -n true 2>/dev/null || sudo -v || {
             echo "[!] sudo is required for the privileged build steps." >&2; exit 1; }
     fi
+    # Truncate both logs so each launch overwrites the previous run's logs. Python
+    # (azarch.logstream / azarch.progress) reopens them in append mode afterwards.
     : > "$FULL_LOG"
     : > "$STEPS_LOG"
     # Re-exec on a PTY. `script` flags: -q quiet, -e propagate child exit status,
-    # -f flush after each write (real-time, tail-able), -c run our command.
+    # -f flush after each write, -c run our command. Output goes to /dev/null:
+    # `script` is kept ONLY to provide the PTY (see note 2); Python owns full.log,
+    # so the progress bar's escapes/glyphs never get captured into the log.
     if command -v script >/dev/null 2>&1; then
-        exec script -qefc "_COMPILE_LOGGING=1 _COMPILE_ONPTY=1 bash '${BASH_SOURCE[0]}' $*" "$FULL_LOG"
+        exec script -qefc "_COMPILE_LOGGING=1 _COMPILE_ONPTY=1 bash '${BASH_SOURCE[0]}' $*" /dev/null
     else
-        # No `script` available: fall back to tee (children buffer, but it works).
-        exec > >(tee "$FULL_LOG") 2>&1
+        # No `script` available: run without a PTY. Python still writes full.log
+        # itself; child \r-progress bars degrade to plain lines but the build works.
+        :
     fi
 fi
 
