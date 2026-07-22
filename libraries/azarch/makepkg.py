@@ -38,7 +38,7 @@ ProgressCb = Callable[[int], None]
 # Unprivileged user makepkg runs as (makepkg aborts as root). Created on demand
 # on a native/root build; on a rootless build we already are unprivileged and
 # just use the current user.
-BUILDER_USER = "azbuilder"
+BUILDER_USER = "azarchbuilder"
 
 # The two package NAMES this stage produces. Used to detect "already built".
 PRODUCED = ("calamares", "librewolf")
@@ -229,10 +229,20 @@ def _makepkg_one(builder: str, recipe_dir: Path) -> None:
     env["PKGDEST"] = str(recipe_dir)
     env["SRCDEST"] = str(recipe_dir / ".src")
     env["BUILDDIR"] = str(recipe_dir / ".build")
-    (recipe_dir / ".src").mkdir(exist_ok=True)
-    (recipe_dir / ".build").mkdir(exist_ok=True)
+    src_dir = recipe_dir / ".src"
+    build_dir = recipe_dir / ".build"
+    src_dir.mkdir(exist_ok=True)
+    build_dir.mkdir(exist_ok=True)
 
     if paths.is_root():
+        # These dirs are created here as ROOT, AFTER build_own_packages' one-shot
+        # chown of the scratch tree already ran, so they're root-owned. makepkg
+        # runs as the unprivileged builder below and would abort with "You do not
+        # have write permission for the directory $BUILDDIR". Chown them (and the
+        # recipe dir itself, since PKGDEST is recipe_dir and makepkg writes the
+        # built package there) to the builder before handing off.
+        _run(["chown", "-R", f"{builder}:{builder}",
+              str(recipe_dir), str(src_dir), str(build_dir)], check=True)
         # Re-exec as the builder, preserving the makepkg env vars.
         envargs = [f"{k}={env[k]}" for k in ("PKGDEST", "SRCDEST", "BUILDDIR")]
         full = ["sudo", "-u", builder, "env", *envargs, *cmd]
