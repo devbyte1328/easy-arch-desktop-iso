@@ -18,7 +18,7 @@ This is a year-old, neglected, poorly put-together project that is undergoing a 
 ## 💽 Install
 
 1. **Download the ISO**  
-   The ISO is hosted on **Google Drive** (GitHub does not allow files larger than 2 GB).
+   The ISO is hosted on Google Drive (GitHub does not allow files larger than 2 GB).
    
    **📥Link: [https://drive.google.com/file/d/18nclTLo05_KU7uOfYd_WTnI0LK--mGE6/view?usp=sharing](https://drive.google.com/file/d/18nclTLo05_KU7uOfYd_WTnI0LK--mGE6/view?usp=sharing)**
 
@@ -33,7 +33,7 @@ This is a year-old, neglected, poorly put-together project that is undergoing a 
      ⚠️ Replace `/dev/sdX` with your actual USB device (this will erase the disk).
 
 3. **Boot from USB**  
-   Reboot your machine and use your **BIOS/UEFI boot menu** to boot from the USB drive.
+   Reboot your machine and use your BIOS/UEFI boot menu to boot from the USB drive.
 
 4. **Live Session and Installation**  
    <table width="100%">
@@ -53,7 +53,7 @@ This is a year-old, neglected, poorly put-together project that is undergoing a 
    </table>
 
    The ISO boots into a live session and automatically launches the Az'arch
-   installer, which is powered by **Calamares**.
+   installer, which is powered by Calamares.
 
    From the live session you can:
    - Install Az'arch.
@@ -62,18 +62,18 @@ This is a year-old, neglected, poorly put-together project that is undergoing a 
 
 ## 🧰 Compile
 
-You can clone this repository and compile the ISO yourself. The **first** build
-needs an internet connection to download every component that goes into the ISO;
+You can clone this repository and compile the ISO yourself. The first build
+needs an internet connection to download every component that goes into the ISO,
 after that everything is cached and rebuilds run fully offline.
 
-**Build with Docker.** The ISO is assembled with `mkarchiso`, which resolves the
+Build with Docker. The ISO is assembled with `mkarchiso`, which resolves the
 ISO's package list against the build host's Arch Linux repositories. That means
 the build only works on a genuine Arch userland with the real Arch `core`,
 `extra`, and `multilib` repositories. On anything else those repositories are
 wrong or missing and the build fails with errors like
 `target not found: archinstall` or endless kernel-provider prompts.
 
-Docker sidesteps all of that: the image is `archlinux:latest`, so the build runs
+Docker sidesteps all of that, the image is `archlinux:latest`, so the build runs
 inside real Arch no matter what machine you are on.
 
 ### 🐧 Linux
@@ -101,7 +101,7 @@ inside real Arch no matter what machine you are on.
    ```
    wsl --install
    ```
-   Reboot if prompted.
+   You may be prompted to reboot.
 2. **Install [Docker Desktop for Windows](https://www.docker.com/products/docker-desktop/)**, then in its settings enable **"Use the WSL 2 based engine"**.
 3. **Open your WSL distro** (e.g. Ubuntu from the Start menu) and confirm Docker works:
    ```
@@ -112,7 +112,7 @@ inside real Arch no matter what machine you are on.
    sudo apt update && sudo apt install git
    ```
 
-### 🐋 Compile ISO
+### 🐋 Docker Compile the ISO
 
 Once Docker is installed and running, the steps are the same everywhere.
 
