@@ -1,0 +1,62 @@
+name: Regenerate specifications
+
+# Regenerates the Az'arch specification docs (Markdown, SVG, HTML map, full
+# listing) from the live Arch Linux package databases, then commits any changes
+# back. GitHub Pages auto-serves the updated HTML afterwards -- no deploy step
+# needed here.
+#
+# Regenerates on every push to master, so the published page always matches the
+# latest committed state. A manual "Run workflow" button is included too, for
+# on-demand refreshes without needing to push.
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch: {}
+
+# Let this workflow push the regenerated docs back to the repo.
+permissions:
+  contents: write
+
+# If a new push lands while a run is in flight, cancel the older run -- we only
+# ever care about regenerating from the newest state.
+concurrency:
+  group: specifications-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  regenerate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Regenerate specification artifacts
+        run: scripts/pull_specifications.sh
+
+      - name: Commit updated specifications if changed
+        run: |
+          set -euo pipefail
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # Stage only the generated artifacts.
+          git add documentation/SPECIFICATIONS_GENERAL.md \
+                  documentation/SPECIFICATIONS_COMPONENTS_OVERVIEW.svg \
+                  documentation/SPECIFICATIONS_COMPONENTS_NAVIGATE_FULL.html \
+                  documentation/SPECIFICATIONS_COMPONENTS_FULL.txt
+
+          if git diff --cached --quiet; then
+            echo "Specifications already up to date -- nothing to commit."
+            exit 0
+          fi
+
+          # [skip ci] stops this commit from re-triggering the push workflow
+          # (which would loop forever).
+          git commit -m "Regenerate specifications [skip ci]"
+          git push
