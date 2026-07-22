@@ -170,6 +170,31 @@ def _sync_and_download(sudo, dlconf, gpgdir, pkg_db, pkg_repo, progress, phase=l
     progress(440)
 
 
+def _readd_own_packages(pkg_repo: Path) -> None:
+    """Force `repo-add` of Az'arch's OWN packages so their DB entry's SHA256/CSIZE
+    match the file currently on disk.
+
+    _reconcile_index keys its delta by name-ver-rel and SKIPS a package whose key
+    is already indexed. Our own packages (calamares, librewolf) keep their version
+    across rebuilds, but makepkg is not reproducible bit-for-bit, so the rebuilt
+    file's checksum changes while its key does not -- the delta skips it and the DB
+    keeps a stale checksum. pacstrap then rejects the current file as corrupted.
+    repo-add (WITHOUT -n) overwrites an existing same-version entry, so this simply
+    refreshes SHA256+CSIZE to the on-disk bytes. Only our packages need it; Arch
+    packages are immutable per version so their DB entry is always correct."""
+    from .makepkg import PRODUCED
+    db = pkg_repo / "pacstrap-azarch-repo.db.tar.gz"
+    files: list[str] = []
+    for name in PRODUCED:
+        files += [str(p) for p in sorted(pkg_repo.glob(f"{name}-*.pkg.tar.zst"))]
+    if not files:
+        return
+    r = subprocess.run(["repo-add", "-q", str(db)] + files,
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    if r.returncode != 0:
+        raise PackageError("repo-add (own-package refresh)")
+
+
 def _reconcile_index(pkg_repo: Path, progress: ProgressCb) -> None:
     """Incrementally reconcile pacstrap-azarch-repo.db with the .pkg files on disk.
     Only new/changed packages are added; stale names removed; duplicate older

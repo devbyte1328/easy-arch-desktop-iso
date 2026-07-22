@@ -44,8 +44,16 @@ LIBREWOLF_VERSION = "153.0-1"
 LIBREWOLF_PKGVER = "153.0.1"
 # sha256 from upstream's published .sha256sum, re-verified by download + hash.
 LIBREWOLF_SHA256 = "ca15edcb35e4af09ce59725f0ee28c6e9fcf7fc25367e540583b8c2c862c0df7"
-# LibreWolf release signing key fingerprint (read from the actual .sig packet).
-LIBREWOLF_PGP_KEY = "230FE8E090E0ECBF2D925560915585A1C36690B1"
+# LibreWolf release signing key -- the PRIMARY key fingerprint of
+# "LibreWolf Maintainers <gpg@librewolf.net>". makepkg's validpgpkeys=() must list
+# the PRIMARY key, NOT the signing subkey: the tarball's detached .sig is made by
+# an ed25519 *subkey* (915585A1C36690B1 / 230FE8E0...C36690B1), and makepkg maps a
+# signing subkey back to its primary and requires THAT primary to be in
+# validpgpkeys. Pinning the subkey fingerprint here made makepkg abort with
+# "invalid public key 662E3CDD...2B12EF16" (the primary it actually needs). Verify
+# on update: `gpg --list-packets <tarball>.sig` shows the signing subkey keyid;
+# `gpg --recv-keys <that keyid>` then shows the primary under `pub`.
+LIBREWOLF_PGP_KEY = "662E3CDD6FE329002D0CA5BB40339DD82B12EF16"
 
 
 # ---------------------------------------------------------------------------

@@ -261,6 +261,70 @@ def _emit_tty1_autologin(airootfs: Path) -> None:
     emit.write_text(dropin, system.GETTY_TTY1_AUTOLOGIN)
 
 
+def _refresh_own_in_pacstrap_cache() -> None:
+    """Refresh Az'arch's OWN packages IN the persistent pacstrap CacheDir
+    (cache/pacman-pkg) so mkarchiso's pacstrap always reads the freshly-rebuilt
+    bytes from cache -- never a stale copy, and never a file:// re-fetch.
+
+    Two failure modes this closes, both caused by makepkg NOT being reproducible
+    bit-for-bit (a rebuild of calamares/librewolf yields a byte-different
+    *.pkg.tar.zst under the SAME versioned filename, so its checksum in
+    pacstrap-azarch-repo.db changes each build):
+
+      1. Stale-checksum abort. pacstrap consults its CacheDir BEFORE the file://
+         repo. A same-named file left by a PRIOR build fails pacstrap's checksum
+         check ("invalid or corrupted package"); on /dev/null stdin it can't answer
+         the "delete it? [Y/n]" prompt and aborts the whole ISO build.
+
+      2. file:// max-file-size abort. Simply DELETING the stale copy (an earlier
+         fix) forced pacstrap to re-fetch from the file:// repo -- but pacman caps
+         a file:// transfer at the DB-recorded size and rejects a package that hits
+         exactly that ceiling ("Exceeded the maximum allowed file size"), which the
+         138 MB librewolf package does. Observed exactly this.
+
+    Overwriting the cached copy in place with the current repo bytes gives pacstrap
+    a VALID cache hit: the checksum matches (correct content) and no download
+    happens (so the size cap never applies). Arch packages are untouched -- they're
+    immutable for a given version, so their cached copy always matches."""
+    cache = paths.PACSTRAP_CACHE
+    repo = paths.PKG_REPO
+    if not cache.is_dir():
+        return
+    from .makepkg import PRODUCED
+    import hashlib
+
+    def _sha(p: Path) -> str:
+        h = hashlib.sha256()
+        with p.open("rb") as fh:
+            for chunk in iter(lambda: fh.read(1 << 20), b""):
+                h.update(chunk)
+        return h.hexdigest()
+
+    sudo = _sudo()
+    # First drop any superseded-version cached copies of our packages (a version
+    # bump leaves the OLD file behind; pacstrap won't ask for it, but keep tidy).
+    current = {(repo / f.name).name for name in PRODUCED
+               for f in repo.glob(f"{name}-*.pkg.tar.zst")}
+    for name in PRODUCED:
+        for cached in cache.glob(f"{name}-*.pkg.tar.zst"):
+            if cached.name not in current:
+                subprocess.run(sudo + ["rm", "-f", str(cached), str(cached) + ".sig"],
+                               check=False)
+    # Then mirror each current repo copy into the cache when it's absent or stale.
+    for name in PRODUCED:
+        for repo_copy in repo.glob(f"{name}-*.pkg.tar.zst"):
+            cached = cache / repo_copy.name
+            if cached.is_file() and _sha(cached) == _sha(repo_copy):
+                continue  # already the right bytes -> valid cache hit, leave it
+            print(f"    [+] Refreshing {repo_copy.name} in pacstrap cache "
+                  f"(rebuilt; syncing bytes so pacstrap gets a valid cache hit).")
+            subprocess.run(sudo + ["cp", "-f", str(repo_copy), str(cached)], check=False)
+            # keep a matching .sig alongside if the repo has one (pacstrap checks it)
+            sig = repo_copy.with_suffix(repo_copy.suffix + ".sig")
+            if sig.is_file():
+                subprocess.run(sudo + ["cp", "-f", str(sig), str(cache / sig.name)], check=False)
+
+
 def _refold_own_packages_into_repo(W: Path) -> None:
     """After makepkg drops calamares/librewolf into cache/pkgs/repo/, re-reconcile
     the local repo index so those packages are in pacstrap-azarch-repo.db, then
@@ -271,6 +335,23 @@ def _refold_own_packages_into_repo(W: Path) -> None:
     pkg_db = paths.PKG_DB
     # Re-run the incremental index reconcile (delta: only the 2 new packages added).
     packages._reconcile_index(pkg_repo, lambda _p: None)
+    # FORCE re-add of our OWN packages so the DB checksum tracks the just-rebuilt
+    # file. _reconcile_index keys the delta by name-ver-rel: a rebuilt own package
+    # keeps its version (e.g. librewolf-153.0.1-1) but makepkg is NOT reproducible,
+    # so the *bytes* (hence the SHA256/CSIZE the .db records) change every build.
+    # The delta sees the key already indexed and SKIPS it, leaving the DB pinned to
+    # a PRIOR build's checksum while the repo file is the current one. pacstrap then
+    # validates the current file against the stale DB checksum and aborts with
+    # "invalid or corrupted package (checksum)" (observed exactly this on librewolf).
+    # repo-add (no -n) overwrites the same-version entry, refreshing SHA256+CSIZE to
+    # match the file on disk. Idempotent and cheap (2 packages).
+    packages._readd_own_packages(pkg_repo)
+    # A prior build may have cached an OLDER byte-image of our own packages in the
+    # persistent pacstrap CacheDir. Refresh them IN PLACE with the freshly-rebuilt
+    # bytes so mkarchiso's pacstrap gets a valid cache hit -- avoiding both the
+    # checksum-mismatch abort AND the file:// max-file-size abort a delete-and-
+    # refetch would trigger on the 138 MB librewolf package.
+    _refresh_own_in_pacstrap_cache()
     # Re-stage into the airootfs payload the on-disk installer copies from.
     ea = W / "airootfs" / "root/azarch"
     final_db = ea / "pacstrap-azarch-db"
