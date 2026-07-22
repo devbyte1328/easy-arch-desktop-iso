@@ -64,49 +64,17 @@ This is a year-old, neglected, poorly put-together project that is undergoing a 
 
 You can clone this repository and compile the ISO yourself. The **first** build
 needs an internet connection to download every component that goes into the ISO;
-after that everything is cached and rebuilds run fully offline (see
-[Offline rebuilds from cache](#-offline-rebuilds-from-cache)).
-
-> **Project layout.** The build is Python. Everything that goes into the ISO is
-> authored in `libraries/azarch/` (the config files are Python modules holding
-> their content as variables) and emitted into the archiso profile tree by
-> `python3 -m azarch.build`. `compile.sh` is a thin shim that sets up the PTY +
-> sudo and hands off to it. The main user-facing knob is the plain data file
-> `libraries/data/packages.x86_64` (the package list).
-
-Packages are pulled at their latest version, so the ISO you build may contain
-bugs the pre-built download does not (that one was briefly examined before being
-uploaded).
-
-> **Our own packages, not the AUR.** Two components are not in the official Arch
-> repos: the **Calamares** installer and the **LibreWolf** browser. Az'arch does
-> NOT pull these from the AUR or any community source — it builds them from its
-> OWN recipes (`libraries/azarch/config/pkgbuild.py`, consumed by `makepkg`) into
-> the ISO's offline repo. Every external artifact is pinned and integrity-checked
-> (SHA256, plus an OpenPGP signature for LibreWolf).
->
-> **Two build tiers:**
-> - **`./compile.sh`** (default) — Calamares is compiled from source; LibreWolf is
->   repackaged from its *official prebuilt tarball* (SHA256 + signature verified).
->   A full LibreWolf/Firefox compile takes 1.5–3+ hours, so this keeps builds fast.
-> - **`./compile.sh --full-compile`** — everything is compiled from source,
->   including LibreWolf from Firefox source. Nothing prebuilt. Expect a multi-hour
->   build needing ~16 GB RAM and tens of GB of disk.
->
-> With Docker, pass the flag through: append `--full-compile` to the `docker run`
-> image name, i.e. `... azarch ./compile.sh --full-compile`.
+after that everything is cached and rebuilds run fully offline.
 
 **Build with Docker.** The ISO is assembled with `mkarchiso`, which resolves the
 ISO's package list against the build host's Arch Linux repositories. That means
 the build only works on a genuine Arch userland with the real Arch `core`,
-`extra`, and `multilib` repos. On anything else — Manjaro, EndeavourOS, Ubuntu,
-Fedora, macOS, Windows — those repos are wrong or missing and the build fails
-with errors like `target not found: archinstall` or endless kernel-provider
-prompts.
+`extra`, and `multilib` repositories. On anything else those repositories are
+wrong or missing and the build fails with errors like
+`target not found: archinstall` or endless kernel-provider prompts.
 
 Docker sidesteps all of that: the image is `archlinux:latest`, so the build runs
-inside real Arch no matter what machine you are on. **Follow the steps for your
-OS to install Docker, then the shared build steps are identical everywhere.**
+inside real Arch no matter what machine you are on.
 
 ### 🐧 Linux
 
@@ -118,7 +86,6 @@ OS to install Docker, then the shared build steps are identical everywhere.**
    ```
    sudo systemctl enable --now docker
    ```
-3. Continue with **[Build the ISO](#-build-the-iso-all-platforms)** below.
 
 ### 🍎 macOS
 
@@ -127,8 +94,6 @@ OS to install Docker, then the shared build steps are identical everywhere.**
    ```
    xcode-select --install
    ```
-3. Continue with **[Build the ISO](#-build-the-iso-all-platforms)** below.
-   (On macOS you can drop the `sudo` in front of the `docker` commands.)
 
 ### 🪟 Windows
 
@@ -146,9 +111,8 @@ OS to install Docker, then the shared build steps are identical everywhere.**
    ```
    sudo apt update && sudo apt install git
    ```
-5. Continue with **[Build the ISO](#-build-the-iso-all-platforms)** below, running the commands **inside your WSL terminal**. (With Docker Desktop you can usually drop the `sudo`.)
 
-### 🐋 Build the ISO (all platforms)
+### 🐋 Compile ISO
 
 Once Docker is installed and running, the steps are the same everywhere.
 
@@ -175,20 +139,6 @@ Once Docker is installed and running, the steps are the same everywhere.
      -v "$PWD/logs:/build/logs" \
      azarch
    ```
-   `--init` runs the container under tini as PID 1. Without it the build's PID 1
-   is the `script` logging process, and the kernel drops unhandled signals to
-   PID 1 / never reaps orphans, so **Ctrl-C** leaves the container hanging with
-   the download/build still running. With tini forwarding signals and reaping
-   orphans, Ctrl-C tears the whole build down promptly.
-
-   The `-e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)"` flags hand the finished
-   `output/` (incl. the `.iso`), the `cache/`, and `logs/` back to **your** user
-   when the build exits — on success, on failure, or on Ctrl-C — so nothing is
-   left `root:root` and you can read/delete it without `sudo`. These flags are
-   **required** for the handback: the host user id cannot be detected from inside
-   the container. If you omit them the build still produces the ISO but prints a
-   warning and leaves `output/ cache/ logs/` root-owned (you'd then need `sudo` to
-   delete them).
 
 4. **Collect the ISO.** After the build finishes, the ISO is in `output/`:
    ```
@@ -197,42 +147,8 @@ Once Docker is installed and running, the steps are the same everywhere.
    - **Windows (WSL):** the same folder is reachable from File Explorer at
      `\\wsl$\<distro>\home\<your-username>\azarch\output`.
 
-   Every run already writes its full build log to `logs/` (a complete `full.log`
-   and a milestone-only `steps.log`), so there is no separate step to capture it.
-
-### 📦 Offline rebuilds from cache
-
-Once you have built the ISO successfully at least once, the `cache/` folder holds
-every package the build needs (several GB), plus the synced package databases and
-a local package index. From then on **you can rely entirely on the cache**: as
-long as `cache/` is intact, the build contacts **no server at all** — no database
-sync, no download, not even a connectivity probe. It builds straight from the
-local cache, so rebuilds work fully offline and are much faster.
-
-The mirrors are only contacted again when you explicitly ask for it:
 
 - **Wipe the cache** to force a fresh, fully-online rebuild:
   ```
   git clean -Xdf        # deletes cache/, output/, logs/ (all git-ignored)
   ```
-  (Or just `rm -rf cache/` to clear only the package cache.)
-- **Refresh without wiping** — pull the latest upstream package versions while
-  keeping the cache — by passing `-e FORCE_ONLINE=1` to the build:
-  ```
-  sudo docker run --rm -it --init --privileged \
-    -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" \
-    -e FORCE_ONLINE=1 \
-    -v "$PWD/cache:/build/cache" \
-    -v "$PWD/output:/build/output" \
-    -v "$PWD/logs:/build/logs" \
-    azarch
-  ```
-
-> ⚠️ **If you edit `libraries/data/packages.x86_64` to add packages** while a full cache exists,
-> the offline build won't have the new packages and may fail. Rebuild with
-> `FORCE_ONLINE=1` (or wipe the cache first) so they get fetched. The build prints
-> a warning when it detects the package list is newer than the cache.
-
-> 💡 The build downloads several GB of packages. The `-v "$PWD/cache:/build/cache"`
-> mount keeps those downloads on your machine between runs, so a rebuild only
-> fetches what changed instead of everything again.
